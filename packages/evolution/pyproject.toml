@@ -1,0 +1,10 @@
+[project]
+name = "deepsolo-evolution"
+version = "0.1.0"
+description = "DeepSolo strategy evolution engine"
+requires-python = ">=3.11"
+dependencies = ["deepsolo-core"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"

@@ -1,0 +1,10 @@
+[project]
+name = "deepsolo-core"
+version = "0.1.0"
+description = "DeepSolo strategy warehouse and memory system"
+requires-python = ">=3.11"
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
