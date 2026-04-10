@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeepSolo 策略世界</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0e1a; --card: #111827; --border: #1e2a45;
+  --gold: #fbbf24; --blue: #60a5fa; --green: #34d399;
+  --red: #f87171; --purple: #a78bfa; --text: #e5e7eb; --text2: #9ca3af;
+}
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, 'PingFang SC', sans-serif;
+  display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+}
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 1280px; padding: 6px 16px;
+  background: var(--card); border-bottom: 1px solid var(--border);
+}
+.header h1 { font-size: 14px; color: var(--gold); }
+.header h1 span { color: var(--blue); font-size: 11px; }
+.stats { display: flex; gap: 14px; font-size: 11px; color: var(--text2); }
+.stats .v { color: var(--gold); font-weight: 600; }
+.hint { font-size: 10px; color: var(--text2); }
+#game-container { position: relative; }
+.panel {
+  position: absolute; top: 6px; right: 6px; width: 240px;
+  background: rgba(17,24,39,0.9); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px; font-size: 10px;
+  max-height: 700px; overflow-y: auto; backdrop-filter: blur(4px);
+}
+.panel::-webkit-scrollbar { width: 3px; }
+.panel::-webkit-scrollbar-thumb { background: var(--border); }
+.panel h3 { font-size: 11px; color: var(--gold); margin: 6px 0 4px; border-bottom: 1px solid var(--border); padding-bottom: 3px; }
+.panel h3:first-child { margin-top: 0; }
+.s-item {
+  display: flex; justify-content: space-between; padding: 2px 4px;
+  border-radius: 3px; cursor: pointer; font-size: 10px;
+}
+.s-item:hover { background: rgba(255,255,255,0.05); }
+.s-item.sel { background: rgba(251,191,36,0.1); }
+.tag { font-size: 8px; padding: 1px 3px; border-radius: 2px; }
+.tag-hot { background: rgba(251,191,36,0.15); color: var(--gold); }
+.tag-norm { background: rgba(107,114,128,0.15); color: var(--text2); }
+.tag-emrg { background: rgba(96,165,250,0.15); color: var(--blue); }
+.pos { color: var(--green); } .neg { color: var(--red); }
+.bold { font-weight: 600; }
+.events { max-height: 90px; overflow-y: auto; line-height: 1.5; color: var(--text2); }
+.events::-webkit-scrollbar { width: 2px; }
+.events::-webkit-scrollbar-thumb { background: var(--border); }
+.events .t { color: #4b5563; } .events .a { color: var(--blue); } .events .act { color: var(--purple); }
+.detail { line-height: 1.6; }
+.detail .row { display: flex; justify-content: space-between; }
+#minimap-canvas {
+  position: absolute; bottom: 6px; left: 6px;
+  background: rgba(17,24,39,0.85); border: 1px solid var(--border);
+  border-radius: 3px; image-rendering: pixelated;
+}
+#debug-info {
+  position: absolute; bottom: 6px; left: 140px;
+  font-size: 9px; color: var(--text2);
+  background: rgba(17,24,39,0.8); padding: 2px 6px; border-radius: 3px;
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>⚔️ DeepSolo <span>策略世界 · 金庸群侠传</span></h1>
+  <div class="stats">
+    <span>策略 <span class="v" id="s-cnt">8</span></span>
+    <span>盈利 <span class="v" id="s-win">0</span></span>
+    <span>亏损 <span class="v" id="s-lose">0</span></span>
+    <span>交易 <span class="v" id="s-trades">0</span></span>
+  </div>
+  <div class="hint">WASD / 方向键移动 · 点击角色查看详情</div>
+</div>
+<div id="game-container">
+  <div class="panel" id="panel">
+    <h3>📊 策略排行</h3>
+    <div id="s-list"></div>
+    <h3>🧬 事件</h3>
+    <div class="events" id="events"></div>
+    <h3>📋 详情</h3>
+    <div class="detail" id="detail"><div style="text-align:center;padding:8px;color:var(--text2)">点击角色查看</div></div>
+  </div>
+  <canvas id="minimap-canvas" width="120" height="120"></canvas>
+  <div id="debug-info"></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<script>
+const S = [
+  {id:'hv1',name:'人气追涨',cat:'hot',ret:28.78,dd:26.79,n:292,wr:44.18,ar:0.423,cap:128780,
+   desc:'相对竞价>1.5%, 竞价涨幅<5%, 0931涨幅>-5%, 次日收盘卖出'},
+  {id:'hv2',name:'妖股追涨',cat:'hot',ret:-5.50,dd:25.16,n:295,wr:44.07,ar:-0.02,cap:94500,
+   desc:'信号生成时按相对竞价排序取前5只'},
+  {id:'hv3',name:'上影线追涨',cat:'hot',ret:5.97,dd:20.39,n:78,wr:42.31,ar:0.214,cap:105970,
+   desc:'竞价涨幅<0.5%, 次日开盘卖出'},
+  {id:'hv4',name:'分时大票追涨',cat:'hot',ret:73.74,dd:17.61,n:116,wr:47.41,ar:0.996,cap:173741,
+   desc:'竞价涨幅<0.5%, 次日开盘卖出'},
+  {id:'nv1',name:'多信号综合版',cat:'normal',ret:-13.99,dd:28.23,n:260,wr:43.85,ar:-0.277,cap:86010,
+   desc:'盘前选股+早盘强势突破/健康回调'},
+  {id:'nv2',name:'早盘强势突破',cat:'normal',ret:-22.32,dd:30.36,n:106,wr:40.57,ar:-0.456,cap:77675,
+   desc:'连续阳线+突破前高+量比>1.5'},
+  {id:'e1',name:'融合一号',cat:'emerged',ret:35.2,dd:15.8,n:98,wr:49.0,ar:0.82,cap:135200,
+   desc:'继承人气追涨+分时大票卖出规则',parents:['hv1','hv4'],rel:'杂交'},
+  {id:'e2',name:'变异二号',cat:'emerged',ret:8.4,dd:12.3,n:65,wr:46.2,ar:0.31,cap:108400,
+   desc:'上影线追涨参数优化版',parents:['hv3'],rel:'变异'},
+];
+const SLABELS = {idle:'待命',backtesting:'回测',evolving:'进化',competing:'竞争',discussing:'讨论',profitable:'盈利',retired:'淘汰'};
+
+// Assign initial states
+S.forEach(s => {
+  if(s.ret > 20) s.state = 'profitable';
+  else if(s.ret > 0) s.state = 'competing';
+  else if(s.ret > -10) s.state = 'discussing';
+  else s.state = 'idle';
+});
+
+class WorldScene extends Phaser.Scene {
+  constructor() { super('WorldScene'); }
+
+  preload() {
+    // Load tile atlas
+    this.load.atlas('tiles', 'assets/tile_atlas.png', 'assets/tile_atlas.json');
+    this.load.json('map', 'assets/map_data.json');
+    this.load.json('tmeta', 'assets/tile_meta.json');
+    // Load character sprite atlas
+    this.load.atlas('chars', 'assets/char_atlas.png?v=3', 'assets/char_atlas.json?v=3');
+    this.load.json('charmeta', 'assets/char_meta.json?v=3');
+    this.load.on('loaderror', (f) => console.error('Load error:', f.key));
+    this.load.on('loadcomplete', () => console.log('All assets loaded'));
+  }
+
+  create(data) {
+    this.map = this.cache.json.get('map');
+    this.tmeta = this.cache.json.get('tmeta');
+    this.charMeta = this.cache.json.get('charmeta');
+    this.MW = this.map.width;
+    this.MH = this.map.height;
+    this.XS = 18;
+    this.YS = 9;
+    this.SW = 1280;
+    this.SH = 720;
+
+    // Player at center
+    this.px = this.MW / 2;
+    this.py = this.MH / 2;
+
+    // Input
+    this.cursors = this.input.keyboard.createCursorKeys();
+    this.wasd = this.input.keyboard.addKeys('W,A,S,D');
+
+    // === Double buffer system ===
+    // Large off-screen buffer (~2.5x screen), only re-render when near edge
+    this.BUF_W = 3200;
+    this.BUF_H = 1800;
+    this.bufCanvas = document.createElement('canvas');
+    this.bufCanvas.width = this.BUF_W;
+    this.bufCanvas.height = this.BUF_H;
+    this.bufCtx = this.bufCanvas.getContext('2d');
+
+    // Buffer center position (map coords of what the buffer is rendered around)
+    this.bufCx = this.px;
+    this.bufCy = this.py;
+
+    // Screen canvas (what Phaser displays)
+    this.scrCanvas = document.createElement('canvas');
+    this.scrCanvas.width = this.SW;
+    this.scrCanvas.height = this.SH;
+    this.scrCtx = this.scrCanvas.getContext('2d');
+    this.scrTexture = this.textures.addCanvas('scrCanvas', this.scrCanvas);
+    this.scrImage = this.add.image(0, 0, 'scrCanvas').setOrigin(0, 0).setDepth(0);
+
+    // Pre-cache atlas source image for fast drawImage
+    this.atlasImg = null;
+
+    // Render the big buffer
+    this.renderBuffer();
+
+    // Agent containers
+    this.agentSprites = {};
+    this.createAllAgents();
+
+    // Player sprite
+    this.createPlayerSprite();
+
+    // Minimap
+    this.createMinimap();
+
+    // UI setup
+    this.setupClick();
+    this.renderList();
+    this.updateHeader();
+
+    // Timers
+    this.time.addEvent({ delay: 4500, callback: this.cycleState, callbackScope: this, loop: true });
+    this.time.addEvent({ delay: 3800, callback: this.showBubble, callbackScope: this, loop: true });
+  }
+
+  update(time, delta) {
+    // Movement
+    let dx = 0, dy = 0;
+    if (this.cursors.left.isDown || this.wasd.A.isDown) dx = -1;
+    if (this.cursors.right.isDown || this.wasd.D.isDown) dx = 1;
+    if (this.cursors.up.isDown || this.wasd.W.isDown) dy = -1;
+    if (this.cursors.down.isDown || this.wasd.S.isDown) dy = 1;
+
+    if (dx !== 0 || dy !== 0) {
+      const spd = 0.25 * (delta / 16);
+      this.px = Phaser.Math.Clamp(this.px + dx * spd, 3, this.MW - 4);
+      this.py = Phaser.Math.Clamp(this.py + dy * spd, 3, this.MH - 4);
+    }
+
+    // Check if we need to re-render the buffer
+    // Margin: half buffer minus screen, converted to map tiles
+    const marginX = (this.BUF_W / 2 - this.SW) / (2 * this.XS) - 3;
+    const marginY = (this.BUF_H / 2 - this.SH) / (2 * this.YS) - 3;
+    const ddx = this.px - this.bufCx;
+    const ddy = this.py - this.bufCy;
+    // Convert pixel distance to check if near edge
+    const pxOff = Math.abs(ddx * this.XS) + Math.abs(ddy * this.XS);
+    const pyOff = Math.abs(ddx * this.YS) + Math.abs(ddy * this.YS);
+    if (pxOff > (this.BUF_W / 2 - this.SW / 2) - 50 || pyOff > (this.BUF_H / 2 - this.SH / 2) - 30) {
+      this.renderBuffer();
+    }
+
+    // Blit from buffer to screen (just a pixel copy, very fast)
+    this.blitBuffer();
+
+    // Update player position
+    const pp = this.toScreen(this.px, this.py);
+    this.player.x = pp.x;
+    this.player.y = pp.y;
+    this.player.setDepth(this.py);
+
+    // Player walk animation with direction
+    if (this.playerSprite) {
+      const moving = dx !== 0 || dy !== 0;
+      if (moving) {
+        // Game direction mapping: UP=0, RIGHT=1, LEFT=2, DOWN=3
+        // Input: cursors.up / W → map dy=-1, cursors.down / S → dy=+1
+        //        cursors.left / A → map dx=-1, cursors.right / D → dx=+1
+        // Use the dominant axis
+        if (Math.abs(dy) >= Math.abs(dx)) {
+          this.playerDir = dy < 0 ? 0 : 3;  // up key → dir 0, down key → dir 3
+        } else {
+          this.playerDir = dx > 0 ? 1 : 2;  // right key → dir 1, left key → dir 2
+        }
+        // Cycle through 7 walk frames
+        this.playerFrame = Math.floor(time / 120) % 7;
+      }
+      const fk = `player_d${this.playerDir}_f${this.playerFrame}`;
+      const f = this.textures.getFrame('chars', fk);
+      if (f && !f.isEmpty && this.playerSprite.frame.name !== fk) {
+        this.playerSprite.setTexture('chars', fk);
+      }
+    }
+
+    // Update agents
+    const agentSpd = 0.25 * (delta / 16);
+    Object.values(this.agentSprites).forEach(a => {
+      const adx = a.tx - a.mx, ady = a.ty - a.my;
+      const dist = Math.sqrt(adx * adx + ady * ady);
+      const moving = dist > 0.3;
+      if (moving) {
+        // Fixed speed matching player, normalize direction
+        a.mx += (adx / dist) * agentSpd;
+        a.my += (ady / dist) * agentSpd;
+        // Update facing direction based on movement
+        if (Math.abs(ady) >= Math.abs(adx)) {
+          a.dir = ady > 0 ? 3 : 0;  // down=3, up=0
+        } else {
+          a.dir = adx > 0 ? 1 : 2;  // right=1, left=2
+        }
+      } else if (!a._wanderT || time - a._wanderT > 3000 + a.phase * 1000) {
+        // Wander to a new nearby spot
+        a.tx = a.mx + Phaser.Math.Between(-6, 6);
+        a.ty = a.my + Phaser.Math.Between(-6, 6);
+        a._wanderT = time;
+      }
+      const sp = this.toScreen(a.mx, a.my);
+      a.ct.x = sp.x;
+      a.ct.y = sp.y;
+      a.ct.setDepth(a.my);
+      // Walk animation - same speed as player (120ms per frame)
+      if (a.sprite) {
+        const walkFrame = moving ? Math.floor(time / 120 + a.phase) % 7 : 0;
+        const fk = 'player_d' + a.dir + '_f' + walkFrame;
+        const f = this.textures.getFrame('chars', fk);
+        if (f && !f.isEmpty && a.sprite.frame.name !== fk) {
+          a.sprite.setTexture('chars', fk);
+        }
+      }
+    });
+
+    // Minimap (throttled)
+    if (pxOff > 5 || pyOff > 5 || !this._mmTimer || time - this._mmTimer > 500) {
+      this.updateMinimap();
+      this._mmTimer = time;
+    }
+  }
+
+  toScreen(mx, my) {
+    // Convert map coords to screen position relative to current player view
+    const dx = mx - this.px;
+    const dy = my - this.py;
+    return {
+      x: this.XS * (dx - dy) + this.SW / 2,
+      y: this.YS * (dx + dy) + this.SH / 2
+    };
+  }
+
+  getTile(layer, mx, my) {
+    const ix = Math.round(mx), iy = Math.round(my);
+    if (ix < 0 || ix >= this.MW || iy < 0 || iy >= this.MH) return 0;
+    return layer === 0 ? this.map.earth[iy][ix] : this.map.surface[iy][ix];
+  }
+
+  renderBuffer() {
+    const ctx = this.bufCtx;
+    const BW = this.BUF_W, BH = this.BUF_H;
+    ctx.clearRect(0, 0, BW, BH);
+    ctx.fillStyle = '#0a0e1a';
+    ctx.fillRect(0, 0, BW, BH);
+
+    this.bufCx = this.px;
+    this.bufCy = this.py;
+
+    const px = Math.floor(this.px);
+    const py = Math.floor(this.py);
+
+    // Buffer center in pixels
+    const bcx = BW / 2;
+    const bcy = BH / 4;
+
+    // Visible range in the buffer
+    const istart = Math.floor((0 - bcx) / (2 * this.XS)) - 2;
+    const iend = Math.floor((BW - bcx) / (2 * this.XS)) + 2;
+    const jstart = Math.floor((0 - bcy) / (2 * this.YS)) - 2;
+    const jend = Math.floor((BH - bcy) / (2 * this.YS)) + 2;
+    const jrange = 2 * jend - 2 * jstart + 6;
+
+    // Cache atlas source image
+    if (!this.atlasImg) {
+      this.atlasImg = this.textures.get('tiles').getSourceImage();
+    }
+
+    for (let j = 0; j <= jrange; j++) {
+      for (let i = istart; i <= iend; i++) {
+        const i1 = i + Math.floor(j / 2) + jstart;
+        const j1 = -i + Math.floor(j / 2) + (j % 2) + jstart;
+
+        const sx = this.XS * (i1 - j1) + bcx;
+        const sy = this.YS * (i1 + j1) + bcy;
+
+        const mx = px + i1;
+        const my = py + j1;
+
+        const ev = this.getTile(0, mx, my);
+        if (ev > 0) this.drawTileCached(ctx, ev >> 1, sx, sy);
+
+        const sv = this.getTile(1, mx, my);
+        if (sv > 0) this.drawTileCached(ctx, sv >> 1, sx, sy);
+      }
+    }
+  }
+
+  drawTileCached(ctx, grpIdx, sx, sy) {
+    const frame = this.textures.getFrame('tiles', 'tile_' + grpIdx);
+    if (!frame || frame.isEmpty) return;
+    const meta = this.tmeta[String(grpIdx)];
+    const ox = meta ? meta.xoff : 18;
+    const oy = meta ? meta.yoff : 17;
+    ctx.drawImage(this.atlasImg, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight,
+                  sx - ox, sy - oy, frame.cutWidth, frame.cutHeight);
+  }
+
+  blitBuffer() {
+    const ctx = this.scrCtx;
+    // Calculate pixel offset from buffer center to current player
+    const offX = this.XS * ((this.px - this.py) - (this.bufCx - this.bufCy));
+    const offY = this.YS * ((this.px + this.py) - (this.bufCx + this.bufCy));
+    // Source rect in buffer
+    const srcX = this.BUF_W / 2 - this.SW / 2 + offX;
+    const srcY = this.BUF_H / 4 - this.SH / 2 + offY;
+    ctx.clearRect(0, 0, this.SW, this.SH);
+    ctx.drawImage(this.bufCanvas, srcX, srcY, this.SW, this.SH, 0, 0, this.SW, this.SH);
+    this.scrTexture.update();
+  }
+
+  createPlayerSprite() {
+    const pp = this.toScreen(this.px, this.py);
+    this.player = this.add.container(pp.x, pp.y);
+
+    // Character sprite - use direction 0, frame 0 initially
+    const frameKey = 'player_d0_f0';
+    const sprite = this.add.image(0, 14, 'chars', frameKey)
+      .setOrigin(0.5, 1.0)
+      .setScale(0.6);
+    this.player.add(sprite);
+    this.playerSprite = sprite;
+    this.playerDir = 0;  // 0=up, 1=right, 2=left, 3=down
+    this.playerFrame = 0;
+
+    this.playerLabel = this.add.text(5, 20, '观察者', {
+      fontSize: '9px', color: '#60a5fa', stroke: '#000', strokeThickness: 3,
+      fontFamily: 'PingFang SC, monospace',
+    }).setOrigin(0.5);
+    this.player.add(this.playerLabel);
+
+    // Test: show speech bubble after 1 second
+    this.time.delayedCall(1000, () => this.showPlayerBubble('我今天心情不错'));
+  }
+
+  showPlayerBubble(txt) {
+    if (this.playerBubble) this.playerBubble.destroy();
+
+    const bc = this.add.container(5, -120).setAlpha(0);
+    const bg = this.add.graphics();
+    bg.fillStyle(0xffffff, 0.92);
+    bg.fillRoundedRect(-60, -14, 120, 28, 7);
+    bg.fillTriangle(-2, 14, 2, 14, 0, 21);
+    bc.add(bg);
+
+    const txtObj = this.add.text(0, 0, '', {
+      fontFamily: 'PingFang SC, monospace', fontSize: '10px', color: '#1f2937',
+    }).setOrigin(0.5);
+    bc.add(txtObj);
+    this.player.add(bc);
+    this.playerBubble = bc;
+
+    // Fade in
+    this.tweens.add({ targets: bc, alpha: 1, duration: 200 });
+
+    // Typing effect
+    let i = 0;
+    const typeTimer = this.time.addEvent({
+      delay: 80, repeat: txt.length - 1,
+      callback: () => { i++; txtObj.setText(txt.substring(0, i)); },
+    });
+
+    // Auto hide after 3.5s
+    this.time.delayedCall(3500, () => {
+      this.tweens.add({
+        targets: bc, alpha: 0, duration: 300,
+        onComplete: () => { if (this.playerBubble === bc) { bc.destroy(); this.playerBubble = null; } },
+      });
+    });
+  }
+
+  createAllAgents() {
+    const centers = {
+      idle: {x:50,y:50}, backtesting: {x:35,y:42}, evolving: {x:42,y:35},
+      competing: {x:65,y:42}, discussing: {x:35,y:58},
+      profitable: {x:58,y:35}, retired: {x:65,y:65},
+    };
+    const charMap = this.charMeta.mapping;
+    // Assign each agent a direction for variety
+    const dirs = [0, 1, 2, 3, 0, 1, 2, 3];
+
+    S.forEach((s, idx) => {
+      const c = centers[s.state];
+      const mx = c.x + (idx % 4 - 1.5) * 5;
+      const my = c.y + (Math.floor(idx / 4) - 1) * 5;
+      const sp = this.toScreen(mx, my);
+
+      const ct = this.add.container(sp.x, sp.y);
+
+      // Use walking character sprite (same as player)
+      const charKey = charMap[s.id] || 'player';
+      const dir = dirs[idx] || 0;
+      const frameKey = charKey + '_d' + dir + '_f0';
+      const meta = this.charMeta.chars[frameKey];
+      const frame = this.textures.getFrame('chars', frameKey);
+
+      if (meta && frame && !frame.isEmpty) {
+        const sprite = this.add.image(5, 14, 'chars', frameKey)
+          .setOrigin(0.5, 1.0)
+          .setScale(0.6);
+        ct.add(sprite);
+
+        const hot = s.cat === 'hot', emrg = s.cat === 'emerged';
+
+        // Name label below sprite
+        const nc = hot ? '#fbbf24' : emrg ? '#60a5fa' : '#9ca3af';
+        ct.add(this.add.text(5, 20, s.name, {
+          fontSize: '8px', color: nc, stroke: '#000', strokeThickness: 2,
+          fontFamily: 'PingFang SC, monospace',
+        }).setOrigin(0.5));
+
+        // Return percentage
+        const rc = s.ret >= 0 ? '#34d399' : '#f87171';
+        ct.add(this.add.text(5, 30, `${s.ret >= 0 ? '+' : ''}${s.ret.toFixed(1)}%`, {
+          fontSize: '8px', color: rc, stroke: '#000', strokeThickness: 2,
+          fontFamily: 'monospace',
+        }).setOrigin(0.5));
+
+        this.agentSprites[s.id] = {
+          ct, strategy: s, mx, my,
+          tx: mx, ty: my, phase: idx * 1.3, bubble: null,
+          sprite, charKey, dir, frameH: frame.height,
+        };
+      } else {
+        // Fallback: geometric shapes if sprite not available
+        const body = this.add.graphics();
+        const hot = s.cat === 'hot', emrg = s.cat === 'emerged';
+        const col = hot ? 0xfbbf24 : emrg ? 0x60a5fa : 0x6b7280;
+        body.fillStyle(col);
+        body.fillRoundedRect(-5, -1, 10, 11, 2);
+        body.fillCircle(0, -6, 6);
+        ct.add(body);
+        const nc = hot ? '#fbbf24' : emrg ? '#60a5fa' : '#9ca3af';
+        ct.add(this.add.text(0, 17, s.name, {
+          fontSize: '8px', color: nc, stroke: '#000', strokeThickness: 2,
+          fontFamily: 'PingFang SC, monospace',
+        }).setOrigin(0.5));
+        this.agentSprites[s.id] = {
+          ct, body, strategy: s, mx, my,
+          tx: mx, ty: my, phase: idx * 1.3, bubble: null,
+          charKey: null, frameH: 20,
+        };
+      }
+    });
+  }
+
+  createMinimap() {
+    const cv = document.getElementById('minimap-canvas');
+    const ctx = cv.getContext('2d');
+    const w = cv.width, h = cv.height;
+    // Base minimap
+    ctx.fillStyle = '#0a0e1a';
+    ctx.fillRect(0, 0, w, h);
+    const step = 2;
+    for (let y = 0; y < this.MH; y += step) {
+      for (let x = 0; x < this.MW; x += step) {
+        const ev = this.map.earth[y][x];
+        let c = '#111a11';
+        if (ev > 0) {
+          const g = ev >> 1;
+          if (g >= 25 && g <= 45) c = '#1a3a1a';
+          else if (g >= 55 && g <= 75) c = '#1a2a5a';
+          else if (g >= 170 && g <= 185) c = '#2a1a1a';
+          else c = '#1a2a1a';
+        }
+        ctx.fillStyle = c;
+        ctx.fillRect(x/this.MW*w, y/this.MH*h, w/this.MW*step+1, h/this.MH*step+1);
+      }
+    }
+    this.mmBase = ctx.getImageData(0, 0, w, h);
+    this.updateMinimap();
+  }
+
+  updateMinimap() {
+    const cv = document.getElementById('minimap-canvas');
+    const ctx = cv.getContext('2d');
+    ctx.putImageData(this.mmBase, 0, 0);
+    // Player
+    const mx = (this.px / this.MW) * cv.width;
+    const my = (this.py / this.MH) * cv.height;
+    ctx.fillStyle = '#fbbf24'; ctx.fillRect(mx-2, my-2, 4, 4);
+    // Agents
+    Object.values(this.agentSprites).forEach(a => {
+      const ax = (a.mx / this.MW) * cv.width;
+      const ay = (a.my / this.MH) * cv.height;
+      ctx.fillStyle = a.strategy.cat === 'hot' ? '#fbbf24' : a.strategy.cat === 'emerged' ? '#60a5fa' : '#6b7280';
+      ctx.fillRect(ax-1, ay-1, 2, 2);
+    });
+  }
+
+  cycleState() {
+    const active = S.filter(s => s.state !== 'retired');
+    if (!active.length) return;
+    const s = active[Phaser.Math.Between(0, active.length - 1)];
+    const old = s.state;
+    const states = ['idle','backtesting','evolving','competing','discussing','profitable'];
+    let ns = states[Phaser.Math.Between(0, states.length - 1)];
+    if (s.ret < -15 && Math.random() < 0.1) ns = 'retired';
+    s.state = ns;
+
+    const centers = {
+      idle:{x:50,y:50}, backtesting:{x:35,y:42}, evolving:{x:42,y:35},
+      competing:{x:65,y:42}, discussing:{x:35,y:58},
+      profitable:{x:58,y:35}, retired:{x:65,y:65},
+    };
+    const a = this.agentSprites[s.id];
+    if (a) {
+      const c = centers[ns];
+      a.tx = c.x + Phaser.Math.Between(-6, 6);
+      a.ty = c.y + Phaser.Math.Between(-6, 6);
+    }
+    this.addLog(s.name, `${SLABELS[old]}→${SLABELS[ns]}`);
+    this.renderList();
+  }
+
+  showBubble() {
+    const active = S.filter(s => s.state !== 'retired');
+    if (!active.length) return;
+    const s = active[Phaser.Math.Between(0, active.length - 1)];
+    const a = this.agentSprites[s.id];
+    if (!a) return;
+    const txts = {
+      idle:['等待新交易日...','今天先观望','调整参数中'],
+      backtesting:['回测64天数据...','夏普比率计算中...','胜率44%'],
+      evolving:['尝试杂交策略...','参数变异中...','新规则生成中'],
+      competing:['排名上升！','对比中...','跑赢基准'],
+      discussing:['银行板块值得关注','大盘放量了','科技股流入明显'],
+      profitable:['累计盈利73%！','连续5天正收益','夏普1.85'],
+      retired:[],
+    };
+    const pool = txts[s.state] || ['...'];
+    const txt = pool[Phaser.Math.Between(0, pool.length - 1)];
+
+    if (a.bubble) { a.bubble.destroy(); a.bubble = null; }
+
+    const bc = this.add.container(5, -120).setAlpha(0);
+    const bg = this.add.graphics();
+    bg.fillStyle(0xffffff, 0.92);
+    bg.fillRoundedRect(-60, -14, 120, 28, 7);
+    bg.fillTriangle(-2, 14, 2, 14, 0, 21);
+    bc.add(bg);
+    const txtObj = this.add.text(0, 0, '', {
+      fontFamily: 'PingFang SC, monospace', fontSize: '10px', color: '#1f2937',
+    }).setOrigin(0.5);
+    bc.add(txtObj);
+    a.ct.add(bc);
+    a.bubble = bc;
+
+    // Fade in
+    this.tweens.add({ targets: bc, alpha: 1, duration: 200 });
+
+    // Typing effect
+    let i = 0;
+    this.time.addEvent({
+      delay: 80, repeat: txt.length - 1,
+      callback: () => { i++; txtObj.setText(txt.substring(0, i)); },
+    });
+
+    // Auto fade out after 3.5s
+    this.time.delayedCall(3500, () => {
+      this.tweens.add({
+        targets: bc, alpha: 0, duration: 300,
+        onComplete: () => { if (a.bubble === bc) { bc.destroy(); a.bubble = null; } },
+      });
+    });
+  }
+
+  setupClick() {
+    this.input.on('pointerdown', (ptr) => {
+      Object.values(this.agentSprites).forEach(a => {
+        if (Math.abs(ptr.x - a.ct.x) < 20 && Math.abs(ptr.y - a.ct.y) < 25) {
+          this.selectS(a.strategy);
+        }
+      });
+    });
+  }
+
+  selectS(s) {
+    this.selS = s;
+    this.renderList();
+    const d = document.getElementById('detail');
+    const tag = s.cat==='hot'?'<span class="tag tag-hot">热度</span>':
+                s.cat==='emerged'?'<span class="tag tag-emrg">涌现</span>':
+                '<span class="tag tag-norm">普通</span>';
+    const rc = s.ret>=0?'pos':'neg';
+    let h = `<div style="margin-bottom:3px">${tag} <b style="color:var(--text)">${s.name}</b></div>
+      <div style="font-size:9px;margin-bottom:3px">${s.desc}</div>
+      <div class="row"><span>收益率</span><span class="bold ${rc}">${s.ret>=0?'+':''}${s.ret}%</span></div>
+      <div class="row"><span>回撤</span><span class="bold neg">-${s.dd}%</span></div>
+      <div class="row"><span>交易数</span><span class="bold">${s.n}</span></div>
+      <div class="row"><span>胜率</span><span class="bold">${s.wr}%</span></div>
+      <div class="row"><span>均笔收益</span><span class="bold ${s.ar>=0?'pos':'neg'}">${s.ar}%</span></div>
+      <div class="row"><span>资金</span><span class="bold">¥${s.cap.toLocaleString()}</span></div>
+      <div class="row"><span>状态</span><span class="bold">${SLABELS[s.state]}</span></div>`;
+    if(s.parents) h += `<div style="margin-top:3px;color:var(--purple);font-size:9px">← ${s.rel}: ${s.parents.join('+')}</div>`;
+    d.innerHTML = h;
+  }
+
+  renderList() {
+    const sorted = [...S].sort((a,b) => b.ret - a.ret);
+    document.getElementById('s-list').innerHTML = sorted.map(s => {
+      const tag = s.cat==='hot'?'<span class="tag tag-hot">热度</span>':
+                  s.cat==='emerged'?'<span class="tag tag-emrg">涌现</span>':
+                  '<span class="tag tag-norm">普通</span>';
+      const rc = s.ret>=0?'pos':'neg';
+      const sel = this.selS?.id===s.id?'sel':'';
+      return `<div class="s-item ${sel}" onclick="game.scene.getScene('WorldScene').selectS(S.find(x=>x.id==='${s.id}'))">
+        ${tag} ${s.name} <span class="bold ${rc}">${s.ret>=0?'+':''}${s.ret}%</span></div>`;
+    }).join('');
+  }
+
+  addLog(name, text) {
+    const now = new Date();
+    const t = [now.getHours(), now.getMinutes(), now.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');
+    const el = document.getElementById('events');
+    el.innerHTML = `<div><span class="t">${t}</span> <span class="a">[${name}]</span> <span class="act">${text}</span></div>` + el.innerHTML;
+    while (el.children.length > 20) el.removeChild(el.lastChild);
+  }
+
+  updateHeader() {
+    document.getElementById('s-cnt').textContent = S.length;
+    document.getElementById('s-win').textContent = S.filter(s=>s.ret>0).length;
+    document.getElementById('s-lose').textContent = S.filter(s=>s.ret<=0).length;
+    document.getElementById('s-trades').textContent = S.reduce((a,s)=>a+s.n,0).toLocaleString();
+  }
+}
+
+const config = {
+  type: Phaser.CANVAS,
+  width: 1280,
+  height: 720,
+  parent: 'game-container',
+  pixelArt: true,
+  backgroundColor: '#0a0e1a',
+  scene: WorldScene,
+  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_HORIZONTALLY },
+};
+const game = new Phaser.Game(config);
+</script>
+</body>
+</html>
