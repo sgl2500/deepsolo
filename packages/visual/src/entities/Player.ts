@@ -73,4 +73,10 @@ export class Player extends Entity {
   getDirection2(dx: number, dy: number): Direction {
     return this.getDirection(dx, dy);
   }
+
+  /** 直接设置地图位置（用于场景切换） */
+  setMapPosition(x: number, y: number): void {
+    this.mapX = x;
+    this.mapY = y;
+  }
 }

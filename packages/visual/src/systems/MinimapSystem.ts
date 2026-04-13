@@ -71,11 +71,17 @@ export class MinimapSystem {
 
     // Agents
     for (const a of agents.values()) {
+      if (!a.container.visible) continue;
       const ax = (a.mapX / this.mapData.width) * cv.width;
       const ay = (a.mapY / this.mapData.height) * cv.height;
       ctx.fillStyle = a.strategy.category === 'hot' ? '#fbbf24'
         : a.strategy.category === 'emerged' ? '#60a5fa' : '#6b7280';
       ctx.fillRect(ax - 1, ay - 1, 2, 2);
     }
+  }
+
+  /** 设置小地图可见性 */
+  setVisible(visible: boolean): void {
+    this.canvas.style.display = visible ? 'block' : 'none';
   }
 }

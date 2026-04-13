@@ -4,6 +4,8 @@
 
 import { Player } from '../entities/Player';
 import { Agent } from '../entities/Agent';
+import { NPC } from '../entities/NPC';
+import { NPC_DEFS } from '../data/NPCData';
 import type { BubbleHandle } from '../ui/BubbleFactory';
 import { BubbleFactory } from '../ui/BubbleFactory';
 import type { MapData, CharMeta, Strategy, BubbleConfig } from '../types';
@@ -11,6 +13,7 @@ import type { MapData, CharMeta, Strategy, BubbleConfig } from '../types';
 export class EntitySystem {
   player!: Player;
   agents: Map<string, Agent> = new Map();
+  npcs: Map<string, NPC> = new Map();
   private bubbles: Map<string, BubbleHandle> = new Map();
 
   private scene: Phaser.Scene;
@@ -32,6 +35,53 @@ export class EntitySystem {
     });
   }
 
+  /** 为指定建筑创建 NPC */
+  createNPCs(buildingId: string): void {
+    this.clearNPCs();
+    const mapData = this.mapData; // 使用当前地图数据
+    const defs = NPC_DEFS.filter(n => n.mapId === buildingId);
+    defs.forEach(def => {
+      const npc = new NPC(this.scene, mapData, def);
+      this.npcs.set(def.id, npc);
+    });
+  }
+
+  /** 清除所有 NPC */
+  clearNPCs(): void {
+    this.npcs.forEach(n => n.destroy());
+    this.npcs.clear();
+  }
+
+  /** 获取玩家附近的 NPC */
+  getNearbyNPC(playerX: number, playerY: number, threshold: number): NPC | null {
+    for (const npc of this.npcs.values()) {
+      const dx = npc.mapX - playerX;
+      const dy = npc.mapY - playerY;
+      if (Math.sqrt(dx * dx + dy * dy) <= threshold) {
+        return npc;
+      }
+    }
+    return null;
+  }
+
+  /** 立即同步所有实体的屏幕位置（场景切换时调用，防止闪现） */
+  syncEntityScreenPositions(playerX: number, playerY: number): void {
+    // 玩家固定在屏幕中心
+    this.player.container.x = 1280 / 2;
+    this.player.container.y = 720 / 2;
+    // NPC 按相对玩家位置放置
+    for (const npc of this.npcs.values()) {
+      npc.updateScreenPosition(playerX, playerY);
+    }
+  }
+
+  /** 设置世界 Agent 可见性 */
+  setWorldAgentsVisible(visible: boolean): void {
+    for (const agent of this.agents.values()) {
+      agent.container.setVisible(visible);
+    }
+  }
+
   update(time: number, delta: number): void {
     const px = this.player.mapX;
     const py = this.player.mapY;
@@ -40,6 +90,10 @@ export class EntitySystem {
 
     for (const agent of this.agents.values()) {
       agent.update(time, delta, px, py);
+    }
+
+    for (const npc of this.npcs.values()) {
+      npc.update(time, delta, px, py);
     }
   }
 
@@ -68,6 +122,7 @@ export class EntitySystem {
   /** 获取玩家点击检测 */
   getClickedAgent(worldX: number, worldY: number): Agent | null {
     for (const agent of this.agents.values()) {
+      if (!agent.container.visible) continue;
       if (Math.abs(worldX - agent.container.x) < 20 && Math.abs(worldY - agent.container.y) < 25) {
         return agent;
       }
@@ -75,8 +130,13 @@ export class EntitySystem {
     return null;
   }
 
+  getPlayer(): Player {
+    return this.player;
+  }
+
   destroy(): void {
     this.player.destroy();
     this.agents.forEach(a => a.destroy());
+    this.npcs.forEach(n => n.destroy());
   }
 }

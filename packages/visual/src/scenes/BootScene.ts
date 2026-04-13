@@ -3,6 +3,26 @@
 // ============================================================
 
 import Phaser from 'phaser';
+import { BUILDINGS } from '../data/BuildingData';
+import { NPC_DEFS } from '../data/NPCData';
+
+/** 收集所有室内地图需要的 smap 瓦片 ID */
+function collectSmapTileIds(): number[] {
+  const ids = new Set<number>();
+  // 这里先硬编码室内地图用到的瓦片，后续可从 JSON 的 smapTileIds 字段读取
+  [10, 12, 479, 483, 565, 566, 567, 568].forEach(id => ids.add(id));
+  return Array.from(ids).sort((a, b) => a - b);
+}
+
+/** 收集所有需要的 NPC 头像 ID */
+function collectPortraitIds(): string[] {
+  const ids = new Set<string>();
+  NPC_DEFS.forEach(npc => {
+    // dialogueId 用于查找对应的头像，这里先从硬编码列表中取
+  });
+  // 从对话脚本中收集头像 key（这里直接列出需要的）
+  return ['0', '1', '10'];
+}
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -45,14 +65,40 @@ export class BootScene extends Phaser.Scene {
       percentText.destroy();
     });
 
-    // 加载资源
+    // === 世界地图资源 ===
     this.load.atlas('tiles', 'assets/tile_atlas.png', 'assets/tile_atlas.json');
     this.load.json('map', 'assets/map_data.json');
     this.load.json('tmeta', 'assets/tile_meta.json');
     this.load.atlas('chars', 'assets/char_atlas.png?v=3', 'assets/char_atlas.json?v=3');
     this.load.json('charmeta', 'assets/char_meta.json?v=3');
-    // LPC 精灵图（变异二号专用）: 8列×4行, 每帧 64×64
     this.load.spritesheet('lpc_e2', 'assets/char01-walk-4dir.png', { frameWidth: 64, frameHeight: 64 });
+
+    // === 室内地图数据 ===
+    for (const b of BUILDINGS) {
+      this.load.json(b.indoorMapKey, `assets/indoor_maps/${b.indoorMapKey}.json`);
+    }
+
+    // === Smap 瓦片 (JYQXZ 室内场景) ===
+    // 加载 smap _info.json 用于瓦片偏移
+    this.load.json('smap_info', 'assets/jy-assets/10_smap/_info.json');
+    // 逐个加载需要的 smap 瓦片图片
+    const smapIds = collectSmapTileIds();
+    for (const id of smapIds) {
+      const padded = String(id).padStart(4, '0');
+      this.load.image(`smap_${id}`, `assets/jy-assets/10_smap/${padded}.png`);
+    }
+
+    // === NPC 头像 (JYQXZ 14_head) ===
+    const portraitIds = collectPortraitIds();
+    for (const id of portraitIds) {
+      this.load.image(`portrait_${id}`, `assets/jy-assets/14_head/${id}.png`);
+    }
+
+    // === NPC 地图精灵 (JYQXZ 17_npc_map) ===
+    const npcCharKeys = new Set(NPC_DEFS.map(n => n.charKey));
+    for (const key of npcCharKeys) {
+      this.load.image(key, `assets/jy-assets/17_npc_map/${key}.png`);
+    }
 
     this.load.on('loaderror', (f: any) => console.error('Load error:', f.key));
   }

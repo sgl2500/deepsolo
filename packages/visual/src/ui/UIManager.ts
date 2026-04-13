@@ -8,6 +8,7 @@ import { StrategyListPanel } from './StrategyListPanel';
 import { EventLogPanel } from './EventLogPanel';
 import { DetailPanel } from './DetailPanel';
 import { HeaderBar } from './HeaderBar';
+import { DialoguePanel } from './DialoguePanel';
 import './styles.css';
 
 export class UIManager {
@@ -15,6 +16,7 @@ export class UIManager {
   private strategyList: StrategyListPanel;
   private eventLog: EventLogPanel;
   private detailPanel: DetailPanel;
+  dialoguePanel: DialoguePanel;
 
   constructor(eventBus: EventBus, store: GameStore) {
     const app = document.getElementById('app')!;
@@ -70,6 +72,7 @@ export class UIManager {
     this.strategyList = new StrategyListPanel(listContainer, eventBus, store);
     this.eventLog = new EventLogPanel(eventContainer, eventBus, store);
     this.detailPanel = new DetailPanel(detailContainer, eventBus, store);
+    this.dialoguePanel = new DialoguePanel(eventBus);
     this.headerBar.refresh();
 
     // Subscribe to refresh events

@@ -116,6 +116,13 @@ export interface GameEvents {
   'discussion:ended': { groupId: string; agents: string[] };
   'discussion:view': DiscussionGroup;
   'ui:refresh': void;
+  'scene:state-changed': { state: SceneState; buildingId?: string };
+  'dialogue:show': { speaker: string; portraitKey: string; text: string; choices: DialogueChoice[] };
+  'dialogue:text-update': string;
+  'dialogue:hide': void;
+  'dialogue:choice': number;
+  'dialogue:advance': void;
+  'npc:interact': { npcId: string };
 }
 
 /** 讨论话题 */
@@ -190,3 +197,84 @@ export const STATE_TRANSITIONS: Record<AgentState, AgentState[]> = {
   [AgentState.Profitable]: [AgentState.Competing, AgentState.Retired],
   [AgentState.Retired]: [],
 };
+
+// ============================================================
+// 场景系统类型
+// ============================================================
+
+/** 场景状态 */
+export enum SceneState {
+  WorldMap = 'world_map',
+  TransitionOut = 'transition_out',
+  Indoor = 'indoor',
+  TransitionIn = 'transition_in',
+  Dialogue = 'dialogue',
+}
+
+/** 建筑定义 */
+export interface BuildingDef {
+  id: string;
+  name: string;
+  /** 世界地图入口坐标 */
+  entryX: number;
+  entryY: number;
+  /** 触发半径（地图格） */
+  entryRadius: number;
+  /** 室内地图 Phaser cache key */
+  indoorMapKey: string;
+  /** 室内出生点 */
+  spawnX: number;
+  spawnY: number;
+  /** 室内出口坐标 */
+  exitX: number;
+  exitY: number;
+  /** 返回世界地图坐标 */
+  returnX: number;
+  returnY: number;
+}
+
+/** NPC 定义 */
+export interface NPCDef {
+  id: string;
+  name: string;
+  /** 所在地图 ID（'world' 或建筑 id） */
+  mapId: string;
+  mapX: number;
+  mapY: number;
+  /** 精灵图 key */
+  charKey: string;
+  /** 对话脚本 ID */
+  dialogueId: string;
+  /** 默认朝向 */
+  defaultDir: Direction;
+}
+
+// ============================================================
+// 对话系统类型
+// ============================================================
+
+/** 对话树 */
+export interface DialogueTree {
+  id: string;
+  firstNode: string;
+  nodes: Record<string, DialogueNode>;
+}
+
+/** 对话节点 */
+export interface DialogueNode {
+  id: string;
+  speaker: string;
+  /** 头像 key（对应 14_head/ 中的文件编号） */
+  portraitKey: string;
+  text: string;
+  /** 分支选项 */
+  choices?: DialogueChoice[];
+  /** 无 choices 时自动跳转的下一节点 ID，无则对话结束 */
+  next?: string;
+}
+
+/** 对话选项 */
+export interface DialogueChoice {
+  text: string;
+  next: string;
+}

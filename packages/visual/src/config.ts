@@ -91,6 +91,16 @@ export const MINIMAP_THROTTLE = 500;
 /** 事件日志最大条数 */
 export const MAX_EVENT_LOG = 20;
 
+// --- 场景系统 ---
+/** 场景过渡淡入淡出时长 (ms) */
+export const TRANSITION_FADE_MS = 400;
+/** NPC 交互距离（地图格） */
+export const NPC_INTERACT_DIST = 2.0;
+
+// --- 对话系统 ---
+/** 对话打字速度 (ms/字) */
+export const DIALOGUE_TYPE_SPEED = 50;
+
 /** 策略各状态对应的地图区域中心 */
 export const STATE_REGIONS: Record<AgentState, StateRegion> = {
   [AgentState.Idle]: { x: 50, y: 50, radius: 5 },
