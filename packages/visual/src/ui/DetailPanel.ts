@@ -1,18 +1,29 @@
 // ============================================================
-// DetailPanel.ts — 策略详情面板
+// DetailPanel.ts — 策略详情 / 讨论实况面板
 // ============================================================
 
-import { STATE_LABELS, type Strategy } from '../types';
+import { STATE_LABELS, TOPIC_LABELS, type Strategy, type DiscussionGroup } from '../types';
 import type { EventBus } from '../core/EventBus';
 import type { GameStore } from '../core/GameStore';
+
+interface TurnRecord {
+  agentName: string;
+  text: string;
+}
 
 export class DetailPanel {
   private el: HTMLElement;
   private store: GameStore;
+  private eventBus: EventBus;
+
+  // 讨论实况状态
+  private currentGroupId: string | null = null;
+  private turns: TurnRecord[] = [];
 
   constructor(container: HTMLElement, eventBus: EventBus, store: GameStore) {
     this.el = container;
     this.store = store;
+    this.eventBus = eventBus;
 
     eventBus.on('strategy:selected', (strategy: Strategy | null) => {
       if (strategy) {
@@ -21,9 +32,63 @@ export class DetailPanel {
         this.showPlaceholder();
       }
     });
+
+    // 讨论实况
+    eventBus.on('discussion:view', (group: DiscussionGroup) => {
+      this.showDiscussion(group);
+    });
+
+    eventBus.on('discussion:started', () => {
+      this.turns = [];
+      this.refreshDiscussion();
+    });
+
+    eventBus.on('discussion:turn', (data: { groupId: string; agentName: string; text: string }) => {
+      if (data.groupId === this.currentGroupId) {
+        this.turns.push({ agentName: data.agentName, text: data.text });
+        this.refreshDiscussion();
+      }
+    });
+
+    eventBus.on('discussion:ended', (data: { groupId: string }) => {
+      if (data.groupId === this.currentGroupId) {
+        this.currentGroupId = null;
+        this.turns = [];
+        // 恢复到选中策略的详情
+        const sel = this.store.getSelectedStrategy();
+        if (sel) this.showDetail(sel);
+        else this.showPlaceholder();
+      }
+    });
+  }
+
+  /** 切换到讨论实况视图 */
+  showDiscussion(group: DiscussionGroup): void {
+    this.currentGroupId = group.id;
+    this.refreshDiscussion();
+  }
+
+  private refreshDiscussion(): void {
+    if (!this.currentGroupId) return;
+
+    const group = this.turns.length > 0 ? '' : '<div style="font-size:9px;color:var(--text2);margin-bottom:4px">讨论进行中...</div>';
+
+    const lines = this.turns.map(t =>
+      `<div style="margin:2px 0"><b style="color:var(--blue)">${t.agentName}</b>: <span style="color:var(--text2)">${t.text}</span></div>`
+    ).join('');
+
+    this.el.innerHTML = `
+      <div style="margin-bottom:4px">
+        <span class="tag tag-emrg">讨论</span>
+        <b style="color:var(--text)">讨论实况</b>
+      </div>
+      ${group}
+      <div style="font-size:9px;max-height:200px;overflow-y:auto">${lines}</div>
+    `;
   }
 
   private showDetail(s: Strategy): void {
+    this.currentGroupId = null;
     const tag = this.getTag(s.category);
     const rc = s.returnPct >= 0 ? 'pos' : 'neg';
     const prefix = s.returnPct >= 0 ? '+' : '';
@@ -43,6 +108,7 @@ export class DetailPanel {
   }
 
   private showPlaceholder(): void {
+    this.currentGroupId = null;
     this.el.innerHTML = '<div style="text-align:center;padding:8px;color:var(--text2)">点击角色查看</div>';
   }
 

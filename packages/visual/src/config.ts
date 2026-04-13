@@ -49,6 +49,33 @@ export const BUBBLE_FADE_IN = 200;
 /** 气泡淡出时长 (ms) */
 export const BUBBLE_FADE_OUT = 300;
 
+// --- 讨论系统 ---
+/** 讨论最小人数 */
+export const DISCUSSION_MIN_AGENTS = 2;
+/** 讨论最大人数 */
+export const DISCUSSION_MAX_AGENTS = 3;
+/** 讨论持续时长 (ms) */
+export const DISCUSSION_DURATION_MIN = 15000;
+export const DISCUSSION_DURATION_MAX = 25000;
+/** 每轮发言间隔 (ms) */
+export const DISCUSSION_TURN_INTERVAL = 3000;
+/** 讨论区固定地图坐标 */
+export const DISCUSSION_CENTER_X = 50;
+export const DISCUSSION_CENTER_Y = 50;
+/** Agent 聚拢后距讨论中心的距离 (地图格) */
+export const DISCUSSION_RING_RADIUS = 3;
+/** 检查讨论匹配的间隔 (ms) */
+export const DISCUSSION_CHECK_INTERVAL = 3000;
+/** 讨论气泡尺寸 */
+export const DISCUSSION_BUBBLE_W = 160;
+export const DISCUSSION_BUBBLE_H = 40;
+/** 讨论气泡边框颜色（按策略类别） */
+export const DISCUSSION_COLORS = {
+  hot: 0xfbbf24,
+  emerged: 0x60a5fa,
+  normal: 0x6b7280,
+} as const;
+
 /** 状态循环间隔 (ms) */
 export const STATE_CYCLE_INTERVAL = 4500;
 

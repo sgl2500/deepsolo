@@ -51,6 +51,8 @@ export class BootScene extends Phaser.Scene {
     this.load.json('tmeta', 'assets/tile_meta.json');
     this.load.atlas('chars', 'assets/char_atlas.png?v=3', 'assets/char_atlas.json?v=3');
     this.load.json('charmeta', 'assets/char_meta.json?v=3');
+    // LPC 精灵图（变异二号专用）: 8列×4行, 每帧 64×64
+    this.load.spritesheet('lpc_e2', 'assets/char01-walk-4dir.png', { frameWidth: 64, frameHeight: 64 });
 
     this.load.on('loaderror', (f: any) => console.error('Load error:', f.key));
   }

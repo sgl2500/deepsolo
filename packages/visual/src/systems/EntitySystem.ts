@@ -6,7 +6,7 @@ import { Player } from '../entities/Player';
 import { Agent } from '../entities/Agent';
 import type { BubbleHandle } from '../ui/BubbleFactory';
 import { BubbleFactory } from '../ui/BubbleFactory';
-import type { MapData, CharMeta, Strategy } from '../types';
+import type { MapData, CharMeta, Strategy, BubbleConfig } from '../types';
 
 export class EntitySystem {
   player!: Player;
@@ -44,7 +44,7 @@ export class EntitySystem {
   }
 
   /** 为指定实体显示气泡 */
-  showBubble(entityId: string, text: string): void {
+  showBubble(entityId: string, text: string, config?: BubbleConfig): void {
     // 销毁旧气泡
     const old = this.bubbles.get(entityId);
     if (old) {
@@ -61,7 +61,7 @@ export class EntitySystem {
       parent = agent.container;
     }
 
-    const handle = BubbleFactory.create(this.scene, parent, text);
+    const handle = BubbleFactory.create(this.scene, parent, text, config);
     this.bubbles.set(entityId, handle);
   }
 

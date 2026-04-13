@@ -7,6 +7,7 @@ import { STATE_CYCLE_INTERVAL, BUBBLE_CYCLE_INTERVAL, BUBBLE_TEXTS } from '../co
 import type { GameStore } from '../core/GameStore';
 import type { EntitySystem } from './EntitySystem';
 import type { EventBus } from '../core/EventBus';
+import type { DiscussionSystem } from './DiscussionSystem';
 import { randomInt, randomPick } from '../utils/MathUtils';
 
 export class DayCycleSystem {
@@ -14,12 +15,20 @@ export class DayCycleSystem {
   private store: GameStore;
   private entitySystem: EntitySystem;
   private eventBus: EventBus;
+  private discussionSystem: DiscussionSystem;
 
-  constructor(scene: Phaser.Scene, store: GameStore, entitySystem: EntitySystem, eventBus: EventBus) {
+  constructor(
+    scene: Phaser.Scene,
+    store: GameStore,
+    entitySystem: EntitySystem,
+    eventBus: EventBus,
+    discussionSystem: DiscussionSystem,
+  ) {
     this.scene = scene;
     this.store = store;
     this.entitySystem = entitySystem;
     this.eventBus = eventBus;
+    this.discussionSystem = discussionSystem;
 
     // 状态循环定时器
     scene.time.addEvent({
@@ -43,6 +52,9 @@ export class DayCycleSystem {
     if (!active.length) return;
 
     const s = active[randomInt(0, active.length - 1)];
+    const agent = this.entitySystem.agents.get(s.id);
+    if (!agent || agent.inDiscussion) return; // 讨论中不切换状态
+
     const allowed = STATE_TRANSITIONS[s.state];
     if (!allowed.length) return;
 
@@ -52,8 +64,7 @@ export class DayCycleSystem {
     if (s.returnPct < -15 && s.state !== AgentState.Retired && Math.random() < 0.1) {
       const oldState = s.state;
       this.store.changeAgentState(s.id, AgentState.Retired);
-      const agent = this.entitySystem.agents.get(s.id);
-      if (agent) agent.moveToStateRegion(AgentState.Retired);
+      agent.moveToStateRegion(AgentState.Retired);
       this.store.addEvent(s.name, `${this.stateLabel(oldState)}→${this.stateLabel(AgentState.Retired)}`);
       this.eventBus.emit('ui:refresh');
       return;
@@ -61,9 +72,14 @@ export class DayCycleSystem {
 
     const oldState = s.state;
     this.store.changeAgentState(s.id, newState);
-    const agent = this.entitySystem.agents.get(s.id);
-    if (agent) agent.moveToStateRegion(newState);
+    agent.moveToStateRegion(newState);
     this.store.addEvent(s.name, `${this.stateLabel(oldState)}→${this.stateLabel(newState)}`);
+
+    // 如果进入讨论状态，加入等待列表
+    if (newState === AgentState.Discussing) {
+      this.discussionSystem.addWaiting(s.id);
+    }
+
     this.eventBus.emit('ui:refresh');
   }
 
@@ -72,10 +88,13 @@ export class DayCycleSystem {
     if (!active.length) return;
 
     const s = active[randomInt(0, active.length - 1)];
+    const agent = this.entitySystem.agents.get(s.id);
+    if (!agent || agent.inDiscussion) return; // 讨论中由讨论系统管气泡
+
     const pool = BUBBLE_TEXTS[s.state];
     if (!pool.length) return;
 
-    const text = randomPick(pool);
+    const text = randomPick<string>(pool);
     this.entitySystem.showBubble(s.id, text);
   }
 

@@ -1,38 +1,65 @@
 // ============================================================
-// BubbleFactory.ts — 通用气泡系统（打字效果 + 淡入淡出）
+// BubbleFactory.ts — 通用气泡系统（支持自定义样式）
 // ============================================================
 
 import { BUBBLE_DURATION, BUBBLE_TYPE_INTERVAL, BUBBLE_FADE_IN, BUBBLE_FADE_OUT } from '../config';
+import { DISCUSSION_BUBBLE_W, DISCUSSION_BUBBLE_H, DISCUSSION_COLORS } from '../config';
+import type { BubbleConfig, StrategyCategory } from '../types';
 
 export interface BubbleHandle {
   destroy(): void;
 }
 
+const DEFAULT_CONFIG: Required<BubbleConfig> = {
+  width: 120,
+  height: 28,
+  borderColor: 0xffffff,
+  borderAlpha: 0,
+  borderWidth: 0,
+  bgColor: 0xffffff,
+  bgAlpha: 0.92,
+  textColor: '#1f2937',
+  fontSize: '10px',
+  yOffset: -120,
+};
+
 export class BubbleFactory {
   /**
    * 在指定父容器上创建气泡
-   * @returns BubbleHandle，可手动销毁
    */
   static create(
     scene: Phaser.Scene,
     parent: Phaser.GameObjects.Container,
     text: string,
-    yOffset = -120,
+    config?: BubbleConfig,
   ): BubbleHandle {
-    const bubbleContainer = scene.add.container(5, yOffset).setAlpha(0);
+    const cfg = { ...DEFAULT_CONFIG, ...config };
+    const bubbleContainer = scene.add.container(5, cfg.yOffset).setAlpha(0);
+
+    const bg = scene.add.graphics();
+
+    // 边框（如果有）
+    if (cfg.borderWidth > 0) {
+      bg.lineStyle(cfg.borderWidth, cfg.borderColor, cfg.borderAlpha);
+      bg.strokeRoundedRect(-cfg.width / 2, -cfg.height / 2, cfg.width, cfg.height, 7);
+    }
 
     // 背景
-    const bg = scene.add.graphics();
-    bg.fillStyle(0xffffff, 0.92);
-    bg.fillRoundedRect(-60, -14, 120, 28, 7);
-    bg.fillTriangle(-2, 14, 2, 14, 0, 21);
+    bg.fillStyle(cfg.bgColor, cfg.bgAlpha);
+    bg.fillRoundedRect(-cfg.width / 2, -cfg.height / 2, cfg.width, cfg.height, 7);
+
+    // 三角指针
+    bg.fillStyle(cfg.bgColor, cfg.bgAlpha);
+    bg.fillTriangle(-2, cfg.height / 2, 2, cfg.height / 2, 0, cfg.height / 2 + 7);
     bubbleContainer.add(bg);
 
-    // 文字
+    // 文字（自动换行）
     const txtObj = scene.add.text(0, 0, '', {
       fontFamily: 'PingFang SC, monospace',
-      fontSize: '10px',
-      color: '#1f2937',
+      fontSize: cfg.fontSize,
+      color: cfg.textColor,
+      align: 'center',
+      wordWrap: { width: cfg.width - 12 },
     }).setOrigin(0.5);
     bubbleContainer.add(txtObj);
 
@@ -60,9 +87,23 @@ export class BubbleFactory {
     });
 
     return {
-      destroy: () => {
-        bubbleContainer.destroy();
-      },
+      destroy: () => { bubbleContainer.destroy(); },
+    };
+  }
+
+  /** 生成讨论气泡的配置 */
+  static discussionConfig(category: StrategyCategory): BubbleConfig {
+    return {
+      width: DISCUSSION_BUBBLE_W,
+      height: DISCUSSION_BUBBLE_H,
+      borderColor: DISCUSSION_COLORS[category] ?? 0xffffff,
+      borderAlpha: 0.8,
+      borderWidth: 2,
+      bgColor: 0xffffff,
+      bgAlpha: 0.95,
+      textColor: '#1f2937',
+      fontSize: '9px',
+      yOffset: -130,
     };
   }
 }
