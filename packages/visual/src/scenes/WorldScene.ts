@@ -139,10 +139,12 @@ export class WorldScene extends Phaser.Scene {
     const px = this.entitySystem.player.mapX;
     const py = this.entitySystem.player.mapY;
 
-    if (this.mapRenderer.shouldRerender(px, py)) {
-      this.mapRenderer.renderBuffer(px, py);
+    if (!this.sceneManager.isIndoor()) {
+      if (this.mapRenderer.shouldRerender(px, py)) {
+        this.mapRenderer.renderBuffer(px, py);
+      }
+      this.mapRenderer.blitToScreen(px, py);
     }
-    this.mapRenderer.blitToScreen(px, py);
 
     // 小地图更新
     this.minimapSystem.update(time, px, py, this.entitySystem.agents);

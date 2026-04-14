@@ -42,6 +42,9 @@ export class SceneManager {
   // 世界 Agent 可见性
   private worldAgentsVisible = true;
 
+  // 退出建筑后的重入保护（玩家必须先离开入口区域才能再次进入）
+  private reentryBlocked = false;
+
   constructor(
     scene: Phaser.Scene,
     mapRenderer: MapRenderer,
@@ -92,7 +95,22 @@ export class SceneManager {
   /** 每帧更新 */
   update(time: number, delta: number, player: Player): void {
     if (this.state === SceneState.WorldMap) {
-      this.checkBuildingEntry(player);
+      if (this.reentryBlocked) {
+        // 玩家离开所有入口区域后解除重入保护
+        let nearAny = false;
+        for (const b of BUILDINGS) {
+          const dx = player.mapX - b.entryX;
+          const dy = player.mapY - b.entryY;
+          if (Math.sqrt(dx * dx + dy * dy) <= b.entryRadius + 1) {
+            nearAny = true;
+            break;
+          }
+        }
+        if (!nearAny) this.reentryBlocked = false;
+      }
+      if (!this.reentryBlocked) {
+        this.checkBuildingEntry(player);
+      }
     } else if (this.state === SceneState.Indoor) {
       this.checkExit(player);
     }
@@ -163,16 +181,18 @@ export class SceneManager {
     // 移动玩家到室内出生点（必须在切地图之前，确保渲染中心正确）
     const player = this.entitySystem.getPlayer();
     player.setMapPosition(building.spawnX, building.spawnY);
+    player.switchMapData(indoorMap);
+    player.setIndoorMode(true, indoorMap.cx, indoorMap.cy);
 
-    // 切换地图渲染，以玩家位置为中心渲染
-    this.mapRenderer.switchToIndoor(indoorMap, building.spawnX, building.spawnY);
+    // 切换地图渲染
+    this.mapRenderer.switchToIndoor(indoorMap);
 
     // 隐藏世界 Agent
     this.entitySystem.setWorldAgentsVisible(false);
     this.worldAgentsVisible = false;
 
-    // 创建室内 NPC
-    this.entitySystem.createNPCs(building.id);
+    // 创建室内 NPC（设置室内模式）
+    this.entitySystem.createNPCs(building.id, indoorMap.cx, indoorMap.cy);
 
     // 立即对齐所有实体的屏幕位置（避免过渡结束后闪现）
     const px = player.mapX;
@@ -218,16 +238,24 @@ export class SceneManager {
     // 清除室内 NPC
     this.entitySystem.clearNPCs();
 
-    // 恢复玩家位置（必须在切地图之前）
+    // 恢复到进入前的位置（不是硬编码 returnX/Y）
+    const rx = this.savedPlayerX;
+    const ry = this.savedPlayerY;
+
     const player = this.entitySystem.getPlayer();
-    player.setMapPosition(building.returnX, building.returnY);
+    player.setMapPosition(rx, ry);
+    player.setIndoorMode(false, 0, 0);
+
+    // 恢复世界地图数据（碰撞检测用）
+    if (this.savedWorldMap) {
+      player.switchMapData(this.savedWorldMap);
+    }
 
     // 恢复世界地图渲染
     if (this.savedWorldMap && this.worldTileMeta) {
       this.mapRenderer.switchToWorld(this.savedWorldMap, this.worldTileMeta);
-      // 以玩家位置为中心重新渲染世界地图
-      this.mapRenderer.renderBuffer(building.returnX, building.returnY);
-      this.mapRenderer.blitToScreen(building.returnX, building.returnY);
+      this.mapRenderer.renderBuffer(rx, ry);
+      this.mapRenderer.blitToScreen(rx, ry);
     }
 
     // 恢复世界 Agent
@@ -235,13 +263,16 @@ export class SceneManager {
     this.worldAgentsVisible = true;
 
     // 立即同步所有实体的屏幕位置
-    this.entitySystem.syncEntityScreenPositions(building.returnX, building.returnY);
+    this.entitySystem.syncEntityScreenPositions(rx, ry);
 
     // 显示小地图和建筑标记
     this.minimapSystem.setVisible(true);
     setBuildingMarkersVisible(this.buildingMarkers, true);
 
     this.currentBuildingId = null;
+
+    // 启用重入保护
+    this.reentryBlocked = true;
 
     // 淡入
     this.state = SceneState.TransitionIn;

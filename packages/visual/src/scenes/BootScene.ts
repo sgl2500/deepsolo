@@ -10,7 +10,7 @@ import { NPC_DEFS } from '../data/NPCData';
 function collectSmapTileIds(): number[] {
   const ids = new Set<number>();
   // 这里先硬编码室内地图用到的瓦片，后续可从 JSON 的 smapTileIds 字段读取
-  [10, 12, 479, 483, 565, 566, 567, 568].forEach(id => ids.add(id));
+  [307, 588, 589, 590, 836, 837, 838, 839, 840, 841, 843, 844, 845, 846, 847, 848, 849, 850, 851, 852, 853, 854, 855, 856, 857, 858, 859, 860, 861, 862, 864, 865, 866, 867, 868, 869].forEach(id => ids.add(id));
   return Array.from(ids).sort((a, b) => a - b);
 }
 

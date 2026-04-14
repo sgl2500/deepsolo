@@ -36,12 +36,15 @@ export class EntitySystem {
   }
 
   /** 为指定建筑创建 NPC */
-  createNPCs(buildingId: string): void {
+  createNPCs(buildingId: string, indoorCx?: number, indoorCy?: number): void {
     this.clearNPCs();
     const mapData = this.mapData; // 使用当前地图数据
     const defs = NPC_DEFS.filter(n => n.mapId === buildingId);
     defs.forEach(def => {
       const npc = new NPC(this.scene, mapData, def);
+      if (indoorCx !== undefined && indoorCy !== undefined) {
+        npc.setIndoorMode(true, indoorCx, indoorCy);
+      }
       this.npcs.set(def.id, npc);
     });
   }

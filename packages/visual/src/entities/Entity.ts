@@ -20,7 +20,7 @@ export abstract class Entity {
   readonly container: Phaser.GameObjects.Container;
 
   protected readonly scene: Phaser.Scene;
-  protected readonly mapData: MapData;
+  protected mapData: MapData;
 
   constructor(scene: Phaser.Scene, mapData: MapData, id: string, mapX: number, mapY: number) {
     this.scene = scene;

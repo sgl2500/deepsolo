@@ -3,12 +3,15 @@
 // ============================================================
 
 import { Direction, type MapData, type NPCDef } from '../types';
-import { WALK_FRAME_INTERVAL } from '../config';
+import { WALK_FRAME_INTERVAL, TILE_HALF_W, TILE_HALF_H, SCREEN_WIDTH, SCREEN_HEIGHT } from '../config';
 import { Entity } from './Entity';
 import { isFrameValid } from '../utils/MathUtils';
 
 export class NPC extends Entity {
   readonly npcDef: NPCDef;
+  private indoorMode = false;
+  private indoorCx = 0;
+  private indoorCy = 0;
 
   constructor(scene: Phaser.Scene, mapData: MapData, npcDef: NPCDef) {
     super(scene, mapData, npcDef.id, npcDef.mapX, npcDef.mapY);
@@ -47,9 +50,22 @@ export class NPC extends Entity {
   }
 
   update(time: number, delta: number, playerX: number, playerY: number): void {
-    // NPC 站桩不动，只更新屏幕位置
-    this.updateScreenPosition(playerX, playerY);
-    this.container.setDepth(this.mapY);
+    if (this.indoorMode) {
+      // 室内模式：相对房间中心定位
+      this.container.x = TILE_HALF_W * ((this.mapX - this.indoorCx) - (this.mapY - this.indoorCy)) + SCREEN_WIDTH / 2;
+      this.container.y = TILE_HALF_H * ((this.mapX - this.indoorCx) + (this.mapY - this.indoorCy)) + SCREEN_HEIGHT / 2;
+      this.container.setDepth(this.mapX + this.mapY);
+    } else {
+      this.updateScreenPosition(playerX, playerY);
+      this.container.setDepth(this.mapY);
+    }
+  }
+
+  /** 设置室内模式 */
+  setIndoorMode(indoor: boolean, cx: number, cy: number): void {
+    this.indoorMode = indoor;
+    this.indoorCx = cx;
+    this.indoorCy = cy;
   }
 
   get dialogueId(): string {
