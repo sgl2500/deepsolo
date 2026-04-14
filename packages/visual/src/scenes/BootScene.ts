@@ -10,7 +10,7 @@ import { NPC_DEFS } from '../data/NPCData';
 function collectSmapTileIds(): number[] {
   const ids = new Set<number>();
   // 这里先硬编码室内地图用到的瓦片，后续可从 JSON 的 smapTileIds 字段读取
-  [307, 588, 589, 590, 836, 837, 838, 839, 840, 841, 843, 844, 845, 846, 847, 848, 849, 850, 851, 852, 853, 854, 855, 856, 857, 858, 859, 860, 861, 862, 864, 865, 866, 867, 868, 869].forEach(id => ids.add(id));
+  [307, 588, 589, 590, 836, 837, 838, 839, 840, 841, 843, 844, 845, 846, 847, 848, 849, 850, 851, 852, 853, 854, 855, 856, 857, 858, 859, 860, 861, 862, 864, 865, 866, 867, 868, 869, 2557].forEach(id => ids.add(id));
   return Array.from(ids).sort((a, b) => a - b);
 }
 
@@ -97,6 +97,8 @@ export class BootScene extends Phaser.Scene {
     // === NPC 地图精灵 (JYQXZ 17_npc_map) ===
     const npcCharKeys = new Set(NPC_DEFS.map(n => n.charKey));
     for (const key of npcCharKeys) {
+      // smap_ 前缀的 key 已在上面的 smap 瓦片加载中处理，跳过
+      if (key.startsWith('smap_')) continue;
       this.load.image(key, `assets/jy-assets/17_npc_map/${key}.png`);
     }
 
