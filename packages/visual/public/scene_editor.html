@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>等距贴图场景编辑器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #e0e0e0; font-family: 'PingFang SC', 'Microsoft YaHei', monospace; overflow: hidden; height: 100vh; display: flex; flex-direction: column; user-select: none; }
+
+/* ===== Toolbar ===== */
+#toolbar {
+  background: #16213e; padding: 6px 12px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
+  border-bottom: 1px solid #0f3460; z-index: 100; min-height: 40px;
+}
+#toolbar h1 { font-size: 14px; color: #fbbf24; white-space: nowrap; }
+.tool-sep { width: 1px; height: 24px; background: #0f3460; flex-shrink: 0; }
+
+.tool-btn {
+  background: #0f3460; color: #e0e0e0; border: 1px solid #1e3a5f;
+  padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;
+  white-space: nowrap; display: flex; align-items: center; gap: 4px;
+}
+.tool-btn:hover { background: #1e3a5f; }
+.tool-btn.active { background: #22c55e; color: #fff; border-color: #16a34a; }
+
+.brush-group { display: flex; align-items: center; gap: 3px; }
+.brush-btn {
+  background: #0f3460; color: #e0e0e0; border: 1px solid #1e3a5f;
+  width: 28px; height: 28px; border-radius: 3px; cursor: pointer; font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+}
+.brush-btn:hover { background: #1e3a5f; }
+.brush-btn.active { background: #22c55e; color: #fff; }
+
+/* ===== Main Layout ===== */
+#main { display: flex; flex: 1; overflow: hidden; }
+
+/* ===== Left Panel: Tile Palette ===== */
+#palette {
+  width: 270px; min-width: 270px;
+  background: #16213e; border-right: 1px solid #0f3460;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#palette-header {
+  padding: 8px 10px; border-bottom: 1px solid #0f3460;
+  display: flex; flex-direction: column; gap: 5px;
+}
+#palette-header .filter-row {
+  display: flex; align-items: center; gap: 5px;
+}
+#palette-header label { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+#palette-header select, #palette-header input {
+  background: #0f3460; color: #e0e0e0; border: 1px solid #1e3a5f;
+  padding: 3px 6px; border-radius: 3px; font-size: 11px; flex: 1;
+}
+#palette-header input { width: 60px; flex: unset; }
+#pCat { font-size: 11px; }
+
+#current-tile {
+  padding: 8px 10px; border-bottom: 1px solid #0f3460;
+  display: flex; align-items: center; gap: 8px; min-height: 50px;
+}
+#current-tile img {
+  image-rendering: pixelated; max-width: 44px; max-height: 44px;
+  background: repeating-conic-gradient(#2a2a3e 0% 25%, #1a1a2e 0% 50%) 0 0 / 8px 8px;
+  border: 1px solid #0f3460;
+}
+#current-tile .ct-info { font-size: 11px; line-height: 1.5; }
+#current-tile .ct-info span { color: #fbbf24; }
+
+#tile-grid-wrap { flex: 1; overflow-y: auto; padding: 4px; }
+#tile-grid {
+  display: flex; flex-wrap: wrap; gap: 2px; justify-content: center;
+}
+.tcell {
+  width: 44px; height: 44px; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  background: #1a1a2e; border: 1px solid #1e293b;
+  cursor: pointer; transition: border-color 0.1s;
+}
+.tcell:hover { border-color: #fbbf24; }
+.tcell.active { border-color: #22c55e; background: #0a2e1a; }
+.tcell img { image-rendering: pixelated; max-width: 38px; max-height: 38px; }
+.tcell .tid {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  font-size: 7px; text-align: center; color: #475569;
+  background: rgba(0,0,0,0.5); line-height: 1; padding: 1px;
+}
+
+#palette-footer {
+  padding: 4px 10px; border-top: 1px solid #0f3460;
+  font-size: 10px; color: #475569; text-align: center;
+}
+
+/* ===== Canvas Area ===== */
+#canvas-wrap { flex: 1; position: relative; overflow: hidden; background: #111827; }
+#canvas-wrap canvas { display: block; }
+
+/* ===== Right Panel ===== */
+#sidebar {
+  width: 200px; min-width: 200px;
+  background: #16213e; border-left: 1px solid #0f3460;
+  display: flex; flex-direction: column; overflow-y: auto;
+  padding: 8px;
+}
+.sb-section { margin-bottom: 12px; }
+.sb-section h3 { font-size: 12px; color: #fbbf24; margin-bottom: 6px; }
+.sb-section .row { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+.sb-section label { font-size: 11px; color: #94a3b8; min-width: 30px; }
+.sb-section input[type="number"] {
+  background: #0f3460; color: #e0e0e0; border: 1px solid #1e3a5f;
+  padding: 3px 5px; border-radius: 3px; font-size: 11px; width: 60px;
+}
+.layer-btns { display: flex; gap: 3px; flex-wrap: wrap; }
+.layer-btn {
+  flex: 1 1 45%; background: #0f3460; color: #e0e0e0; border: 1px solid #1e3a5f;
+  padding: 4px 0; border-radius: 3px; cursor: pointer; font-size: 10px; text-align: center;
+  min-width: 80px;
+}
+.layer-btn:hover { background: #1e3a5f; }
+.layer-btn.active { background: #22c55e; color: #fff; border-color: #16a34a; }
+
+.toggle-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.toggle-row label { font-size: 11px; color: #94a3b8; cursor: pointer; }
+.toggle-row input[type="checkbox"] { cursor: pointer; }
+
+/* ===== Scene Browser ===== */
+.scene-list {
+  max-height: 200px; overflow-y: auto; border: 1px solid #0f3460;
+  border-radius: 4px; background: #0a0f1a;
+}
+.scene-item {
+  padding: 3px 6px; cursor: pointer; font-size: 10px;
+  border-bottom: 1px solid #0f3460; display: flex; justify-content: space-between;
+}
+.scene-item:hover { background: #1e3a5f; }
+.scene-item .sid { color: #64748b; }
+.scene-item .sname { color: #94a3b8; }
+.scene-search {
+  width: 100%; background: #0f3460; color: #e0e0e0; border: 1px solid #1e3a5f;
+  padding: 3px 6px; border-radius: 3px; font-size: 10px; margin-bottom: 4px;
+}
+.scene-meta { font-size: 10px; color: #94a3b8; line-height: 1.6; margin-top: 4px; }
+.scene-meta span { color: #fbbf24; }
+
+/* ===== Status Bar ===== */
+#statusbar {
+  background: #16213e; padding: 3px 12px;
+  border-top: 1px solid #0f3460;
+  display: flex; align-items: center; gap: 15px;
+  font-size: 11px; color: #64748b; min-height: 24px;
+}
+#statusbar span.val { color: #fbbf24; }
+
+/* ===== Toast ===== */
+#toast {
+  position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+  background: #22c55e; color: #fff; padding: 8px 20px; border-radius: 6px;
+  font-size: 13px; z-index: 200; display: none; pointer-events: none;
+}
+
+/* ===== Loading ===== */
+#loading {
+  position: fixed; inset: 0; z-index: 300;
+  background: #1a1a2e; display: flex;
+  align-items: center; justify-content: center;
+  font-size: 16px; color: #fbbf24;
+}
+#loading.hidden { display: none; }
+
+/* ===== Import Dialog ===== */
+#import-dialog {
+  position: fixed; inset: 0; z-index: 250;
+  background: rgba(0,0,0,0.7); display: none;
+  align-items: center; justify-content: center;
+}
+#import-dialog.show { display: flex; }
+#import-box {
+  background: #16213e; border: 1px solid #0f3460; border-radius: 8px;
+  padding: 20px; width: 400px; max-width: 90vw;
+}
+#import-box h3 { color: #fbbf24; margin-bottom: 12px; font-size: 14px; }
+#import-box textarea {
+  width: 100%; height: 200px; background: #0f3460; color: #e0e0e0;
+  border: 1px solid #1e3a5f; border-radius: 4px; padding: 8px;
+  font-size: 12px; font-family: monospace; resize: vertical;
+}
+#import-box .btn-row { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+
+/* ===== Keyboard Help ===== */
+#help-overlay {
+  position: fixed; inset: 0; z-index: 260;
+  background: rgba(0,0,0,0.8); display: none;
+  align-items: center; justify-content: center;
+}
+#help-overlay.show { display: flex; }
+#help-box {
+  background: #16213e; border: 1px solid #0f3460; border-radius: 8px;
+  padding: 20px; width: 500px; max-width: 90vw; max-height: 80vh; overflow-y: auto;
+}
+#help-box h3 { color: #fbbf24; margin-bottom: 10px; font-size: 14px; }
+#help-box table { width: 100%; border-collapse: collapse; }
+#help-box td { padding: 4px 8px; font-size: 12px; border-bottom: 1px solid #1e293b; }
+#help-box td:first-child { color: #fbbf24; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div id="loading">加载资源数据中...</div>
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <h1>场景编辑器</h1>
+  <div class="tool-sep"></div>
+  <button class="tool-btn active" data-tool="brush" title="画笔 (B)">画笔</button>
+  <button class="tool-btn" data-tool="eraser" title="橡皮 (E)">橡皮</button>
+  <button class="tool-btn" data-tool="fill" title="填充 (F)">填充</button>
+  <button class="tool-btn" data-tool="select" title="框选 (S)">框选</button>
+  <button class="tool-btn" data-tool="pick" title="吸管 (I)">吸管</button>
+  <div class="tool-sep"></div>
+  <div class="brush-group">
+    <label style="font-size:11px;color:#94a3b8">笔刷:</label>
+    <button class="brush-btn active" data-brush="1">1</button>
+    <button class="brush-btn" data-brush="2">2</button>
+    <button class="brush-btn" data-brush="3">3</button>
+  </div>
+  <div class="tool-sep"></div>
+  <button class="tool-btn" onclick="undo()" title="撤销 (Ctrl+Z)">撤销</button>
+  <button class="tool-btn" onclick="redo()" title="重做 (Ctrl+Y)">重做</button>
+  <div class="tool-sep"></div>
+  <button class="tool-btn" onclick="showImport()" title="导入 JSON">导入</button>
+  <button class="tool-btn" onclick="exportMap()" title="导出 JSON">导出</button>
+  <button class="tool-btn" onclick="newMap()" title="新建地图">新建</button>
+  <button class="tool-btn" onclick="loadWorldMap()" title="加载世界地图">世界地图</button>
+  <div class="tool-sep"></div>
+  <button class="tool-btn" onclick="toggleHelp()" title="快捷键帮助">?</button>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <!-- Palette -->
+  <div id="palette">
+    <div id="palette-header">
+      <div class="filter-row">
+        <label>分类:</label>
+        <select id="pCat"></select>
+      </div>
+      <div class="filter-row">
+        <label>子目录:</label>
+        <select id="pSubdir" style="display:none"></select>
+      </div>
+      <div class="filter-row">
+        <label>高度:</label>
+        <select id="pHeight">
+          <option value="all">全部</option>
+          <option value="floor">地面 h&lt;=18</option>
+          <option value="low">低矮 18-25</option>
+          <option value="mid">中等 25-40</option>
+          <option value="tall">高大 40-80</option>
+          <option value="vtall">极高 h&gt;80</option>
+        </select>
+      </div>
+      <div class="filter-row">
+        <label>ID:</label>
+        <input type="number" id="pIdMin" value="0" min="0" style="width:50px">
+        <span style="font-size:10px;color:#475569">-</span>
+        <input type="number" id="pIdMax" value="9999" min="0" style="width:50px">
+        <input type="text" id="pSearch" placeholder="搜索ID" style="width:70px;flex:unset">
+      </div>
+    </div>
+    <div id="current-tile">
+      <img id="ct-img" src="" alt="" style="display:none">
+      <div class="ct-info" id="ct-info">未选择贴图</div>
+    </div>
+    <div id="tile-grid-wrap"><div id="tile-grid"></div></div>
+    <div id="palette-footer">-</div>
+  </div>
+
+  <!-- Canvas -->
+  <div id="canvas-wrap">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sb-section">
+      <h3>图层</h3>
+      <div class="layer-btns">
+        <button class="layer-btn active" data-layer="earth">地面 earth</button>
+        <button class="layer-btn" data-layer="surface">表面 surface</button>
+        <button class="layer-btn" data-layer="building">建筑 building</button>
+        <button class="layer-btn" data-layer="buildx">通行X buildx</button>
+        <button class="layer-btn" data-layer="buildy">通行Y buildy</button>
+      </div>
+    </div>
+    <div class="sb-section">
+      <h3>显示</h3>
+      <div class="toggle-row">
+        <input type="checkbox" id="showGrid" checked>
+        <label for="showGrid">网格线</label>
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="showInactive" checked>
+        <label for="showInactive">显示非活动图层</label>
+      </div>
+    </div>
+    <div class="sb-section">
+      <h3>地图尺寸</h3>
+      <div class="row"><label>宽</label><input type="number" id="mapW" value="20" min="2" max="200"></div>
+      <div class="row"><label>高</label><input type="number" id="mapH" value="20" min="2" max="200"></div>
+      <div class="row"><label>cx</label><input type="number" id="mapCX" value="10" min="0"></div>
+      <div class="row"><label>cy</label><input type="number" id="mapCY" value="10" min="0"></div>
+      <button class="tool-btn" onclick="applyMapSize()" style="margin-top:4px;width:100%">应用尺寸</button>
+    </div>
+    <div class="sb-section">
+      <h3>缩放</h3>
+      <div class="row">
+        <button class="tool-btn" onclick="setZoom(state.zoom * 1.2)" style="flex:1">+</button>
+        <span id="zoomLabel" style="font-size:12px;color:#fbbf24;width:40px;text-align:center">100%</span>
+        <button class="tool-btn" onclick="setZoom(state.zoom / 1.2)" style="flex:1">-</button>
+      </div>
+      <button class="tool-btn" onclick="resetView()" style="width:100%;margin-top:4px">重置视图</button>
+    </div>
+    <div class="sb-section">
+      <h3>场景浏览</h3>
+      <button class="tool-btn" onclick="loadWorldMap()" style="width:100%;margin-bottom:6px">世界地图 (480x480)</button>
+      <input type="text" class="scene-search" id="sceneSearch" placeholder="搜索场景 ID 或名称...">
+      <div class="scene-list" id="sceneList"></div>
+      <div class="scene-meta" id="sceneMeta"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Status Bar -->
+<div id="statusbar">
+  <span>坐标: <span class="val" id="sbCoord">-</span></span>
+  <span>缩放: <span class="val" id="sbZoom">100%</span></span>
+  <span>工具: <span class="val" id="sbTool">画笔</span></span>
+  <span>图层: <span class="val" id="sbLayer">地面</span></span>
+  <span>选区: <span class="val" id="sbSel">无</span></span>
+</div>
+
+<div id="toast"></div>
+
+<!-- Import Dialog -->
+<div id="import-dialog">
+  <div id="import-box">
+    <h3>导入地图 JSON</h3>
+    <p style="font-size:12px;color:#94a3b8;margin-bottom:8px">粘贴 JSON 或选择文件 (支持旧格式和扩展格式)</p>
+    <textarea id="importText" placeholder='{"width":20,"height":20,...}'></textarea>
+    <div class="btn-row">
+      <input type="file" id="importFile" accept=".json" style="display:none">
+      <button class="tool-btn" onclick="document.getElementById('importFile').click()">选择文件</button>
+      <button class="tool-btn" onclick="hideImport()">取消</button>
+      <button class="tool-btn" style="background:#22c55e" onclick="doImport()">导入</button>
+    </div>
+  </div>
+</div>
+
+<!-- Help -->
+<div id="help-overlay" onclick="toggleHelp()">
+  <div id="help-box" onclick="event.stopPropagation()">
+    <h3>快捷键</h3>
+    <table>
+      <tr><td>B</td><td>画笔工具</td></tr>
+      <tr><td>E</td><td>橡皮擦</td></tr>
+      <tr><td>F</td><td>填充工具</td></tr>
+      <tr><td>S</td><td>框选工具</td></tr>
+      <tr><td>I</td><td>吸管工具</td></tr>
+      <tr><td>1 / 2 / 3</td><td>笔刷大小</td></tr>
+      <tr><td>Ctrl+Z</td><td>撤销</td></tr>
+      <tr><td>Ctrl+Y</td><td>重做</td></tr>
+      <tr><td>Ctrl+C</td><td>复制选区</td></tr>
+      <tr><td>Ctrl+V</td><td>粘贴</td></tr>
+      <tr><td>Delete</td><td>删除选区内容</td></tr>
+      <tr><td>滚轮</td><td>缩放</td></tr>
+      <tr><td>中键拖拽 / Alt+拖拽</td><td>平移画布</td></tr>
+      <tr><td>G</td><td>切换网格线</td></tr>
+      <tr><td>Q</td><td>切换图层</td></tr>
+      <tr><td>Escape</td><td>取消选区 / 关闭弹窗</td></tr>
+      <tr><td>?</td><td>显示帮助</td></tr>
+    </table>
+    <div style="text-align:center;margin-top:12px">
+      <button class="tool-btn" onclick="toggleHelp()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== Constants ====================
+const THW = 18, THH = 9;
+const MAX_UNDO = 50;
+const FILL_LIMIT = 10000;
+const BASE = 'assets/jy-assets';
+
+// ==================== Category Registry ====================
+function range(a, b) { const r = []; for (let i = a; i < b; i++) r.push(i); return r; }
+
+const CATEGORIES = [
+  { id: '01_mmap',   name: '地图瓦片',     pattern: 'info',  pad: 4 },
+  { id: '02_allsin', name: '战斗精灵',     pattern: 'info',  pad: 4 },
+  { id: '06_ranger', name: '游侠',         pattern: 'info',  pad: 4 },
+  { id: '07_warfld', name: '战场',         pattern: 'info',  pad: 4 },
+  { id: '08_thing',  name: '物品图标',     pattern: 'info',  pad: 4 },
+  { id: '09_talk',   name: '对话头像',     pattern: 'info',  pad: 4 },
+  { id: '10_smap',   name: '场景瓦片',     pattern: 'info',  pad: 4 },
+  { id: '11_wmap',   name: '世界地图瓦片', pattern: 'info',  pad: 4 },
+  { id: '12_fight',  name: '战斗动画',     pattern: 'subdir', pad: 4,
+    subdirs: ['Fight000','Fight001','Fight002','Fight003','Fight004'] },
+  { id: '13_eft',    name: '特效动画',     pattern: 'subdir', pad: 4,
+    subdirs: ['000','001','002','003','004','005','006','007','008','009'] },
+  { id: '14_head',   name: '角色头像',     pattern: 'scan',
+    urlFn: id => `${id}.png`, ids: range(0, 322) },
+  { id: '15_mhead',  name: '缩略头像',     pattern: 'scan',
+    urlFn: id => `${id}.png`, ids: range(0, 322) },
+  { id: '16_walk',   name: '行走图',       pattern: 'scan',
+    urlFn: id => id <= 2532 ? `${id}.png` : `walk_${id}.png`,
+    ids: range(2501, 2553) },
+  { id: '17_npc_map',name: 'NPC精灵',      pattern: 'scan',
+    urlFn: id => `npc_${id}.png`, ids: range(1001, 1450) },
+];
+
+// ==================== State ====================
+const state = {
+  tool: 'brush',
+  brushSize: 1,
+  layer: 'earth',
+  currentKey: null,   // composite key like "10_smap:588"
+  zoom: 1,
+  panX: 0, panY: 0,
+  showGrid: true,
+  showInactive: true,
+  map: null, // { width, height, cx, cy, earth[][], surface[][], building[][], buildx[][], buildy[][] }
+  // interaction
+  isPanning: false, panStartX: 0, panStartY: 0, panStartPX: 0, panStartPY: 0,
+  isDrawing: false,
+  isSelecting: false, selStart: null, selEnd: null,
+  selection: null,
+  clipboard: null,
+  isPasting: false,
+  undoStack: [], redoStack: [],
+  strokeSnapshot: null,
+  hoverRow: -1, hoverCol: -1,
+};
+
+// ==================== Data ====================
+// Per-category tile metadata: catId -> [{id, url, w, h, xoff, yoff, subdir}]
+const catTileData = new Map();
+// Image cache: url -> HTMLImageElement
+const imgCache = new Map();
+// Tile info lookup: compositeKey -> {url, w, h, xoff, yoff, dir, id}
+const tileInfoMap = new Map();
+// Current palette items (filtered)
+let paletteItems = [];
+let currentCatId = null;
+let currentSubdir = null;
+
+// ==================== Composite Key Helpers ====================
+function makeKey(dir, id) { return `${dir}:${id}`; }
+function parseKey(key) {
+  if (!key) return null;
+  const i = key.indexOf(':');
+  if (i < 0) return { dir: '10_smap', id: parseInt(key) || 0 };
+  return { dir: key.substring(0, i), id: parseInt(key.substring(i + 1)) || 0 };
+}
+
+function getTileInfo(key) {
+  if (tileInfoMap.has(key)) return tileInfoMap.get(key);
+  const p = parseKey(key);
+  if (!p) return null;
+  const cat = CATEGORIES.find(c => c.id === p.dir);
+  if (!cat) return null;
+  let url, w = null, h = null, xoff = 18, yoff = 17;
+  if (cat.pattern === 'info' || cat.pattern === 'subdir') {
+    const items = catTileData.get(cat.id) || [];
+    const item = items.find(it => it.id === p.id);
+    if (item) {
+      url = item.url; w = item.w; h = item.h; xoff = item.xoff; yoff = item.yoff;
+    } else {
+      url = `${BASE}/${cat.id}/${String(p.id).padStart(cat.pad || 4, '0')}.png`;
+    }
+  } else {
+    url = `${BASE}/${cat.id}/${cat.urlFn(p.id)}`;
+  }
+  const info = { url, w, h, xoff, yoff, dir: p.dir, id: p.id };
+  tileInfoMap.set(key, info);
+  return info;
+}
+
+function getTileImg(key) {
+  const info = getTileInfo(key);
+  if (!info) return null;
+  const url = info.url;
+  if (imgCache.has(url)) return imgCache.get(url);
+  const img = new Image();
+  img.src = url;
+  img.onload = () => requestRender();
+  img.onerror = () => { imgCache.set(url, null); };
+  imgCache.set(url, img);
+  return img;
+}
+
+// ==================== Init ====================
+async function init() {
+  // Populate category dropdown
+  const catSel = document.getElementById('pCat');
+  let opts = '';
+  for (const cat of CATEGORIES) {
+    opts += `<option value="${cat.id}">${cat.id} ${cat.name}</option>`;
+  }
+  catSel.innerHTML = opts;
+  catSel.value = '10_smap';
+
+  // Load initial category
+  await loadPaletteCategory('10_smap');
+
+  document.getElementById('loading').classList.add('hidden');
+
+  state.map = createNewMap(20, 20, 10, 10);
+  syncMapSizeUI();
+
+  setupCanvas();
+  bindPaletteEvents();
+  bindCanvasEvents();
+  bindKeyboard();
+  bindSidebarEvents();
+  bindImportFile();
+  requestRender();
+}
+
+function createNewMap(w, h, cx, cy) {
+  const layers = {};
+  for (const name of ['earth', 'surface', 'building', 'buildx', 'buildy']) {
+    layers[name] = [];
+    for (let r = 0; r < h; r++) layers[name].push(new Array(w).fill(''));
+  }
+  return { width: w, height: h, cx, cy, ...layers };
+}
+
+const LAYER_NAMES = ['earth', 'surface', 'building', 'buildx', 'buildy'];
+const LAYER_LABELS = { earth: '地面', surface: '表面', building: '建筑', buildx: '通行X', buildy: '通行Y' };
+
+// ==================== Palette Category Loading ====================
+async function loadPaletteCategory(catId) {
+  const cat = CATEGORIES.find(c => c.id === catId);
+  if (!cat) return;
+  currentCatId = catId;
+  currentSubdir = null;
+
+  if (!catTileData.has(catId)) {
+    switch (cat.pattern) {
+      case 'info':
+        await loadInfoTiles(cat);
+        break;
+      case 'subdir':
+        await loadSubdirTiles(cat);
+        break;
+      case 'scan':
+        loadScanTiles(cat);
+        break;
+    }
+  }
+
+  // Update subdir dropdown
+  const subdirSel = document.getElementById('pSubdir');
+  if (cat.pattern === 'subdir' && cat.subdirs) {
+    subdirSel.style.display = '';
+    let opts = '<option value="">全部</option>';
+    for (const sd of cat.subdirs) opts += `<option value="${sd}">${sd}</option>`;
+    subdirSel.innerHTML = opts;
+    subdirSel.value = '';
+  } else {
+    subdirSel.style.display = 'none';
+  }
+
+  // Update ID max based on category
+  const items = catTileData.get(catId) || [];
+  if (items.length > 0) {
+    const maxId = Math.max(...items.map(it => it.id));
+    document.getElementById('pIdMax').value = maxId;
+  }
+
+  renderPalette();
+}
+
+async function loadInfoTiles(cat) {
+  try {
+    const resp = await fetch(`${BASE}/${cat.id}/_info.json`);
+    const info = await resp.json();
+    const items = info.map(t => ({
+      id: t.idx,
+      url: `${BASE}/${cat.id}/${String(t.idx).padStart(cat.pad, '0')}.png`,
+      w: t.w, h: t.h, xoff: t.xoff, yoff: t.yoff,
+      subdir: null
+    }));
+    catTileData.set(cat.id, items);
+  } catch (e) {
+    catTileData.set(cat.id, []);
+  }
+}
+
+async function loadSubdirTiles(cat) {
+  const all = [];
+  for (const sd of cat.subdirs) {
+    try {
+      const resp = await fetch(`${BASE}/${cat.id}/${sd}/_info.json`);
+      const info = await resp.json();
+      for (const t of info) {
+        all.push({
+          id: t.idx,
+          url: `${BASE}/${cat.id}/${sd}/${String(t.idx).padStart(cat.pad, '0')}.png`,
+          w: t.w, h: t.h, xoff: t.xoff, yoff: t.yoff,
+          subdir: sd
+        });
+      }
+    } catch (e) { /* skip */ }
+  }
+  catTileData.set(cat.id, all);
+}
+
+function loadScanTiles(cat) {
+  const items = cat.ids.map(id => ({
+    id,
+    url: `${BASE}/${cat.id}/${cat.urlFn(id)}`,
+    w: null, h: null, xoff: null, yoff: null,
+    subdir: null
+  }));
+  catTileData.set(cat.id, items);
+}
+
+// ==================== Palette Rendering ====================
+function getFilteredPalette() {
+  const items = catTileData.get(currentCatId) || [];
+  const hf = document.getElementById('pHeight').value;
+  const idMin = parseInt(document.getElementById('pIdMin').value) || 0;
+  const idMax = parseInt(document.getElementById('pIdMax').value) || 99999;
+  const search = document.getElementById('pSearch').value.trim();
+
+  let tiles = items;
+
+  // Subdir filter
+  if (currentSubdir) {
+    tiles = tiles.filter(t => t.subdir === currentSubdir);
+  }
+
+  // Search
+  if (search) {
+    const ids = search.split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+    if (ids.length > 0) {
+      const s = new Set(ids);
+      return tiles.filter(t => s.has(t.id));
+    }
+  }
+
+  // Height filter
+  if (hf === 'floor') tiles = tiles.filter(t => t.h != null && t.h <= 18);
+  else if (hf === 'low') tiles = tiles.filter(t => t.h != null && t.h > 18 && t.h <= 25);
+  else if (hf === 'mid') tiles = tiles.filter(t => t.h != null && t.h > 25 && t.h <= 40);
+  else if (hf === 'tall') tiles = tiles.filter(t => t.h != null && t.h > 40 && t.h <= 80);
+  else if (hf === 'vtall') tiles = tiles.filter(t => t.h != null && t.h > 80);
+
+  // ID range
+  tiles = tiles.filter(t => t.id >= idMin && t.id <= idMax);
+
+  return tiles;
+}
+
+function renderPalette() {
+  const container = document.getElementById('tile-grid');
+  paletteItems = getFilteredPalette();
+  const MAX = 600;
+  const render = paletteItems.slice(0, MAX);
+  let html = '';
+  for (const t of render) {
+    const key = makeKey(currentCatId, t.id);
+    const act = state.currentKey === key ? ' active' : '';
+    html += `<div class="tcell${act}" data-key="${key}">
+      <img src="${t.url}" loading="lazy" onerror="this.style.display='none'">
+      <span class="tid">${t.subdir ? t.subdir+':' : ''}${t.id}</span>
+    </div>`;
+  }
+  if (paletteItems.length > MAX) {
+    html += `<div style="width:100%;text-align:center;padding:8px;font-size:10px;color:#475569">
+      还有 ${paletteItems.length - MAX} 个，请缩小范围</div>`;
+  }
+  container.innerHTML = html;
+  document.getElementById('palette-footer').textContent = `显示 ${Math.min(paletteItems.length, MAX)} / ${paletteItems.length} 个`;
+}
+
+function selectTileByKey(key) {
+  state.currentKey = key;
+  const info = getTileInfo(key);
+  if (info) {
+    const img = document.getElementById('ct-img');
+    img.src = info.url;
+    img.style.display = 'block';
+    document.getElementById('ct-info').innerHTML =
+      `分类: <span>${info.dir}</span><br>ID: <span>${info.id}</span>` +
+      (info.w ? `<br>尺寸: <span>${info.w}x${info.h}</span>` : '') +
+      (info.xoff != null ? `<br>偏移: <span>${info.xoff},${info.yoff}</span>` : '');
+    getTileImg(key);
+  }
+  document.querySelectorAll('.tcell').forEach(c => {
+    c.classList.toggle('active', c.dataset.key === key);
+  });
+}
+
+// ==================== Palette Events ====================
+function bindPaletteEvents() {
+  // Category change
+  document.getElementById('pCat').addEventListener('change', e => {
+    loadPaletteCategory(e.target.value);
+  });
+
+  // Subdir change
+  document.getElementById('pSubdir').addEventListener('change', e => {
+    currentSubdir = e.target.value || null;
+    renderPalette();
+  });
+
+  // Tile click
+  document.getElementById('tile-grid').addEventListener('click', e => {
+    const cell = e.target.closest('.tcell');
+    if (!cell) return;
+    selectTileByKey(cell.dataset.key);
+  });
+
+  // Filter changes
+  ['pHeight', 'pIdMin', 'pIdMax', 'pSearch'].forEach(id => {
+    document.getElementById(id).addEventListener('input', debounce(renderPalette, 300));
+  });
+}
+
+// ==================== Canvas Setup ====================
+let canvas, ctx;
+
+function setupCanvas() {
+  canvas = document.getElementById('canvas');
+  ctx = canvas.getContext('2d');
+  resizeCanvas();
+  window.addEventListener('resize', () => { resizeCanvas(); requestRender(); });
+}
+
+function resizeCanvas() {
+  const wrap = document.getElementById('canvas-wrap');
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+}
+
+// ==================== Projection ====================
+function mapToScreen(row, col) {
+  const m = state.map;
+  return {
+    x: state.zoom * THW * ((col - m.cx) - (row - m.cy)) + canvas.width / 2 + state.panX,
+    y: state.zoom * THH * ((col - m.cx) + (row - m.cy)) + canvas.height / 2 + state.panY
+  };
+}
+
+function screenToMap(sx, sy) {
+  const m = state.map;
+  const rx = (sx - canvas.width / 2 - state.panX) / state.zoom;
+  const ry = (sy - canvas.height / 2 - state.panY) / state.zoom;
+  const row_f = (ry / THH - rx / THW) / 2 + m.cy;
+  const col_f = (ry / THH + rx / THW) / 2 + m.cx;
+  return { row: Math.round(row_f), col: Math.round(col_f) };
+}
+
+function inBounds(r, c) {
+  return r >= 0 && r < state.map.height && c >= 0 && c < state.map.width;
+}
+
+// ==================== Rendering ====================
+let renderRequested = false;
+function requestRender() {
+  if (!renderRequested) {
+    renderRequested = true;
+    requestAnimationFrame(doRender);
+  }
+}
+
+function drawTile(key, sx, sy, alpha) {
+  const info = getTileInfo(key);
+  if (!info) return;
+  const img = getTileImg(key);
+  if (!img || !img.complete || img.naturalWidth === 0) return;
+  const ox = info.xoff != null ? info.xoff : 18;
+  const oy = info.yoff != null ? info.yoff : 17;
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(img, sx - ox * state.zoom, sy - oy * state.zoom,
+    img.naturalWidth * state.zoom, img.naturalHeight * state.zoom);
+}
+
+function doRender() {
+  renderRequested = false;
+  const m = state.map;
+  if (!m) return;
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const corners = [screenToMap(0, 0), screenToMap(w, 0), screenToMap(0, h), screenToMap(w, h)];
+  let rMin = Infinity, rMax = -Infinity, cMin = Infinity, cMax = -Infinity;
+  for (const c of corners) {
+    rMin = Math.min(rMin, c.row); rMax = Math.max(rMax, c.row);
+    cMin = Math.min(cMin, c.col); cMax = Math.max(cMax, c.col);
+  }
+  rMin = Math.max(0, rMin - 3); rMax = Math.min(m.height - 1, rMax + 3);
+  cMin = Math.max(0, cMin - 3); cMax = Math.min(m.width - 1, cMax + 3);
+
+  const invAlpha = state.showInactive ? 0.25 : 0;
+  const earthAlpha = state.layer === 'earth' ? 1 : invAlpha;
+  const surfAlpha = state.layer === 'surface' ? 1 : invAlpha;
+  const buildAlpha = state.layer === 'building' ? 1 : invAlpha;
+  const bxAlpha = state.layer === 'buildx' ? 1 : invAlpha;
+  const byAlpha = state.layer === 'buildy' ? 1 : invAlpha;
+
+  // Earth layer
+  for (let r = rMin; r <= rMax; r++) {
+    for (let c = cMin; c <= cMax; c++) {
+      const key = m.earth[r][c];
+      if (!key) continue;
+      const { x, y } = mapToScreen(r, c);
+      drawTile(key, x, y, earthAlpha);
+    }
+  }
+
+  // Surface + Building layers (depth-sorted together)
+  const depthEntries = [];
+  for (let r = rMin; r <= rMax; r++) {
+    for (let c = cMin; c <= cMax; c++) {
+      const sKey = m.surface[r][c];
+      if (sKey) depthEntries.push({ r, c, key: sKey, alpha: surfAlpha, depth: r + c });
+      const bKey = m.building ? m.building[r][c] : '';
+      if (bKey) depthEntries.push({ r, c, key: bKey, alpha: buildAlpha, depth: r + c });
+    }
+  }
+  depthEntries.sort((a, b) => a.depth - b.depth || a.r - b.r);
+  for (const e of depthEntries) {
+    const { x, y } = mapToScreen(e.r, e.c);
+    drawTile(e.key, x, y, e.alpha);
+  }
+
+  // BuildX / BuildY layers: show numeric values as text overlay
+  if (m.buildx && bxAlpha > 0) {
+    ctx.globalAlpha = bxAlpha;
+    ctx.font = `${Math.max(8, 10 * state.zoom)}px monospace`;
+    ctx.fillStyle = '#ff6b6b';
+    ctx.textAlign = 'center';
+    for (let r = rMin; r <= rMax; r++) {
+      for (let c = cMin; c <= cMax; c++) {
+        const val = m.buildx[r][c];
+        if (!val) continue;
+        const { x, y } = mapToScreen(r, c);
+        ctx.fillText(String(val), x, y + 4 * state.zoom);
+      }
+    }
+  }
+  if (m.buildy && byAlpha > 0) {
+    ctx.globalAlpha = byAlpha;
+    ctx.font = `${Math.max(8, 10 * state.zoom)}px monospace`;
+    ctx.fillStyle = '#4ecdc4';
+    ctx.textAlign = 'center';
+    for (let r = rMin; r <= rMax; r++) {
+      for (let c = cMin; c <= cMax; c++) {
+        const val = m.buildy[r][c];
+        if (!val) continue;
+        const { x, y } = mapToScreen(r, c);
+        ctx.fillText(String(val), x, y - 2 * state.zoom);
+      }
+    }
+  }
+
+  ctx.globalAlpha = 1;
+
+  if (state.showGrid && state.zoom >= 0.3) drawGrid(rMin, rMax, cMin, cMax);
+
+  if (state.selection) drawSelection(state.selection);
+  if (state.isSelecting && state.selStart && state.selEnd) {
+    drawSelection(normalizeSel(state.selStart, state.selEnd));
+  }
+
+  if (state.isPasting && state.clipboard && state.hoverRow >= 0) drawPastePreview();
+
+  if (state.hoverRow >= 0 && state.hoverCol >= 0 && inBounds(state.hoverRow, state.hoverCol)) {
+    drawCursor(state.hoverRow, state.hoverCol);
+  }
+
+  updateStatusBar();
+}
+
+function drawGrid(rMin, rMax, cMin, cMax) {
+  ctx.strokeStyle = 'rgba(100,160,255,0.15)';
+  ctx.lineWidth = 1;
+  for (let r = rMin; r <= rMax + 1; r++) {
+    const p1 = mapToScreen(r, cMin), p2 = mapToScreen(r, cMax + 1);
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+  }
+  for (let c = cMin; c <= cMax + 1; c++) {
+    const p1 = mapToScreen(rMin, c), p2 = mapToScreen(rMax + 1, c);
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+  }
+}
+
+function drawDiamond(r, c, fill, stroke) {
+  const pts = [mapToScreen(r,c), mapToScreen(r,c+1), mapToScreen(r+1,c+1), mapToScreen(r+1,c)];
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < 4; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+}
+
+function drawCursor(row, col) {
+  const bs = state.brushSize;
+  const half = Math.floor(bs / 2);
+
+  // For brush tool with a selected tile, show ghost preview at actual render position
+  if (state.tool === 'brush' && state.currentKey) {
+    const info = getTileInfo(state.currentKey);
+    const img = getTileImg(state.currentKey);
+    if (img && img.complete && img.naturalWidth > 0 && info) {
+      const ox = info.xoff != null ? info.xoff : 18;
+      const oy = info.yoff != null ? info.yoff : 17;
+      for (let dr = -half; dr < bs - half; dr++) {
+        for (let dc = -half; dc < bs - half; dc++) {
+          const r = row + dr, c = col + dc;
+          if (inBounds(r, c)) {
+            const { x: sx, y: sy } = mapToScreen(r, c);
+            ctx.globalAlpha = 0.5;
+            ctx.drawImage(img, sx - ox * state.zoom, sy - oy * state.zoom,
+              img.naturalWidth * state.zoom, img.naturalHeight * state.zoom);
+            ctx.globalAlpha = 1;
+            // subtle cell outline
+            drawDiamond(r, c, null, 'rgba(80,255,80,0.4)');
+          }
+        }
+      }
+      return;
+    }
+  }
+
+  // Default: colored diamond for eraser/fill/select/pick
+  const color = state.tool === 'eraser' ? 'rgba(255,80,80,0.3)' :
+                state.tool === 'fill' ? 'rgba(80,180,255,0.3)' :
+                state.tool === 'pick' ? 'rgba(255,200,50,0.3)' : 'rgba(80,255,80,0.3)';
+  const stroke = color.replace('0.3', '0.7');
+  for (let dr = -half; dr < bs - half; dr++) {
+    for (let dc = -half; dc < bs - half; dc++) {
+      if (inBounds(row + dr, col + dc)) drawDiamond(row + dr, col + dc, color, stroke);
+    }
+  }
+}
+
+function drawSelection(sel) {
+  const { r1, c1, r2, c2 } = sel;
+  for (let r = r1; r <= r2; r++)
+    for (let c = c1; c <= c2; c++)
+      drawDiamond(r, c, 'rgba(255,200,50,0.12)', null);
+  const pts = [mapToScreen(r1,c1), mapToScreen(r1,c2+1), mapToScreen(r2+1,c2+1), mapToScreen(r2+1,c1)];
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < 4; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(255,200,50,0.8)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.setLineDash([4,4]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawPastePreview() {
+  const cb = state.clipboard;
+  if (!cb) return;
+  const half = Math.floor(Math.max(cb.w, cb.h) / 2);
+  for (let r = 0; r < cb.h; r++)
+    for (let c = 0; c < cb.w; c++)
+      if (inBounds(state.hoverRow - half + r, state.hoverCol - half + c))
+        drawDiamond(state.hoverRow - half + r, state.hoverCol - half + c, 'rgba(100,255,100,0.15)', 'rgba(100,255,100,0.4)');
+}
+
+// ==================== Canvas Interaction ====================
+function bindCanvasEvents() {
+  canvas.addEventListener('mousedown', onMouseDown);
+  canvas.addEventListener('mousemove', onMouseMove);
+  canvas.addEventListener('mouseup', onMouseUp);
+  canvas.addEventListener('mouseleave', () => { state.hoverRow = -1; state.hoverCol = -1; requestRender(); });
+  canvas.addEventListener('wheel', onWheel, { passive: false });
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+}
+
+function getMousePos(e) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+function onMouseDown(e) {
+  const pos = getMousePos(e);
+  const { row, col } = screenToMap(pos.x, pos.y);
+
+  if (e.button === 1 || (e.button === 0 && e.altKey)) {
+    state.isPanning = true;
+    state.panStartX = e.clientX; state.panStartY = e.clientY;
+    state.panStartPX = state.panX; state.panStartPY = state.panY;
+    canvas.style.cursor = 'grabbing';
+    return;
+  }
+  if (e.button !== 0) return;
+
+  if (state.isPasting) { confirmPaste(row, col); return; }
+
+  if (state.tool === 'select') {
+    state.isSelecting = true;
+    state.selStart = { row, col };
+    state.selEnd = { row, col };
+    return;
+  }
+
+  if (state.tool === 'fill') { doFill(row, col); return; }
+  if (state.tool === 'pick') { pickTile(row, col); return; }
+
+  state.isDrawing = true;
+  state.strokeSnapshot = cloneMapData(state.map);
+  applyTool(row, col);
+  requestRender();
+}
+
+function onMouseMove(e) {
+  const pos = getMousePos(e);
+  const { row, col } = screenToMap(pos.x, pos.y);
+  state.hoverRow = row;
+  state.hoverCol = col;
+
+  if (state.isPanning) {
+    state.panX = state.panStartPX + (e.clientX - state.panStartX);
+    state.panY = state.panStartPY + (e.clientY - state.panStartY);
+    requestRender(); return;
+  }
+  if (state.isSelecting) { state.selEnd = { row, col }; requestRender(); return; }
+  if (state.isDrawing) { applyTool(row, col); requestRender(); return; }
+  requestRender();
+}
+
+function onMouseUp(e) {
+  if (state.isPanning) { state.isPanning = false; canvas.style.cursor = ''; return; }
+
+  if (state.isSelecting) {
+    state.isSelecting = false;
+    if (state.selStart && state.selEnd) {
+      const sel = normalizeSel(state.selStart, state.selEnd);
+      state.selection = (sel.r1 === sel.r2 && sel.c1 === sel.c2) ? null : sel;
+    }
+    state.selStart = null; state.selEnd = null;
+    requestRender(); return;
+  }
+
+  if (state.isDrawing) {
+    state.isDrawing = false;
+    if (state.strokeSnapshot) {
+      const before = state.strokeSnapshot;
+      const after = cloneMapData(state.map);
+      if (JSON.stringify(before) !== JSON.stringify(after)) pushUndo(before, after);
+      state.strokeSnapshot = null;
+    }
+  }
+}
+
+function onWheel(e) {
+  e.preventDefault();
+  const pos = getMousePos(e);
+  const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  const newZoom = Math.max(0.15, Math.min(5, state.zoom * factor));
+  const mx = pos.x - canvas.width / 2 - state.panX;
+  const my = pos.y - canvas.height / 2 - state.panY;
+  state.panX -= mx * (newZoom / state.zoom - 1);
+  state.panY -= my * (newZoom / state.zoom - 1);
+  state.zoom = newZoom;
+  document.getElementById('zoomLabel').textContent = Math.round(state.zoom * 100) + '%';
+  requestRender();
+}
+
+// ==================== Tools ====================
+function applyTool(row, col) {
+  const tid = state.tool === 'eraser' ? '' : (state.currentKey || '');
+  paintTile(row, col, tid);
+}
+
+function paintTile(row, col, key) {
+  const layer = state.map[state.layer];
+  const bs = state.brushSize;
+  const half = Math.floor(bs / 2);
+  let changed = false;
+  for (let dr = -half; dr < bs - half; dr++) {
+    for (let dc = -half; dc < bs - half; dc++) {
+      const r = row + dr, c = col + dc;
+      if (inBounds(r, c) && layer[r][c] !== key) {
+        layer[r][c] = key;
+        changed = true;
+        if (key) getTileImg(key);
+      }
+    }
+  }
+  if (changed) requestRender();
+}
+
+function pickTile(row, col) {
+  if (!inBounds(row, col)) return;
+  // Check layers from top to bottom: buildy -> buildx -> building -> surface -> earth
+  for (const name of ['buildy', 'buildx', 'building', 'surface', 'earth']) {
+    const layer = state.map[name];
+    if (layer && layer[row][col]) {
+      const key = layer[row][col];
+      if (typeof key === 'string') {
+        selectTileByKey(key);
+        setLayer(name);
+        toast(`拾取 ${key}`);
+        return;
+      }
+    }
+  }
+}
+
+function doFill(row, col) {
+  if (!inBounds(row, col)) return;
+  const layer = state.map[state.layer];
+  const targetKey = layer[row][col];
+  const fillKey = state.currentKey || '';
+  if (targetKey === fillKey) return;
+
+  const before = cloneMapData(state.map);
+  const visited = new Set();
+  const queue = [[row, col]];
+  let count = 0;
+  while (queue.length > 0 && count < FILL_LIMIT) {
+    const [r, c] = queue.shift();
+    const k = r * 10000 + c;
+    if (visited.has(k) || !inBounds(r, c) || layer[r][c] !== targetKey) continue;
+    visited.add(k);
+    layer[r][c] = fillKey;
+    count++;
+    if (fillKey) getTileImg(fillKey);
+    queue.push([r-1,c],[r+1,c],[r,c-1],[r,c+1]);
+  }
+  if (count > 0) {
+    pushUndo(before, cloneMapData(state.map));
+    toast(`填充了 ${count} 个格子`);
+  }
+  requestRender();
+}
+
+function deleteSelection() {
+  if (!state.selection) return;
+  const { r1, c1, r2, c2 } = state.selection;
+  const before = cloneMapData(state.map);
+  for (let r = r1; r <= r2; r++)
+    for (let c = c1; c <= c2; c++) {
+      for (const name of LAYER_NAMES) {
+        if (state.map[name]) state.map[name][r][c] = '';
+      }
+    }
+  pushUndo(before, cloneMapData(state.map));
+  state.selection = null;
+  requestRender();
+  toast('已删除选区');
+}
+
+// ==================== Copy / Paste ====================
+function copySelection() {
+  if (!state.selection) return;
+  const { r1, c1, r2, c2 } = state.selection;
+  const w = c2 - c1 + 1, h = r2 - r1 + 1;
+  const clip = { w, h };
+  for (const name of LAYER_NAMES) {
+    if (!state.map[name]) continue;
+    const layer = [];
+    for (let r = 0; r < h; r++) {
+      const row = [];
+      for (let c = 0; c < w; c++) row.push(state.map[name][r1+r][c1+c]);
+      layer.push(row);
+    }
+    clip[name] = layer;
+  }
+  state.clipboard = clip;
+  toast(`已复制 ${w}x${h} 区域`);
+}
+
+function startPaste() {
+  if (!state.clipboard) { toast('剪贴板为空', true); return; }
+  state.isPasting = true;
+  toast('点击画布粘贴，Esc 取消');
+}
+
+function confirmPaste(row, col) {
+  if (!state.clipboard) return;
+  const cb = state.clipboard;
+  const half = Math.floor(Math.max(cb.w, cb.h) / 2);
+  const before = cloneMapData(state.map);
+  for (let r = 0; r < cb.h; r++) {
+    for (let c = 0; c < cb.w; c++) {
+      const tr = row - half + r, tc = col - half + c;
+      if (inBounds(tr, tc)) {
+        for (const name of LAYER_NAMES) {
+          if (cb[name] && cb[name][r][c] && state.map[name]) {
+            state.map[name][tr][tc] = cb[name][r][c];
+            if (typeof cb[name][r][c] === 'string' && cb[name][r][c]) getTileImg(cb[name][r][c]);
+          }
+        }
+      }
+    }
+  }
+  pushUndo(before, cloneMapData(state.map));
+  state.isPasting = false;
+  requestRender();
+  toast('已粘贴');
+}
+
+// ==================== Undo / Redo ====================
+function cloneMapData(m) {
+  const d = {};
+  for (const name of LAYER_NAMES) {
+    if (m[name]) d[name] = m[name].map(r => [...r]);
+  }
+  return d;
+}
+
+function pushUndo(beforeData, afterData) {
+  state.undoStack.push({ before: beforeData, after: afterData });
+  if (state.undoStack.length > MAX_UNDO) state.undoStack.shift();
+  state.redoStack = [];
+}
+
+function restoreMapData(data) {
+  for (const name of LAYER_NAMES) {
+    if (data[name]) state.map[name] = data[name];
+  }
+  requestRender();
+}
+
+function undo() {
+  if (!state.undoStack.length) return;
+  const op = state.undoStack.pop();
+  state.redoStack.push(op);
+  restoreMapData(op.before);
+  toast('撤销');
+}
+
+function redo() {
+  if (!state.redoStack.length) return;
+  const op = state.redoStack.pop();
+  state.undoStack.push(op);
+  restoreMapData(op.after);
+  toast('重做');
+}
+
+// ==================== Import / Export ====================
+function showImport() {
+  document.getElementById('import-dialog').classList.add('show');
+  document.getElementById('importText').value = '';
+}
+function hideImport() { document.getElementById('import-dialog').classList.remove('show'); }
+
+function bindImportFile() {
+  document.getElementById('importFile').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => { document.getElementById('importText').value = ev.target.result; };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+}
+
+function doImport() {
+  const text = document.getElementById('importText').value.trim();
+  if (!text) { toast('请输入 JSON', true); return; }
+  try {
+    const data = JSON.parse(text);
+    if (!data.width || !data.height || !data.earth || !data.surface) throw new Error('缺少必要字段');
+    if (data.cx === undefined) data.cx = Math.floor(data.width / 2);
+    if (data.cy === undefined) data.cy = Math.floor(data.height / 2);
+
+    // Detect format: string[][] (new) or number[][] (legacy)
+    let earth, surface, building, buildx, buildy;
+    if (data._format === 'multi') {
+      // New format with composite keys
+      earth = data.earth;
+      surface = data.surface;
+      building = data.building || null;
+      buildx = data.buildx || null;
+      buildy = data.buildy || null;
+    } else {
+      // Legacy format: bare integers -> prefix with defaultDir
+      const defaultDir = data._defaultDir || (data._useWmap ? '01_mmap' : '10_smap');
+      const convert = row => row.map(v => v ? makeKey(defaultDir, v) : '');
+      earth = data.earth.map(convert);
+      surface = data.surface.map(convert);
+      building = data.building ? data.building.map(convert) : null;
+      buildx = data.buildx || null;
+      buildy = data.buildy || null;
+    }
+
+    state.map = { width: data.width, height: data.height, cx: data.cx, cy: data.cy, earth, surface, building, buildx, buildy };
+    state.undoStack = []; state.redoStack = [];
+    state.selection = null; state.clipboard = null; state.isPasting = false;
+    syncMapSizeUI();
+    preloadMapTiles();
+    resetView();
+    hideImport();
+    toast(`已导入 ${data.width}x${data.height} 地图`);
+  } catch (err) {
+    toast('JSON 解析失败: ' + err.message, true);
+  }
+}
+
+function exportMap() {
+  const m = state.map;
+  const obj = {
+    width: m.width, height: m.height, cx: m.cx, cy: m.cy,
+    earth: m.earth, surface: m.surface,
+    _format: 'multi',
+    _defaultDir: '10_smap'
+  };
+  if (m.building) obj.building = m.building;
+  if (m.buildx) obj.buildx = m.buildx;
+  if (m.buildy) obj.buildy = m.buildy;
+  const json = JSON.stringify(obj, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'scene_export.json'; a.click();
+  URL.revokeObjectURL(url);
+  toast('已导出 JSON');
+}
+
+// Also support exporting in legacy format (10_smap only)
+function exportLegacyMap() {
+  const m = state.map;
+  const convertLayer = layer => layer.map(row =>
+    row.map(key => {
+      if (!key) return 0;
+      const p = parseKey(key);
+      return p.dir === '10_smap' ? p.id : 0;
+    })
+  );
+  const earth = convertLayer(m.earth);
+  const surface = convertLayer(m.surface);
+  const ids = new Set();
+  for (const row of [...earth, ...surface]) for (const v of row) if (v) ids.add(v);
+  const obj = {
+    width: m.width, height: m.height, cx: m.cx, cy: m.cy,
+    earth, surface,
+    smapTileIds: Array.from(ids).sort((a,b) => a-b)
+  };
+  const json = JSON.stringify(obj, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'indoor_custom.json'; a.click();
+  URL.revokeObjectURL(url);
+  toast('已导出兼容格式 JSON (仅10_smap)');
+}
+
+function preloadMapTiles() {
+  for (const name of LAYER_NAMES) {
+    const layer = state.map[name];
+    if (!layer) continue;
+    for (const row of layer) for (const key of row) {
+      if (key && typeof key === 'string') getTileImg(key);
+    }
+  }
+}
+
+function newMap() {
+  const w = parseInt(document.getElementById('mapW').value) || 20;
+  const h = parseInt(document.getElementById('mapH').value) || 20;
+  const cx = parseInt(document.getElementById('mapCX').value) || Math.floor(w/2);
+  const cy = parseInt(document.getElementById('mapCY').value) || Math.floor(h/2);
+  state.map = createNewMap(w, h, cx, cy);
+  state.undoStack = []; state.redoStack = [];
+  state.selection = null; state.clipboard = null; state.isPasting = false;
+  syncMapSizeUI(); resetView();
+  toast(`新建 ${w}x${h} 地图`);
+}
+
+// ==================== Map Size ====================
+function syncMapSizeUI() {
+  const m = state.map;
+  document.getElementById('mapW').value = m.width;
+  document.getElementById('mapH').value = m.height;
+  document.getElementById('mapCX').value = m.cx;
+  document.getElementById('mapCY').value = m.cy;
+}
+
+function applyMapSize() {
+  const w = Math.max(2, parseInt(document.getElementById('mapW').value) || 20);
+  const h = Math.max(2, parseInt(document.getElementById('mapH').value) || 20);
+  const cx = parseInt(document.getElementById('mapCX').value) || Math.floor(w/2);
+  const cy = parseInt(document.getElementById('mapCY').value) || Math.floor(h/2);
+  const old = state.map;
+  const m = createNewMap(w, h, cx, cy);
+  const rh = Math.min(old.height, h), cw = Math.min(old.width, w);
+  for (let r = 0; r < rh; r++)
+    for (let c = 0; c < cw; c++) {
+      for (const name of LAYER_NAMES) {
+        if (old[name] && m[name]) m[name][r][c] = old[name][r][c];
+      }
+    }
+  state.map = m;
+  state.undoStack = []; state.redoStack = [];
+  state.selection = null;
+  syncMapSizeUI(); requestRender();
+  toast(`地图调整为 ${w}x${h}`);
+}
+
+// ==================== Zoom / View ====================
+function setZoom(z) {
+  const nz = Math.max(0.15, Math.min(5, z));
+  const cx = canvas.width/2, cy = canvas.height/2;
+  state.panX = cx + (state.panX - cx) * (nz / state.zoom);
+  state.panY = cy + (state.panY - cy) * (nz / state.zoom);
+  state.zoom = nz;
+  document.getElementById('zoomLabel').textContent = Math.round(nz * 100) + '%';
+  requestRender();
+}
+
+function resetView() {
+  state.zoom = 1; state.panX = 0; state.panY = 0;
+  document.getElementById('zoomLabel').textContent = '100%';
+  requestRender();
+}
+
+// ==================== Layer ====================
+function setLayer(layer) {
+  state.layer = layer;
+  document.querySelectorAll('.layer-btn').forEach(b => b.classList.toggle('active', b.dataset.layer === layer));
+  document.getElementById('sbLayer').textContent = LAYER_LABELS[layer] || layer;
+  requestRender();
+}
+
+// ==================== Sidebar Events ====================
+function bindSidebarEvents() {
+  document.querySelectorAll('.layer-btn').forEach(b => b.addEventListener('click', () => setLayer(b.dataset.layer)));
+  document.getElementById('showGrid').addEventListener('change', e => { state.showGrid = e.target.checked; requestRender(); });
+  document.getElementById('showInactive').addEventListener('change', e => { state.showInactive = e.target.checked; requestRender(); });
+}
+
+// ==================== Keyboard ====================
+function bindKeyboard() {
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (ctrl && e.key === 'z') { e.preventDefault(); undo(); return; }
+    if (ctrl && (e.key === 'y' || (e.shiftKey && e.key === 'Z'))) { e.preventDefault(); redo(); return; }
+    if (ctrl && e.key === 'c') { e.preventDefault(); copySelection(); return; }
+    if (ctrl && e.key === 'v') { e.preventDefault(); startPaste(); return; }
+
+    if (e.key === 'Escape') {
+      if (state.isPasting) { state.isPasting = false; toast('取消粘贴'); }
+      else if (state.selection) state.selection = null;
+      hideImport();
+      document.getElementById('help-overlay').classList.remove('show');
+      requestRender(); return;
+    }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && state.selection) { deleteSelection(); return; }
+
+    switch (e.key.toLowerCase()) {
+      case 'b': setTool('brush'); break;
+      case 'e': setTool('eraser'); break;
+      case 'f': setTool('fill'); break;
+      case 's': if (!ctrl) setTool('select'); break;
+      case 'i': setTool('pick'); break;
+      case '1': setBrushSize(1); break;
+      case '2': setBrushSize(2); break;
+      case '3': setBrushSize(3); break;
+      case 'g': state.showGrid = !state.showGrid; document.getElementById('showGrid').checked = state.showGrid; requestRender(); break;
+      case 'q': { const idx = LAYER_NAMES.indexOf(state.layer); setLayer(LAYER_NAMES[(idx + 1) % LAYER_NAMES.length]); break; }
+      case '?': toggleHelp(); break;
+    }
+  });
+}
+
+function setTool(tool) {
+  state.tool = tool;
+  document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+  document.getElementById('sbTool').textContent = {brush:'画笔',eraser:'橡皮',fill:'填充',select:'框选',pick:'吸管'}[tool];
+  state.isPasting = false;
+}
+
+function setBrushSize(size) {
+  state.brushSize = size;
+  document.querySelectorAll('.brush-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.brush) === size));
+}
+
+// Tool/brush buttons
+document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+document.querySelectorAll('.brush-btn').forEach(b => b.addEventListener('click', () => setBrushSize(parseInt(b.dataset.brush))));
+
+// ==================== Selection Helpers ====================
+function normalizeSel(a, b) {
+  return { r1: Math.min(a.row, b.row), c1: Math.min(a.col, b.col), r2: Math.max(a.row, b.row), c2: Math.max(a.col, b.col) };
+}
+
+// ==================== Status Bar ====================
+function updateStatusBar() {
+  const { hoverRow: r, hoverCol: c } = state;
+  document.getElementById('sbCoord').textContent = (r >= 0 && c >= 0) ? `${r}, ${c}` : '-';
+  document.getElementById('sbZoom').textContent = Math.round(state.zoom * 100) + '%';
+  document.getElementById('sbSel').textContent = state.selection ?
+    `${state.selection.c2 - state.selection.c1 + 1}x${state.selection.r2 - state.selection.r1 + 1}` : '无';
+}
+
+// ==================== Toast / Help ====================
+function toast(msg, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = isError ? 'error' : '';
+  el.style.display = 'block';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.style.display = 'none', 2000);
+}
+
+function toggleHelp() { document.getElementById('help-overlay').classList.toggle('show'); }
+
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+// ==================== Scene Browser ====================
+let sceneDefinitions = [];
+
+async function loadSceneDefinitions() {
+  try {
+    const resp = await fetch('assets/scene_definitions.json');
+    sceneDefinitions = await resp.json();
+    renderSceneList();
+  } catch (e) {
+    console.warn('Failed to load scene definitions:', e);
+  }
+}
+
+function renderSceneList(filter) {
+  const container = document.getElementById('sceneList');
+  let scenes = sceneDefinitions;
+  if (filter) {
+    const lf = filter.toLowerCase();
+    scenes = scenes.filter(s => String(s.id).includes(lf) || s.name.toLowerCase().includes(lf));
+  }
+  // Show first 100
+  const show = scenes.slice(0, 100);
+  let html = '';
+  for (const s of show) {
+    html += `<div class="scene-item" data-sid="${s.id}" title="入口(${s.entryX},${s.entryY}) 出口(${s.exitX1},${s.exitY1})">
+      <span class="sid">${s.id}</span><span class="sname">${s.name || '场景' + s.id}</span>
+    </div>`;
+  }
+  if (scenes.length > 100) {
+    html += `<div class="scene-item" style="color:#475569;justify-content:center">...共${scenes.length}个，请搜索</div>`;
+  }
+  container.innerHTML = html;
+}
+
+async function loadIndoorScene(sceneId) {
+  try {
+    const resp = await fetch(`assets/indoor_maps/indoor_${sceneId}.json`);
+    const data = await resp.json();
+    // Convert to multi format
+    const defaultDir = data._defaultDir || '10_smap';
+    const convert = row => row.map(v => v ? makeKey(defaultDir, v) : '');
+    const earth = data.earth.map(convert);
+    const surface = data.surface.map(convert);
+    const cx = data.cx !== undefined ? data.cx : Math.floor(data.width / 2);
+    const cy = data.cy !== undefined ? data.cy : Math.floor(data.height / 2);
+
+    state.map = createNewMap(data.width, data.height, cx, cy);
+    state.map.earth = earth;
+    state.map.surface = surface;
+    state.undoStack = []; state.redoStack = [];
+    state.selection = null; state.clipboard = null; state.isPasting = false;
+    syncMapSizeUI();
+    preloadMapTiles();
+
+    // Auto-select smap category
+    if (currentCatId !== '10_smap') {
+      document.getElementById('pCat').value = '10_smap';
+      await loadPaletteCategory('10_smap');
+    }
+
+    resetView();
+    // Auto-zoom for 64x64 maps
+    if (data.width === 64) {
+      state.zoom = 0.7;
+      document.getElementById('zoomLabel').textContent = '70%';
+      requestRender();
+    }
+
+    // Show scene metadata
+    const def = sceneDefinitions.find(s => s.id === sceneId);
+    let meta = `场景 <span>${sceneId}</span> (${data.width}x${data.height})`;
+    if (def) {
+      meta += `<br>名称: <span>${def.name}</span>`;
+      meta += `<br>入口: <span>(${def.entryX}, ${def.entryY})</span>`;
+      meta += `<br>出口: <span>(${def.exitX1}, ${def.exitY1})</span>`;
+    }
+    document.getElementById('sceneMeta').innerHTML = meta;
+
+    toast(`已加载场景 ${sceneId} (${data.width}x${data.height})`);
+  } catch (e) {
+    toast('加载场景失败: ' + e.message, true);
+  }
+}
+
+async function loadWorldMap() {
+  try {
+    toast('正在加载世界地图...');
+    const resp = await fetch('assets/world_map_5layers.json');
+    const data = await resp.json();
+
+    const defaultDir = '01_mmap';
+    const convert = row => row.map(v => v ? makeKey(defaultDir, v) : '');
+
+    state.map = createNewMap(data.width, data.height, data.cx, data.cy);
+    state.map.earth = data.earth.map(convert);
+    state.map.surface = data.surface ? data.surface.map(convert) : state.map.surface;
+    state.map.building = data.building ? data.building.map(convert) : state.map.building;
+    // Buildx/Buildy keep raw numeric values (not tile keys)
+    state.map.buildx = data.buildx || state.map.buildx;
+    state.map.buildy = data.buildy || state.map.buildy;
+
+    state.undoStack = []; state.redoStack = [];
+    state.selection = null; state.clipboard = null; state.isPasting = false;
+    syncMapSizeUI();
+    preloadMapTiles();
+
+    // Auto-select mmap category
+    if (currentCatId !== '01_mmap') {
+      document.getElementById('pCat').value = '01_mmap';
+      await loadPaletteCategory('01_mmap');
+    }
+
+    // Zoom to fit 480x480
+    state.zoom = 0.15;
+    document.getElementById('zoomLabel').textContent = '15%';
+    requestRender();
+
+    document.getElementById('sceneMeta').innerHTML =
+      `世界地图 <span>${data.width}x${data.height}</span> (5层)`;
+
+    toast(`已加载世界地图 (${data.width}x${data.height})`);
+  } catch (e) {
+    toast('加载世界地图失败: ' + e.message, true);
+  }
+}
+
+// ==================== Start ====================
+init();
+loadSceneDefinitions();
+
+// Scene list click handler
+document.getElementById('sceneList').addEventListener('click', e => {
+  const item = e.target.closest('.scene-item');
+  if (!item || !item.dataset.sid) return;
+  loadIndoorScene(parseInt(item.dataset.sid));
+});
+
+// Scene search
+document.getElementById('sceneSearch').addEventListener('input', debounce(e => {
+  renderSceneList(e.target.value.trim());
+}, 300));
+</script>
+</body>
+</html>

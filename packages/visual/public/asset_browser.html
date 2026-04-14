@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>JYQXZ 全资源浏览器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #e0e0e0; font-family: 'PingFang SC', 'Microsoft YaHei', monospace; overflow: hidden; height: 100vh; user-select: none; }
+
+/* ===== Layout ===== */
+#app { display: flex; height: 100vh; }
+
+/* ===== Sidebar ===== */
+#sidebar {
+  width: 200px; min-width: 200px;
+  background: #16213e; border-right: 1px solid #0f3460;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#sidebar-header {
+  padding: 12px 14px; border-bottom: 1px solid #0f3460;
+}
+#sidebar-header h1 { font-size: 14px; color: #fbbf24; }
+#sidebar-header p { font-size: 10px; color: #475569; margin-top: 2px; }
+#cat-list { flex: 1; overflow-y: auto; padding: 6px; }
+.cat-btn {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; background: transparent; border: none; color: #e0e0e0;
+  padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 12px;
+  text-align: left; transition: background 0.15s;
+}
+.cat-btn:hover { background: #1e3a5f; }
+.cat-btn.active { background: #0f3460; border-left: 3px solid #fbbf24; }
+.cat-btn .cat-id { color: #64748b; font-size: 10px; min-width: 56px; }
+.cat-btn .cat-name { flex: 1; }
+.cat-btn .cat-count {
+  background: #0f3460; color: #94a3b8; font-size: 10px;
+  padding: 1px 6px; border-radius: 8px;
+}
+.cat-btn.active .cat-count { background: #1e3a5f; color: #fbbf24; }
+
+/* ===== Main ===== */
+#main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* Toolbar */
+#toolbar {
+  background: #16213e; padding: 8px 14px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  border-bottom: 1px solid #0f3460;
+}
+#cat-title { font-size: 14px; color: #fbbf24; white-space: nowrap; }
+.tb-sep { width: 1px; height: 22px; background: #0f3460; }
+.filter-group { display: flex; align-items: center; gap: 5px; }
+.filter-group label { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+.filter-group input[type="text"] {
+  background: #0f3460; color: #e0e0e0; border: 1px solid #1e3a5f;
+  padding: 4px 8px; border-radius: 4px; font-size: 11px; width: 150px;
+}
+.filter-group input[type="range"] { width: 80px; accent-color: #fbbf24; }
+#stats { font-size: 11px; color: #64748b; margin-left: auto; }
+
+/* Subdir selector */
+#subdir-wrap { display: none; }
+#subdir-select {
+  background: #0f3460; color: #e0e0e0; border: 1px solid #1e3a5f;
+  padding: 4px 8px; border-radius: 4px; font-size: 11px;
+}
+
+/* Animation controls */
+#anim-wrap { display: none; align-items: center; gap: 6px; }
+#anim-wrap button {
+  background: #0f3460; color: #e0e0e0; border: 1px solid #1e3a5f;
+  padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 11px;
+}
+#anim-wrap button:hover { background: #1e3a5f; }
+#anim-wrap button.active { background: #22c55e; color: #fff; border-color: #16a34a; }
+#anim-frame { width: 80px; accent-color: #fbbf24; }
+#anim-speed { width: 50px; accent-color: #fbbf24; }
+#anim-info { font-size: 11px; color: #94a3b8; }
+
+/* Selection bar */
+#sel-bar {
+  background: #1e293b; padding: 6px 14px;
+  display: none; align-items: center; gap: 10px;
+  border-bottom: 1px solid #334155; font-size: 12px;
+}
+#sel-bar.show { display: flex; }
+#sel-items { display: flex; gap: 4px; flex-wrap: wrap; flex: 1; }
+.sel-chip {
+  display: flex; align-items: center; gap: 3px;
+  background: #0f3460; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; cursor: pointer;
+}
+.sel-chip:hover { background: #ef4444; }
+.sel-chip img { image-rendering: pixelated; width: 16px; height: 16px; }
+#sel-bar button {
+  background: #22c55e; color: #fff; border: none; padding: 3px 12px;
+  border-radius: 4px; cursor: pointer; font-size: 11px;
+}
+#sel-bar button:hover { background: #16a34a; }
+#sel-clear { background: #64748b !important; }
+#sel-clear:hover { background: #475569 !important; }
+
+/* Grid */
+#grid-container {
+  flex: 1; overflow-y: auto; padding: 8px;
+  display: flex; flex-wrap: wrap; gap: 2px; justify-content: center;
+  align-content: flex-start;
+}
+.tile-cell {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  background: #16213e; border: 1px solid #1e293b;
+  cursor: pointer; transition: border-color 0.1s;
+}
+.tile-cell:hover { border-color: #fbbf24; z-index: 1; }
+.tile-cell.selected { border-color: #22c55e; background: #0a2e1a; }
+.tile-cell img {
+  image-rendering: pixelated;
+}
+.tile-cell .tid {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  font-size: 7px; text-align: center; color: #475569;
+  background: rgba(0,0,0,0.5); line-height: 1; padding: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.grid-more {
+  width: 100%; text-align: center; padding: 16px;
+  font-size: 11px; color: #475569;
+}
+
+/* ===== Preview Panel ===== */
+#preview {
+  width: 280px; min-width: 280px;
+  background: #16213e; border-left: 1px solid #0f3460;
+  display: none; flex-direction: column; overflow-y: auto;
+}
+#preview.show { display: flex; }
+#pv-img-wrap {
+  padding: 12px; display: flex; align-items: center; justify-content: center;
+  min-height: 200px;
+  background: repeating-conic-gradient(#2a2a3e 0% 25%, #1a1a2e 0% 50%) 0 0 / 16px 16px;
+}
+#pv-img { image-rendering: pixelated; max-width: 256px; max-height: 256px; }
+#pv-meta { padding: 12px; font-size: 12px; line-height: 1.8; }
+#pv-meta .row { display: flex; gap: 6px; }
+#pv-meta .label { color: #64748b; min-width: 50px; }
+#pv-meta .val { color: #fbbf24; }
+#pv-copy {
+  margin: 0 12px 12px; background: #0f3460; color: #e0e0e0; border: 1px solid #1e3a5f;
+  padding: 5px 0; border-radius: 4px; cursor: pointer; font-size: 11px; width: calc(100% - 24px);
+}
+#pv-copy:hover { background: #1e3a5f; }
+
+/* ===== Toast ===== */
+#toast {
+  position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+  background: #22c55e; color: #fff; padding: 8px 20px; border-radius: 6px;
+  font-size: 13px; z-index: 200; display: none; pointer-events: none;
+}
+
+/* ===== Loading ===== */
+#loading {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(26,26,46,0.9); display: none;
+  align-items: center; justify-content: center;
+  font-size: 15px; color: #fbbf24;
+}
+#loading.show { display: flex; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h1>全资源浏览器</h1>
+      <p>JYQXZ Asset Browser</p>
+    </div>
+    <div id="cat-list"></div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <div id="toolbar">
+      <span id="cat-title">选择分类</span>
+      <div class="tb-sep"></div>
+      <div class="filter-group">
+        <label>搜索:</label>
+        <input type="text" id="searchInput" placeholder="ID (空格分隔)">
+      </div>
+      <div class="filter-group">
+        <label>尺寸:</label>
+        <input type="range" id="cellSize" min="32" max="200" value="80">
+      </div>
+      <div id="subdir-wrap" class="filter-group">
+        <label>子目录:</label>
+        <select id="subdir-select"></select>
+      </div>
+      <div id="anim-wrap">
+        <button id="animPlay">播放</button>
+        <button id="animStop">停止</button>
+        <input type="range" id="anim-frame" min="0" max="0" value="0">
+        <label style="font-size:10px;color:#64748b">速度:</label>
+        <input type="range" id="anim-speed" min="50" max="500" value="120">
+        <span id="anim-info">0/0</span>
+      </div>
+      <span id="stats"></span>
+    </div>
+
+    <div id="sel-bar">
+      <span style="color:#22c55e">已选: <span id="sel-count">0</span></span>
+      <div id="sel-items"></div>
+      <button onclick="copySelected()">复制ID</button>
+      <button id="sel-clear" onclick="clearSelection()">清空</button>
+    </div>
+
+    <div id="grid-container"></div>
+  </div>
+
+  <!-- Preview -->
+  <div id="preview">
+    <div id="pv-img-wrap"><img id="pv-img" src="" alt=""></div>
+    <div id="pv-meta"></div>
+    <button id="pv-copy" onclick="copyCurrentId()">复制 ID</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="loading">加载中...</div>
+
+<script>
+// ==================== Constants ====================
+const BASE = 'assets/jy-assets';
+const MAX_RENDER = 2000;
+
+// ==================== Category Registry ====================
+function range(a, b) { const r = []; for (let i = a; i < b; i++) r.push(i); return r; }
+
+const CATEGORIES = [
+  // Pattern A: flat dir with _info.json
+  { id: '01_mmap',   name: '地图瓦片',     pattern: 'info',  pad: 4 },
+  { id: '02_allsin', name: '战斗精灵',     pattern: 'info',  pad: 4 },
+  { id: '06_ranger', name: '游侠',         pattern: 'info',  pad: 4 },
+  { id: '07_warfld', name: '战场',         pattern: 'info',  pad: 4 },
+  { id: '08_thing',  name: '物品图标',     pattern: 'info',  pad: 4 },
+  { id: '09_talk',   name: '对话头像',     pattern: 'info',  pad: 4 },
+  { id: '10_smap',   name: '场景瓦片',     pattern: 'info',  pad: 4 },
+  { id: '11_wmap',   name: '世界地图瓦片', pattern: 'info',  pad: 4 },
+  // Pattern B: subdirectories
+  { id: '12_fight', name: '战斗动画', pattern: 'subdir', pad: 4, anim: true,
+    subdirs: ['Fight000','Fight001','Fight002','Fight003','Fight004'] },
+  { id: '13_eft', name: '特效动画', pattern: 'subdir', pad: 4, anim: true,
+    subdirs: ['000','001','002','003','004','005','006','007','008','009'] },
+  // Pattern C: no _info.json
+  { id: '14_head', name: '角色头像', pattern: 'scan',
+    urlFn: id => `${id}.png`, ids: range(0, 322) },
+  { id: '15_mhead', name: '缩略头像', pattern: 'scan',
+    urlFn: id => `${id}.png`, ids: range(0, 322) },
+  { id: '16_walk', name: '行走图', pattern: 'scan', anim: true,
+    urlFn: id => id <= 2532 ? `${id}.png` : `walk_${id}.png`,
+    ids: range(2501, 2553) },
+  { id: '17_npc_map', name: 'NPC精灵', pattern: 'scan',
+    urlFn: id => `npc_${id}.png`, ids: range(1001, 1450) },
+];
+
+// ==================== State ====================
+let currentCat = null;
+let allItems = [];      // all loaded items for current category
+let filteredItems = []; // after search filter
+let selectedIds = new Set();
+let previewItem = null;
+// animation
+let animState = { playing: false, idx: 0, timer: null };
+let currentSubdir = null; // for subdir pattern filter
+
+// ==================== Init ====================
+function init() {
+  renderSidebar();
+  CATEGORIES[0] && loadCategory(CATEGORIES[0].id);
+  bindEvents();
+}
+
+// ==================== Sidebar ====================
+function renderSidebar() {
+  const list = document.getElementById('cat-list');
+  let html = '';
+  for (const cat of CATEGORIES) {
+    html += `<button class="cat-btn" data-cat="${cat.id}">
+      <span class="cat-id">${cat.id}</span>
+      <span class="cat-name">${cat.name}</span>
+      <span class="cat-count" id="count-${cat.id}">-</span>
+    </button>`;
+  }
+  list.innerHTML = html;
+}
+
+function updateSidebarActive() {
+  document.querySelectorAll('.cat-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.cat === (currentCat ? currentCat.id : ''));
+  });
+}
+
+// ==================== Data Loading ====================
+async function loadCategory(catId) {
+  const cat = CATEGORIES.find(c => c.id === catId);
+  if (!cat) return;
+
+  stopAnim();
+  clearSelection();
+  hidePreview();
+  currentCat = cat;
+  currentSubdir = null;
+  allItems = [];
+  filteredItems = [];
+  updateSidebarActive();
+
+  document.getElementById('cat-title').textContent = `${cat.id} ${cat.name}`;
+  showLoading();
+
+  try {
+    switch (cat.pattern) {
+      case 'info': await loadInfoPattern(cat); break;
+      case 'subdir': await loadSubdirPattern(cat); break;
+      case 'scan': loadScanPattern(cat); break;
+    }
+  } catch (err) {
+    console.error('Load error:', err);
+  }
+
+  // update sidebar count
+  const countEl = document.getElementById('count-' + cat.id);
+  if (countEl) countEl.textContent = allItems.length;
+
+  hideLoading();
+  applyFilter();
+  updateSubdirUI();
+  updateAnimUI();
+}
+
+async function loadInfoPattern(cat) {
+  const resp = await fetch(`${BASE}/${cat.id}/_info.json`);
+  const info = await resp.json();
+  allItems = info.map(t => ({
+    id: t.idx,
+    url: `${BASE}/${cat.id}/${String(t.idx).padStart(cat.pad, '0')}.png`,
+    w: t.w, h: t.h, xoff: t.xoff, yoff: t.yoff,
+    subdir: null
+  }));
+}
+
+async function loadSubdirPattern(cat) {
+  allItems = [];
+  for (const sd of cat.subdirs) {
+    try {
+      const resp = await fetch(`${BASE}/${cat.id}/${sd}/_info.json`);
+      const info = await resp.json();
+      for (const t of info) {
+        allItems.push({
+          id: t.idx,
+          url: `${BASE}/${cat.id}/${sd}/${String(t.idx).padStart(cat.pad, '0')}.png`,
+          w: t.w, h: t.h, xoff: t.xoff, yoff: t.yoff,
+          subdir: sd
+        });
+      }
+    } catch (e) { /* skip missing subdirs */ }
+  }
+}
+
+function loadScanPattern(cat) {
+  allItems = cat.ids.map(id => ({
+    id,
+    url: `${BASE}/${cat.id}/${cat.urlFn(id)}`,
+    w: null, h: null, xoff: null, yoff: null,
+    subdir: null
+  }));
+}
+
+// ==================== Filtering ====================
+function applyFilter() {
+  const search = document.getElementById('searchInput').value.trim();
+  let items = allItems;
+
+  // subdir filter
+  if (currentCat && currentCat.pattern === 'subdir' && currentSubdir) {
+    items = items.filter(it => it.subdir === currentSubdir);
+  }
+
+  // search filter
+  if (search) {
+    const ids = search.split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+    if (ids.length > 0) {
+      const s = new Set(ids);
+      items = items.filter(it => s.has(it.id));
+    }
+  }
+
+  filteredItems = items;
+  renderGrid();
+}
+
+// ==================== Grid Rendering ====================
+function renderGrid() {
+  const container = document.getElementById('grid-container');
+  const size = parseInt(document.getElementById('cellSize').value);
+  const toRender = filteredItems.slice(0, MAX_RENDER);
+
+  document.getElementById('stats').textContent = `${filteredItems.length} items`;
+
+  let html = '';
+  for (const it of toRender) {
+    const sel = selectedIds.has(it.uid || it.id) ? ' selected' : '';
+    const label = it.subdir ? `${it.subdir}:${it.id}` : String(it.id);
+    html += `<div class="tile-cell${sel}" data-uid="${it.uid || it.id}" style="width:${size}px;height:${size}px">
+      <img src="${it.url}" loading="lazy" style="max-width:${size-6}px;max-height:${size-6}px"
+           onerror="this.style.display='none'">
+      <span class="tid">${label}</span>
+    </div>`;
+  }
+  if (filteredItems.length > MAX_RENDER) {
+    html += `<div class="grid-more">还有 ${filteredItems.length - MAX_RENDER} 项未显示，请用搜索缩小范围</div>`;
+  }
+  container.innerHTML = html;
+}
+
+// ==================== Events ====================
+function bindEvents() {
+  // Category click
+  document.getElementById('cat-list').addEventListener('click', e => {
+    const btn = e.target.closest('.cat-btn');
+    if (btn) loadCategory(btn.dataset.cat);
+  });
+
+  // Search & size
+  document.getElementById('searchInput').addEventListener('input', debounce(applyFilter, 300));
+  document.getElementById('cellSize').addEventListener('input', debounce(renderGrid, 150));
+
+  // Grid click
+  document.getElementById('grid-container').addEventListener('click', e => {
+    const cell = e.target.closest('.tile-cell');
+    if (!cell) return;
+    const uid = cell.dataset.uid;
+    const it = filteredItems.find(i => String(i.uid || i.id) === uid);
+    if (!it) return;
+
+    if (e.ctrlKey || e.metaKey) {
+      // toggle selection
+      const key = it.uid || it.id;
+      if (selectedIds.has(key)) {
+        selectedIds.delete(key);
+        cell.classList.remove('selected');
+      } else {
+        selectedIds.add(key);
+        cell.classList.add('selected');
+      }
+      updateSelBar();
+    } else {
+      showPreview(it);
+    }
+  });
+
+  // Subdir select
+  document.getElementById('subdir-select').addEventListener('change', e => {
+    currentSubdir = e.target.value || null;
+    applyFilter();
+  });
+
+  // Anim controls
+  document.getElementById('animPlay').addEventListener('click', playAnim);
+  document.getElementById('animStop').addEventListener('click', stopAnim);
+  document.getElementById('anim-frame').addEventListener('input', e => {
+    if (!animState.playing) {
+      const idx = parseInt(e.target.value);
+      showAnimFrame(idx);
+    }
+  });
+}
+
+// ==================== Subdir UI ====================
+function updateSubdirUI() {
+  const wrap = document.getElementById('subdir-wrap');
+  const sel = document.getElementById('subdir-select');
+  if (currentCat && currentCat.pattern === 'subdir') {
+    wrap.style.display = 'flex';
+    let opts = '<option value="">全部</option>';
+    for (const sd of currentCat.subdirs) {
+      opts += `<option value="${sd}">${sd}</option>`;
+    }
+    sel.innerHTML = opts;
+    sel.value = '';
+    currentSubdir = null;
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+// ==================== Animation UI ====================
+function updateAnimUI() {
+  const wrap = document.getElementById('anim-wrap');
+  if (currentCat && currentCat.anim) {
+    wrap.style.display = 'flex';
+    const slider = document.getElementById('anim-frame');
+    slider.max = filteredItems.length - 1;
+    slider.value = 0;
+    document.getElementById('anim-info').textContent = `0/${filteredItems.length}`;
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+function playAnim() {
+  if (!currentCat || !currentCat.anim || filteredItems.length === 0) return;
+  stopAnim();
+  animState.playing = true;
+  animState.idx = 0;
+  document.getElementById('animPlay').classList.add('active');
+  const speed = parseInt(document.getElementById('anim-speed').value) || 120;
+  animState.timer = setInterval(() => {
+    animState.idx = (animState.idx + 1) % filteredItems.length;
+    showAnimFrame(animState.idx);
+  }, speed);
+}
+
+function stopAnim() {
+  if (animState.timer) clearInterval(animState.timer);
+  animState.playing = false;
+  animState.timer = null;
+  document.getElementById('animPlay').classList.remove('active');
+}
+
+function showAnimFrame(idx) {
+  if (idx < 0 || idx >= filteredItems.length) return;
+  const it = filteredItems[idx];
+  showPreview(it);
+  document.getElementById('anim-frame').value = idx;
+  document.getElementById('anim-info').textContent = `${idx + 1}/${filteredItems.length}`;
+}
+
+// ==================== Preview ====================
+function showPreview(it) {
+  previewItem = it;
+  const pv = document.getElementById('preview');
+  const img = document.getElementById('pv-img');
+  const meta = document.getElementById('pv-meta');
+
+  img.src = it.url;
+  img.style.display = '';
+  pv.classList.add('show');
+
+  let html = '';
+  html += `<div class="row"><span class="label">ID:</span><span class="val">${it.id}</span></div>`;
+  if (it.subdir) {
+    html += `<div class="row"><span class="label">目录:</span><span class="val">${it.subdir}</span></div>`;
+  }
+  if (it.w != null) {
+    html += `<div class="row"><span class="label">尺寸:</span><span class="val">${it.w} x ${it.h}</span></div>`;
+  }
+  if (it.xoff != null) {
+    html += `<div class="row"><span class="label">偏移:</span><span class="val">(${it.xoff}, ${it.yoff})</span></div>`;
+  }
+  html += `<div class="row" style="margin-top:8px"><span style="color:#475569;font-size:11px">Ctrl+点击 多选</span></div>`;
+  meta.innerHTML = html;
+}
+
+function hidePreview() {
+  document.getElementById('preview').classList.remove('show');
+  previewItem = null;
+}
+
+// ==================== Selection ====================
+function updateSelBar() {
+  const bar = document.getElementById('sel-bar');
+  const items = document.getElementById('sel-items');
+  const count = document.getElementById('sel-count');
+
+  if (selectedIds.size === 0) {
+    bar.classList.remove('show');
+    return;
+  }
+  bar.classList.add('show');
+  count.textContent = selectedIds.size;
+
+  let html = '';
+  for (const key of selectedIds) {
+    const it = allItems.find(i => (i.uid || i.id) === key);
+    const url = it ? it.url : '';
+    const label = it ? (it.subdir ? `${it.subdir}:${it.id}` : it.id) : key;
+    html += `<div class="sel-chip" onclick="removeSel('${key}')" title="移除">
+      <img src="${url}" onerror="this.style.display='none'"> ${label}
+    </div>`;
+  }
+  items.innerHTML = html;
+}
+
+function removeSel(key) {
+  selectedIds.delete(key);
+  const cell = document.querySelector(`.tile-cell[data-uid="${key}"]`);
+  if (cell) cell.classList.remove('selected');
+  updateSelBar();
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  document.querySelectorAll('.tile-cell.selected').forEach(c => c.classList.remove('selected'));
+  updateSelBar();
+}
+
+function copySelected() {
+  const ids = Array.from(selectedIds).sort();
+  const text = ids.join(', ');
+  navigator.clipboard.writeText(text).then(() => toast('已复制'));
+}
+
+function copyCurrentId() {
+  if (!previewItem) return;
+  navigator.clipboard.writeText(String(previewItem.id)).then(() => toast(`已复制 ID: ${previewItem.id}`));
+}
+
+// ==================== Utilities ====================
+function showLoading() { document.getElementById('loading').classList.add('show'); }
+function hideLoading() { document.getElementById('loading').classList.remove('show'); }
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.style.display = 'none', 1800);
+}
+
+function debounce(fn, ms) {
+  let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+}
+
+// ==================== Start ====================
+init();
+</script>
+</body>
+</html>
