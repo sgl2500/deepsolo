@@ -4,7 +4,7 @@
 
 import Phaser from 'phaser';
 import { SCREEN_WIDTH, SCREEN_HEIGHT, NPC_INTERACT_DIST } from '../config';
-import { SceneState, type MapData, type TileMeta, type CharMeta } from '../types';
+import { SceneState, type MapData, type TileMeta, type CharMeta, type Strategy } from '../types';
 import { EventBus } from '../core/EventBus';
 import { GameStore } from '../core/GameStore';
 import { MapRenderer } from '../systems/MapRenderer';
@@ -102,6 +102,15 @@ export class WorldScene extends Phaser.Scene {
     // 聊天面板状态
     _eventBus.on('chat:open', () => { this.chatOpen = true; });
     _eventBus.on('chat:close', () => { this.chatOpen = false; });
+
+    // 监听新策略（衍生 NPC 动态添加）
+    _eventBus.on('strategy:loaded', (strategies: Strategy[]) => {
+      for (const s of strategies) {
+        if (!this.entitySystem.agents.has(s.id)) {
+          this.entitySystem.addAgent(this.charMeta, s);
+        }
+      }
+    });
 
     _eventBus.emit('ui:refresh');
   }

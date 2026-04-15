@@ -12,6 +12,7 @@ import websockets
 
 from .llm.client import LLMClient
 from .chat.session import ChatSession
+from .evolution.derive import run_derivation
 
 # 项目根目录（deepsolo/）
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -121,6 +122,27 @@ async def handle_connection(websocket):
         print(f"[WS] 连接关闭: {websocket.remote_address}")
 
 
+async def derivation_scheduler():
+    """定时衍生任务 — 每 24 小时执行一次"""
+    # 首次启动等待 60 秒（让系统就绪）
+    await asyncio.sleep(60)
+    while True:
+        try:
+            llm = LLMClient(
+                api_key=LLM_API_KEY,
+                base_url=LLM_BASE_URL,
+                model=LLM_MODEL,
+            )
+            new_id = await run_derivation(DATA_DIR, llm)
+            if new_id:
+                print(f"[衍生] 新策略诞生: {new_id}")
+            else:
+                print("[衍生] 本次未产生新策略")
+        except Exception as e:
+            print(f"[衍生] 错误: {e}")
+        await asyncio.sleep(86400)  # 24 小时
+
+
 async def main():
     """启动 WebSocket 服务"""
     if not LLM_API_KEY:
@@ -130,6 +152,9 @@ async def main():
     print(f"数据目录: {DATA_DIR}")
     print(f"LLM: {LLM_BASE_URL} / {LLM_MODEL}")
     print(f"WebSocket 服务启动: ws://{WS_HOST}:{WS_PORT}")
+
+    # 启动衍生定时任务
+    asyncio.create_task(derivation_scheduler())
 
     async with websockets.serve(handle_connection, WS_HOST, WS_PORT):
         await asyncio.Future()  # 永久运行

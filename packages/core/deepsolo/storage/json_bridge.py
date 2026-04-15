@@ -95,3 +95,10 @@ def write_frontend_json(base_path: Path) -> None:
         json.dumps(world, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+    # 同步到前端 Vite 静态目录
+    visual_data = base_path.parent / "packages" / "visual" / "public" / "data"
+    if visual_data.exists():
+        import shutil
+        shutil.copy2(frontend_dir / "strategies.json", visual_data / "strategies.json")
+        shutil.copy2(frontend_dir / "world.json", visual_data / "world.json")

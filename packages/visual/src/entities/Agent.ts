@@ -41,7 +41,7 @@ export class Agent extends Entity {
     this.targetX = mx;
     this.targetY = my;
     this.phase = index * 1.3;
-    this.charKey = charMeta.mapping[strategy.id] || 'player';
+    this.charKey = 'player'; // 统一使用 player 贴图（有全部 4 方向帧，避免竞态丢贴图）
     this.charMeta = charMeta;
     this.isLpc = strategy.id === 'e2';
     this.direction = [Direction.Up, Direction.Right, Direction.Left, Direction.Down][index % 4];
@@ -118,7 +118,7 @@ export class Agent extends Entity {
         this._faceTargetY - this.mapY,
       );
       this.updateScreenPosition(playerX, playerY);
-      this.updateWalkAnimation(time, false, this.phase, 'player');
+      this.updateWalkAnimation(time, false, this.phase, this.charKey);
       return;
     }
 
@@ -139,7 +139,7 @@ export class Agent extends Entity {
     }
 
     this.updateScreenPosition(playerX, playerY);
-    this.updateWalkAnimation(time, this.moving, this.phase, 'player');
+    this.updateWalkAnimation(time, this.moving, this.phase, this.charKey);
   }
 
   /** 进入讨论模式，移向讨论中心 */

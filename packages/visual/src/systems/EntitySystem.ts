@@ -35,6 +35,22 @@ export class EntitySystem {
     });
   }
 
+  /** 动态添加单个 Agent（衍生 NPC 用） */
+  addAgent(charMeta: CharMeta, strategy: Strategy): void {
+    if (this.agents.has(strategy.id)) return;
+    const idx = this.agents.size;
+    const agent = new Agent(this.scene, this.mapData, charMeta, strategy, idx);
+
+    if (strategy.category === 'emerged') {
+      // 衍生 NPC 从策略茶馆走出，然后走向对应状态区域
+      agent.mapX = 30;
+      agent.mapY = 90;
+      agent.moveToStateRegion(strategy.state);
+    }
+
+    this.agents.set(strategy.id, agent);
+  }
+
   /** 为指定建筑创建 NPC */
   createNPCs(buildingId: string, indoorCx?: number, indoorCy?: number): void {
     this.clearNPCs();
