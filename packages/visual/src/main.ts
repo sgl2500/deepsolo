@@ -3,10 +3,11 @@
 // ============================================================
 
 import Phaser from 'phaser';
-import { SCREEN_WIDTH, SCREEN_HEIGHT } from './config';
+import { SCREEN_WIDTH, SCREEN_HEIGHT, WS_URL } from './config';
 import { EventBus } from './core/EventBus';
 import { GameStore } from './core/GameStore';
 import { UIManager } from './ui/UIManager';
+import { ChatService } from './services/ChatService';
 import { BootScene } from './scenes/BootScene';
 import { WorldScene, setWorldContext } from './scenes/WorldScene';
 
@@ -14,8 +15,12 @@ import { WorldScene, setWorldContext } from './scenes/WorldScene';
 const eventBus = new EventBus();
 const store = new GameStore(eventBus);
 
+// 创建 ChatService
+const chatService = new ChatService(WS_URL);
+chatService.connect();
+
 // 创建 UI（DOM 层）
-const ui = new UIManager(eventBus, store);
+const ui = new UIManager(eventBus, store, chatService);
 
 // 注入共享上下文给 WorldScene
 setWorldContext(eventBus, store);

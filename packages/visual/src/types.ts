@@ -123,6 +123,8 @@ export interface GameEvents {
   'dialogue:choice': number;
   'dialogue:advance': void;
   'npc:interact': { npcId: string };
+  'chat:open': Strategy;
+  'chat:close': void;
 }
 
 /** 讨论话题 */

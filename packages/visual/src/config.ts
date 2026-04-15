@@ -4,6 +4,15 @@
 
 import { AgentState, type StateRegion } from './types';
 
+/** 后端数据文件路径（seed 脚本同步到 public/data/） */
+export const STRATEGIES_URL = './data/strategies.json';
+
+/** 前端轮询间隔 (ms) */
+export const POLL_INTERVAL = 10000;
+
+/** WebSocket 服务地址 */
+export const WS_URL = 'ws://localhost:8765';
+
 /** 屏幕尺寸 */
 export const SCREEN_WIDTH = 1280;
 export const SCREEN_HEIGHT = 720;

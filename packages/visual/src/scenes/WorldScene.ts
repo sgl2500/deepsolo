@@ -40,6 +40,7 @@ export class WorldScene extends Phaser.Scene {
   private mapData!: MapData;
   private tileMeta!: TileMeta;
   private charMeta!: CharMeta;
+  private chatOpen = false;
 
   constructor() {
     super('WorldScene');
@@ -85,27 +86,12 @@ export class WorldScene extends Phaser.Scene {
     );
     this.sceneManager.saveWorldContext(this.mapData, this.tileMeta);
 
-    // 点击交互
-    this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
-      if (this.sceneManager.isPlayerLocked()) return;
-      const agent = this.entitySystem.getClickedAgent(ptr.x, ptr.y);
-      if (agent) {
-        _store.selectStrategy(agent.strategy);
-        if (agent.inDiscussion) {
-          const group = this.discussionSystem.getGroupForAgent(agent.id);
-          if (group) {
-            _eventBus.emit('discussion:view', group);
-          }
-        }
-      }
-    });
-
     // 玩家初始气泡
     this.time.delayedCall(1000, () => {
       this.entitySystem.showBubble('player', '我今天心情不错');
     });
 
-    // 监听对话 advance/choice 事件（通过键盘 E 键触发）
+    // 监听对话 advance/choice 事件（室内 NPC 预设对话）
     _eventBus.on('dialogue:advance', () => {
       this.dialogueSystem.advance();
     });
@@ -113,13 +99,28 @@ export class WorldScene extends Phaser.Scene {
       this.dialogueSystem.choose(index);
     });
 
+    // 聊天面板状态
+    _eventBus.on('chat:open', () => { this.chatOpen = true; });
+    _eventBus.on('chat:close', () => { this.chatOpen = false; });
+
     _eventBus.emit('ui:refresh');
   }
+
+  /** Agent 交互距离（地图格） */
+  private static readonly AGENT_INTERACT_DIST = 3.0;
 
   update(time: number, delta: number): void {
     const state = this.sceneManager.getState();
 
-    // 对话状态下处理交互键
+    // 聊天面板打开时：只处理 ESC 关闭
+    if (this.chatOpen) {
+      if (this.inputController.isCancelPressed()) {
+        _eventBus.emit('chat:close');
+      }
+      return;
+    }
+
+    // 对话状态下处理交互键（室内 NPC 预设对话）
     if (state === SceneState.Dialogue) {
       if (this.inputController.isInteractPressed()) {
         this.dialogueSystem.advance();
@@ -157,12 +158,27 @@ export class WorldScene extends Phaser.Scene {
     // 场景管理更新（检测建筑进出）
     this.sceneManager.update(time, delta, this.entitySystem.player);
 
-    // NPC 交互检测（E 键）
+    // 空格键交互检测
     if (this.inputController.isInteractPressed()) {
+      // 优先检测室内 NPC
       const npc = this.entitySystem.getNearbyNPC(px, py, NPC_INTERACT_DIST);
       if (npc) {
         this.sceneManager.startDialogue();
         this.dialogueSystem.startDialogue(npc.dialogueId);
+      } else {
+        // 检测附近的策略 Agent → 打开聊天
+        const agent = this.entitySystem.getNearbyAgent(px, py, WorldScene.AGENT_INTERACT_DIST);
+        if (agent) {
+          _store.selectStrategy(agent.strategy);
+          if (agent.inDiscussion) {
+            const group = this.discussionSystem.getGroupForAgent(agent.id);
+            if (group) {
+              _eventBus.emit('discussion:view', group);
+            }
+          } else {
+            _eventBus.emit('chat:open', agent.strategy);
+          }
+        }
       }
     }
 

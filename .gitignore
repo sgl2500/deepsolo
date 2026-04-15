@@ -31,6 +31,10 @@ Thumbs.db
 data/
 *.log
 
+# Generated frontend data (from seed script)
+packages/visual/public/data/strategies.json
+packages/visual/public/data/world.json
+
 # Environment
 .env
 .env.local

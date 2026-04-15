@@ -9,6 +9,7 @@ import { EventLogPanel } from './EventLogPanel';
 import { DetailPanel } from './DetailPanel';
 import { HeaderBar } from './HeaderBar';
 import { DialoguePanel } from './DialoguePanel';
+import type { ChatService } from '../services/ChatService';
 import './styles.css';
 
 export class UIManager {
@@ -18,7 +19,7 @@ export class UIManager {
   private detailPanel: DetailPanel;
   dialoguePanel: DialoguePanel;
 
-  constructor(eventBus: EventBus, store: GameStore) {
+  constructor(eventBus: EventBus, store: GameStore, chatService: ChatService) {
     const app = document.getElementById('app')!;
 
     // Header
@@ -73,6 +74,7 @@ export class UIManager {
     this.eventLog = new EventLogPanel(eventContainer, eventBus, store);
     this.detailPanel = new DetailPanel(detailContainer, eventBus, store);
     this.dialoguePanel = new DialoguePanel(eventBus);
+    this.dialoguePanel.setChatService(chatService);
     this.headerBar.refresh();
 
     // Subscribe to refresh events
@@ -86,6 +88,11 @@ export class UIManager {
     eventBus.on('ui:refresh', () => {
       this.strategyList.refresh();
       this.headerBar.refresh();
+    });
+
+    // 策略 Agent 点击 → 打开自由聊天
+    eventBus.on('chat:open', (strategy: import('../types').Strategy) => {
+      this.dialoguePanel.openChat(strategy);
     });
   }
 

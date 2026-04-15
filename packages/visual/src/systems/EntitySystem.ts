@@ -67,6 +67,19 @@ export class EntitySystem {
     return null;
   }
 
+  /** 获取玩家附近的策略 Agent */
+  getNearbyAgent(playerX: number, playerY: number, threshold: number): Agent | null {
+    for (const agent of this.agents.values()) {
+      if (!agent.container.visible) continue;
+      const dx = agent.mapX - playerX;
+      const dy = agent.mapY - playerY;
+      if (Math.sqrt(dx * dx + dy * dy) <= threshold) {
+        return agent;
+      }
+    }
+    return null;
+  }
+
   /** 立即同步所有实体的屏幕位置（场景切换时调用，防止闪现） */
   syncEntityScreenPositions(playerX: number, playerY: number): void {
     // 玩家固定在屏幕中心
