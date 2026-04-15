@@ -44,6 +44,8 @@ export class SceneManager {
 
   // 退出建筑后的重入保护（玩家必须先离开入口区域才能再次进入）
   private reentryBlocked = false;
+  // 启动保护：前 2 秒不检测建筑入口，防止出生在建筑位置立刻进入
+  private startupBlocked = true;
 
   constructor(
     scene: Phaser.Scene,
@@ -70,6 +72,9 @@ export class SceneManager {
     this.fadeOverlay = scene.add.rectangle(
       640, 360, 1280, 720, 0x000000,
     ).setOrigin(0.5).setDepth(10000).setAlpha(0).setScrollFactor(0);
+
+    // 启动保护：2 秒后允许检测建筑入口
+    scene.time.delayedCall(2000, () => { this.startupBlocked = false; });
   }
 
   /** 保存世界地图引用，在 init 之后调用一次 */
@@ -108,7 +113,7 @@ export class SceneManager {
         }
         if (!nearAny) this.reentryBlocked = false;
       }
-      if (!this.reentryBlocked) {
+      if (!this.reentryBlocked && !this.startupBlocked) {
         this.checkBuildingEntry(player);
       }
     } else if (this.state === SceneState.Indoor) {

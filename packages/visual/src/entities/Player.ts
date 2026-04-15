@@ -97,8 +97,9 @@ export class Player extends Entity {
     return 'player';
   }
 
-  /** 检查指定位置是否被墙壁阻挡 */
+  /** 检查指定位置是否被墙壁阻挡（仅室内生效） */
   private isBlocked(x: number, y: number): boolean {
+    if (!this.indoorMode) return false;  // 世界地图无碰撞
     const sv = getTile(this.mapData, 1, x, y);
     if (sv === 0) return false;       // 空地
     if (sv === 307) return false;     // 门口可通过
