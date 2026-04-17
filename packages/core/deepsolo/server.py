@@ -14,6 +14,7 @@ from .llm.client import LLMClient
 from .chat.session import ChatSession
 from .evolution.derive import run_derivation
 from .evolution.discuss import run_discussion
+from .evolution.heaven import run_heaven_judgement
 
 # 项目根目录（deepsolo/）
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -165,6 +166,23 @@ async def discussion_scheduler():
         await asyncio.sleep(14400)  # 4 小时
 
 
+async def heaven_scheduler():
+    """定时天道审查 — 每天执行一次"""
+    # 首次启动等待 300 秒（在讨论引擎之后运行）
+    await asyncio.sleep(300)
+    while True:
+        try:
+            llm = LLMClient(
+                api_key=LLM_API_KEY,
+                base_url=LLM_BASE_URL,
+                model=LLM_MODEL,
+            )
+            eliminated = await run_heaven_judgement(DATA_DIR, llm)
+        except Exception as e:
+            print(f"[天罚] 错误: {e}")
+        await asyncio.sleep(86400)  # 24 小时
+
+
 async def main():
     """启动 WebSocket 服务"""
     if not LLM_API_KEY:
@@ -180,6 +198,9 @@ async def main():
 
     # 启动社区讨论定时任务
     asyncio.create_task(discussion_scheduler())
+
+    # 启动天道审查定时任务
+    asyncio.create_task(heaven_scheduler())
 
     async with websockets.serve(handle_connection, WS_HOST, WS_PORT):
         await asyncio.Future()  # 永久运行
