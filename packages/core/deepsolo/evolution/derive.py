@@ -18,7 +18,7 @@ from ..storage.file_store import (
     load_profile,
     save_profile,
 )
-from ..storage.json_bridge import write_frontend_json
+from ..storage.json_bridge import append_event, write_frontend_json
 from ..llm.client import LLMClient
 
 
@@ -135,6 +135,17 @@ async def run_derivation(base_path: Path, llm_client: LLMClient) -> str | None:
     write_frontend_json(base_path)
 
     print(f"[derive] 新策略诞生: {display_name} ({new_id}), 父代: {parent1['id']}+{parent2['id']}")
+
+    # 写入诞生事件
+    append_event(base_path, {
+        "type": "agent_born",
+        "agents": [new_id],
+        "agent_name": display_name,
+        "detail": f"由 {parent1['name']} 和 {parent2['name']} 衍生",
+        "parents": [parent1["id"], parent2["id"]],
+        "relation": relation,
+    })
+
     return new_id
 
 

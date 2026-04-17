@@ -3,7 +3,7 @@
 // ============================================================
 
 import { AgentState, type Strategy, type EventEntry } from '../types';
-import { INITIAL_STRATEGIES, STRATEGIES_URL, POLL_INTERVAL } from '../config';
+import { INITIAL_STRATEGIES, STRATEGIES_URL, EVENTS_URL, POLL_INTERVAL } from '../config';
 import { EventBus } from './EventBus';
 
 export class GameStore {
@@ -15,6 +15,8 @@ export class GameStore {
 
   private eventBus: EventBus;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private processedEvents: Set<string> = new Set();
+  private prevStrategyIds: Set<string> = new Set();
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
@@ -23,6 +25,7 @@ export class GameStore {
       const state = this.deriveState(s.returnPct);
       return { ...s, state } as Strategy;
     });
+    this.prevStrategyIds = new Set(this.strategies.map(s => s.id));
     // 异步尝试从后端 JSON 加载真实数据
     this.fetchFromBackend();
   }
@@ -44,6 +47,7 @@ export class GameStore {
             const state = this.deriveState(s.returnPct);
             return { ...s, state } as Strategy;
           });
+          this.prevStrategyIds = new Set(this.strategies.map(s => s.id));
           this.eventBus.emit('strategy:loaded', this.strategies);
           this.startPolling();
           return;
@@ -58,21 +62,101 @@ export class GameStore {
   private startPolling(): void {
     if (this.pollTimer) return;
     this.pollTimer = setInterval(async () => {
-      try {
-        const resp = await fetch(STRATEGIES_URL);
-        if (!resp.ok) return;
-        const data: Strategy[] = await resp.json();
-        if (Array.isArray(data) && data.length > 0) {
-          this.strategies = data.map(s => {
-            const state = this.deriveState(s.returnPct);
-            return { ...s, state } as Strategy;
-          });
-          this.eventBus.emit('strategy:loaded', this.strategies);
-        }
-      } catch {
-        // 忽略轮询错误
-      }
+      await this.pollStrategies();
+      await this.pollEvents();
     }, POLL_INTERVAL);
+  }
+
+  /** 轮询策略数据，diff 检测增删 */
+  private async pollStrategies(): Promise<void> {
+    try {
+      const resp = await fetch(STRATEGIES_URL);
+      if (!resp.ok) return;
+      const data: Strategy[] = await resp.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const newStrategies = data.map(s => {
+          const state = this.deriveState(s.returnPct);
+          return { ...s, state } as Strategy;
+        });
+        const newIds = new Set(newStrategies.map(s => s.id));
+
+        // 检测被移除的 Agent（天道消灭）
+        for (const oldId of this.prevStrategyIds) {
+          if (!newIds.has(oldId)) {
+            const oldStrategy = this.strategies.find(s => s.id === oldId);
+            if (oldStrategy) {
+              this.eventBus.emit('agent:eliminated', {
+                id: oldId,
+                name: oldStrategy.name,
+                reason: '天道消灭',
+                detail: `${oldStrategy.name} 已被天道审查消灭`,
+              });
+              this.addEvent(oldStrategy.name, '被天道消灭');
+            }
+          }
+        }
+
+        // 检测新增的 Agent（策略诞生）
+        for (const newId of newIds) {
+          if (!this.prevStrategyIds.has(newId)) {
+            const newStrategy = newStrategies.find(s => s.id === newId)!;
+            this.eventBus.emit('agent:born', {
+              id: newId,
+              name: newStrategy.name,
+              parents: newStrategy.parents,
+              detail: newStrategy.description,
+            });
+            this.addEvent(newStrategy.name, '新策略诞生!');
+          }
+        }
+
+        this.strategies = newStrategies;
+        this.prevStrategyIds = newIds;
+        this.eventBus.emit('strategy:loaded', this.strategies);
+      }
+    } catch {
+      // 忽略轮询错误
+    }
+  }
+
+  /** 轮询事件文件，发射后端驱动的事件 */
+  private async pollEvents(): Promise<void> {
+    try {
+      const resp = await fetch(EVENTS_URL);
+      if (!resp.ok) return;
+      const events: any[] = await resp.json();
+      if (!Array.isArray(events)) return;
+
+      for (const evt of events) {
+        if (!evt.id || this.processedEvents.has(evt.id)) continue;
+        this.processedEvents.add(evt.id);
+
+        if (evt.type === 'heaven_eliminate') {
+          this.eventBus.emit('agent:eliminated', {
+            id: evt.agents?.[0] || '',
+            name: evt.agent_name || '',
+            reason: evt.reason || '天道消灭',
+            detail: evt.detail || '',
+          });
+        } else if (evt.type === 'agent_born') {
+          this.eventBus.emit('agent:born', {
+            id: evt.agents?.[0] || '',
+            name: evt.agent_name || '',
+            parents: evt.parents,
+            detail: evt.detail || '',
+          });
+        } else if (evt.type === 'discussion') {
+          this.eventBus.emit('discussion:event', {
+            agents: evt.agents || [],
+            agentNames: evt.agent_names || [],
+            dialogues: evt.dialogues || [],
+            complementary: evt.complementary || false,
+          });
+        }
+      }
+    } catch {
+      // 忽略
+    }
   }
 
   stopPolling(): void {

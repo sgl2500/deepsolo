@@ -26,7 +26,7 @@ from ..storage.file_store import (
     load_profile,
     save_profile,
 )
-from ..storage.json_bridge import write_frontend_json
+from ..storage.json_bridge import append_event, write_frontend_json
 from ..llm.client import LLMClient
 
 
@@ -603,6 +603,24 @@ async def run_discussion(base_path: Path, llm_client: LLMClient) -> str | None:
 
     print(f"[discuss] 经验写入 {saved} 条")
 
+    # 6.5 写入讨论事件（前端可视化用）
+    participant_names = [
+        load_profile(base_path, aid).name
+        for aid in participant_ids
+        if load_profile(base_path, aid)
+    ]
+    append_event(base_path, {
+        "type": "discussion",
+        "agents": participant_ids,
+        "agent_names": participant_names,
+        "detail": f"{'互补' if complement else '普通'}碰面",
+        "dialogues": [
+            {"agent_id": d.get("agent_id", ""), "text": d.get("text", "")}
+            for d in dialogues
+        ],
+        "complementary": bool(complement),
+    })
+
     # 7. 只有互补时才可能诞生新 Agent
     new_id = None
     emerged = result.get("emerged", False)
@@ -660,6 +678,16 @@ async def run_discussion(base_path: Path, llm_client: LLMClient) -> str | None:
             ))
 
         print(f"[discuss] 新策略诞生: {display_name} ({new_id})")
+
+        # 写入诞生事件
+        append_event(base_path, {
+            "type": "agent_born",
+            "agents": [new_id],
+            "agent_name": display_name,
+            "detail": f"由 {', '.join(parent_names)} 碰面互补诞生",
+            "parents": participant_ids,
+            "relation": relation,
+        })
     else:
         if not complement:
             print("[discuss] 不互补，各走各的")

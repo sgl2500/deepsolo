@@ -15,6 +15,7 @@ import { DayCycleSystem } from '../systems/DayCycleSystem';
 import { DiscussionSystem } from '../systems/DiscussionSystem';
 import { SceneManager } from '../systems/SceneManager';
 import { DialogueSystem } from '../systems/DialogueSystem';
+import { VFXSystem } from '../systems/VFXSystem';
 import { BUILDINGS } from '../data/BuildingData';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
 
@@ -35,6 +36,7 @@ export class WorldScene extends Phaser.Scene {
   private discussionSystem!: DiscussionSystem;
   private sceneManager!: SceneManager;
   private dialogueSystem!: DialogueSystem;
+  private vfxSystem!: VFXSystem;
   private buildingMarkers!: Phaser.GameObjects.Container[];
 
   private mapData!: MapData;
@@ -76,6 +78,9 @@ export class WorldScene extends Phaser.Scene {
 
     this.dialogueSystem = new DialogueSystem(this, _eventBus);
 
+    // VFX 特效系统
+    this.vfxSystem = new VFXSystem(this);
+
     // 建筑入口标记（必须在 SceneManager 之前创建）
     this.buildingMarkers = createBuildingMarkers(this, this.mapData);
 
@@ -112,11 +117,141 @@ export class WorldScene extends Phaser.Scene {
       }
     });
 
+    // ── 天道消灭特效 ──
+    _eventBus.on('agent:eliminated', (data: { id: string; name: string; reason: string; detail: string }) => {
+      const agent = this.entitySystem.agents.get(data.id);
+      if (!agent) {
+        // Agent 可能已从 strategy:loaded 中被移除，直接显示气泡通知
+        this.entitySystem.showBubble('player', `${data.name} 被天道消灭!`);
+        _store.addEvent(data.name, `被天道消灭: ${data.detail}`);
+        _eventBus.emit('ui:refresh');
+        return;
+      }
+
+      const screenX = agent.container.x;
+      const screenY = agent.container.y;
+
+      // 先显示气泡
+      this.entitySystem.showBubble(data.id, '天道降罚...');
+
+      // 播放雷击特效
+      this.vfxSystem.playHeavenStrike(screenX, screenY, () => {
+        // 特效完成，Agent 缩小消失
+        this.tweens.add({
+          targets: agent.container,
+          scaleX: 0,
+          scaleY: 0,
+          alpha: 0,
+          duration: 400,
+          ease: 'Power2',
+          onComplete: () => {
+            this.entitySystem.removeAgent(data.id);
+          },
+        });
+      });
+
+      _store.addEvent(data.name, `被天道消灭: ${data.detail}`);
+      _eventBus.emit('ui:refresh');
+    });
+
+    // ── 策略诞生特效 ──
+    _eventBus.on('agent:born', (data: { id: string; name: string; parents?: string[]; detail: string }) => {
+      // 先通过 strategy:loaded 添加 Agent（下一轮轮询会触发）
+      // 如果已存在，直接播放特效
+      const agent = this.entitySystem.agents.get(data.id);
+      if (!agent) {
+        // 尝试立即添加
+        const strategy = _store.strategies.find(s => s.id === data.id);
+        if (strategy) {
+          this.entitySystem.addAgent(this.charMeta, strategy);
+          const newAgent = this.entitySystem.agents.get(data.id);
+          if (newAgent) {
+            this.playBirthForAgent(newAgent, data.name);
+          }
+        }
+      } else {
+        this.playBirthForAgent(agent, data.name);
+      }
+
+      _store.addEvent(data.name, `新策略诞生! ${data.detail}`);
+      _eventBus.emit('ui:refresh');
+    });
+
+    // ── 讨论事件可视化 ──
+    _eventBus.on('discussion:event', (data: { agents: string[]; agentNames: string[]; dialogues: Array<{ agent_id: string; text: string }>; complementary: boolean }) => {
+      // 让参与讨论的 Agent 走向茶馆
+      const centerX = 50;
+      const centerY = 50;
+      data.agents.forEach((agentId, idx) => {
+        const agent = this.entitySystem.agents.get(agentId);
+        if (agent) {
+          const angle = (2 * Math.PI * idx) / data.agents.length;
+          agent.enterDiscussion(centerX, centerY, angle);
+        }
+      });
+
+      // 逐轮显示对话气泡
+      data.dialogues.forEach((line, idx) => {
+        this.time.delayedCall(3000 * (idx + 1), () => {
+          const agent = this.entitySystem.agents.get(line.agent_id);
+          if (agent) {
+            this.entitySystem.showBubble(line.agent_id, line.text, {
+              width: 160,
+              height: 40,
+              borderColor: data.complementary ? 0xa78bfa : 0x60a5fa,
+              borderAlpha: 0.8,
+              borderWidth: 2,
+              yOffset: -130,
+            });
+          }
+        });
+      });
+
+      // 讨论结束后让 Agent 回归
+      this.time.delayedCall(3000 * (data.dialogues.length + 1), () => {
+        data.agents.forEach(agentId => {
+          const agent = this.entitySystem.agents.get(agentId);
+          if (agent) {
+            agent.exitDiscussion();
+          }
+        });
+      });
+
+      _store.addEvent(
+        data.agentNames.join('、'),
+        `策略茶馆碰面${data.complementary ? ' ★ 发现互补!' : ''}`,
+      );
+      _eventBus.emit('ui:refresh');
+    });
+
     _eventBus.emit('ui:refresh');
   }
 
   /** Agent 交互距离（地图格） */
   private static readonly AGENT_INTERACT_DIST = 3.0;
+
+  /** 为新诞生的 Agent 播放涌现特效 */
+  private playBirthForAgent(agent: import('../entities/Agent').Agent, name: string): void {
+    // 初始不可见
+    agent.container.setAlpha(0);
+    agent.container.setScale(0);
+
+    const screenX = agent.container.x;
+    const screenY = agent.container.y;
+
+    // 播放星光特效，完成后 Agent 出现
+    this.vfxSystem.playBirthEffect(screenX, screenY, () => {
+      this.tweens.add({
+        targets: agent.container,
+        alpha: 1,
+        scaleX: 1,
+        scaleY: 1,
+        duration: 500,
+        ease: 'Back.easeOut',
+      });
+      this.entitySystem.showBubble(agent.id, '我诞生了!');
+    });
+  }
 
   update(time: number, delta: number): void {
     const state = this.sceneManager.getState();

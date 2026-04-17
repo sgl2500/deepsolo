@@ -10,6 +10,9 @@ export const STRATEGIES_URL = './data/strategies.json';
 /** 前端轮询间隔 (ms) */
 export const POLL_INTERVAL = 10000;
 
+/** 事件文件路径 */
+export const EVENTS_URL = './data/events.json';
+
 /** WebSocket 服务地址 */
 export const WS_URL = 'ws://localhost:8765';
 
@@ -131,6 +134,38 @@ export const BUBBLE_TEXTS: Record<AgentState, string[]> = {
   [AgentState.Profitable]: ['累计盈利73%！', '连续5天正收益', '夏普1.85'],
   [AgentState.Retired]: [],
 };
+
+/** 初始策略数据 (后续从 JSON 加载) */
+
+// --- Token 中心 ---
+/** Token 中心初始数据路径 */
+export const TOKEN_ACCOUNT_URL = './data/token_center/account.json';
+export const TOKEN_LIST_URL = './data/token_center/tokens.json';
+
+/** Token 稀有度颜色 */
+export const RARITY_COLORS: Record<string, string> = {
+  common: '#9ca3af',
+  rare: '#3b82f6',
+  epic: '#a855f7',
+  legendary: '#f59e0b',
+};
+
+/** Token 稀有度标签 */
+export const RARITY_LABELS: Record<string, string> = {
+  common: '普通',
+  rare: '稀有',
+  epic: '史诗',
+  legendary: '传说',
+};
+
+/** 初始余额 */
+export const INITIAL_BALANCE = 10000;
+
+/** localStorage key */
+export const LS_KEY_ACCOUNT = 'deepsolo_account';
+export const LS_KEY_TOKENS = 'deepsolo_tokens';
+export const LS_KEY_LISTINGS = 'deepsolo_listings';
+export const LS_KEY_TRANSACTIONS = 'deepsolo_transactions';
 
 /** 初始策略数据 (后续从 JSON 加载) */
 export const INITIAL_STRATEGIES = [

@@ -29,7 +29,7 @@ from ..storage.file_store import (
     load_profile,
     save_profile,
 )
-from ..storage.json_bridge import write_frontend_json
+from ..storage.json_bridge import append_event, write_frontend_json
 from ..llm.client import LLMClient
 
 
@@ -277,6 +277,15 @@ def _eliminate_agent(
         type="failure",
         content=f"天道消灭: {summary}",
     ))
+
+    # 写入前端事件
+    append_event(base_path, {
+        "type": "heaven_eliminate",
+        "agents": [agent_id],
+        "agent_name": profile.name,
+        "detail": summary,
+        "reason": reason,
+    })
 
 
 # ── 主流程 ─────────────────────────────────────────────

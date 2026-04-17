@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .file_store import load_profile, list_agents, load_account, load_world_status
@@ -102,3 +103,73 @@ def write_frontend_json(base_path: Path) -> None:
         import shutil
         shutil.copy2(frontend_dir / "strategies.json", visual_data / "strategies.json")
         shutil.copy2(frontend_dir / "world.json", visual_data / "world.json")
+        # 同步 events.json（如果存在）
+        events_src = frontend_dir / "events.json"
+        if events_src.exists():
+            shutil.copy2(events_src, visual_data / "events.json")
+
+
+# ── 事件系统 ────────────────────────────────────────────
+
+
+def _load_events(base_path: Path) -> list[dict]:
+    """读取已有事件列表"""
+    path = base_path / "frontend" / "events.json"
+    if not path.exists():
+        return []
+    data = _read_json_safe(path)
+    return data if isinstance(data, list) else []
+
+
+def _read_json_safe(path: Path):
+    """安全读取 JSON"""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, FileNotFoundError):
+        return None
+
+
+def _save_events(base_path: Path, events: list[dict]) -> None:
+    """保存事件列表"""
+    frontend_dir = base_path / "frontend"
+    frontend_dir.mkdir(parents=True, exist_ok=True)
+    (frontend_dir / "events.json").write_text(
+        json.dumps(events, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    # 同步到 Vite 静态目录
+    visual_data = base_path.parent / "packages" / "visual" / "public" / "data"
+    if visual_data.exists():
+        import shutil
+        shutil.copy2(frontend_dir / "events.json", visual_data / "events.json")
+
+
+def append_event(base_path: Path, event: dict) -> None:
+    """追加一个事件到 events.json
+
+    event 格式:
+    {
+        "id": "evt_20260417_001",
+        "type": "heaven_eliminate" | "agent_born" | "discussion",
+        "timestamp": "2026-04-17T10:30:00Z",
+        "agents": ["e6"],
+        "detail": "描述",
+        "dialogues": [...]  // 仅 discussion 类型
+    }
+    """
+    events = _load_events(base_path)
+
+    # 确保 id 存在
+    if "id" not in event:
+        now = datetime.now(timezone.utc)
+        event["id"] = f"evt_{now.strftime('%Y%m%d%H%M%S')}_{len(events)}"
+    if "timestamp" not in event:
+        event["timestamp"] = datetime.now(timezone.utc).isoformat()
+
+    events.append(event)
+
+    # 只保留最近 50 条事件
+    if len(events) > 50:
+        events = events[-50:]
+
+    _save_events(base_path, events)

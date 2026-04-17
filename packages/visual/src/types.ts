@@ -125,6 +125,14 @@ export interface GameEvents {
   'npc:interact': { npcId: string };
   'chat:open': Strategy;
   'chat:close': void;
+  // ── 生命周期事件（后端驱动） ──
+  'agent:born': { id: string; name: string; parents?: string[]; detail: string };
+  'agent:eliminated': { id: string; name: string; reason: string; detail: string };
+  'discussion:event': { agents: string[]; agentNames: string[]; dialogues: Array<{ agent_id: string; text: string }>; complementary: boolean };
+  // ── Token 中心事件 ──
+  'token:listed': TokenListing;
+  'token:cancel': string;
+  'account:updated': ObserverAccount;
 }
 
 /** 讨论话题 */
@@ -279,4 +287,52 @@ export interface DialogueNode {
 export interface DialogueChoice {
   text: string;
   next: string;
+}
+
+// ============================================================
+// Token 中心类型
+// ============================================================
+
+/** Token 稀有度 */
+export type TokenRarity = 'common' | 'rare' | 'epic' | 'legendary';
+
+/** Token 数据 */
+export interface Token {
+  id: string;
+  name: string;
+  description: string;
+  rarity: TokenRarity;
+  iconKey: string;
+  createdAt: string;
+}
+
+/** 观察者账户 */
+export interface ObserverAccount {
+  id: string;
+  name: string;
+  balance: number;
+  bio: string;
+  tokenIds: string[];
+  createdAt: string;
+}
+
+/** Token 挂单 */
+export interface TokenListing {
+  id: string;
+  tokenId: string;
+  tokenName: string;
+  tokenRarity: TokenRarity;
+  price: number;
+  listedAt: string;
+  status: 'active' | 'cancelled';
+}
+
+/** 操作记录 */
+export interface Transaction {
+  id: string;
+  type: 'list' | 'cancel';
+  tokenId: string;
+  tokenName: string;
+  price: number;
+  timestamp: string;
 }

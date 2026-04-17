@@ -51,6 +51,14 @@ export class EntitySystem {
     this.agents.set(strategy.id, agent);
   }
 
+  /** 移除 Agent（天道消灭时用，返回 Agent 引用用于播放动画） */
+  removeAgent(agentId: string): Agent | null {
+    const agent = this.agents.get(agentId);
+    if (!agent) return null;
+    this.agents.delete(agentId);
+    return agent;
+  }
+
   /** 为指定建筑创建 NPC */
   createNPCs(buildingId: string, indoorCx?: number, indoorCy?: number): void {
     this.clearNPCs();
