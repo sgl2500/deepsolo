@@ -51,3 +51,9 @@ htmlcov/
 
 # Build
 *.whl
+
+# Vite cache
+.vite/
+
+# Tool output
+graphify-out/

@@ -13,6 +13,7 @@ import websockets
 from .llm.client import LLMClient
 from .chat.session import ChatSession
 from .evolution.derive import run_derivation
+from .evolution.discuss import run_discussion
 
 # 项目根目录（deepsolo/）
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -40,7 +41,7 @@ _load_env()
 # LLM 配置（从环境变量读取）
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://open.bigmodel.cn/api/anthropic")
-LLM_MODEL = os.environ.get("LLM_MODEL", "claude-sonnet-4-20250514")
+LLM_MODEL = os.environ.get("LLM_MODEL", "glm-4.7")
 
 WS_HOST = os.environ.get("WS_HOST", "localhost")
 WS_PORT = int(os.environ.get("WS_PORT", "8765"))
@@ -143,6 +144,27 @@ async def derivation_scheduler():
         await asyncio.sleep(86400)  # 24 小时
 
 
+async def discussion_scheduler():
+    """定时社区讨论 — 每 4 小时执行一次"""
+    # 首次启动等待 120 秒（与心跳派生错开）
+    await asyncio.sleep(120)
+    while True:
+        try:
+            llm = LLMClient(
+                api_key=LLM_API_KEY,
+                base_url=LLM_BASE_URL,
+                model=LLM_MODEL,
+            )
+            new_id = await run_discussion(DATA_DIR, llm)
+            if new_id:
+                print(f"[讨论] 碰撞出新策略: {new_id}")
+            else:
+                print("[讨论] 本次讨论完成，未产生新策略")
+        except Exception as e:
+            print(f"[讨论] 错误: {e}")
+        await asyncio.sleep(14400)  # 4 小时
+
+
 async def main():
     """启动 WebSocket 服务"""
     if not LLM_API_KEY:
@@ -155,6 +177,9 @@ async def main():
 
     # 启动衍生定时任务
     asyncio.create_task(derivation_scheduler())
+
+    # 启动社区讨论定时任务
+    asyncio.create_task(discussion_scheduler())
 
     async with websockets.serve(handle_connection, WS_HOST, WS_PORT):
         await asyncio.Future()  # 永久运行

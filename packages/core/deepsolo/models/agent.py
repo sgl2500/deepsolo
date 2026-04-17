@@ -24,7 +24,7 @@ class AgentProfile:
     persona: Persona          # 人设
     parents: list[str] = field(default_factory=list)   # 衍生来源的 parent ID
     relation: str | None = None  # "杂交" | "变异" | "启发" | None
-    status: str = "alive"     # "alive" | "eliminated" | "heaven_removed"
+    status: str = "alive"     # "alive" | "pending" | "eliminated" | "heaven_removed"
     born_at: str = ""         # ISO datetime
     eliminated_at: str | None = None
     llm_tier: str = "shared"  # "shared" | "dedicated"

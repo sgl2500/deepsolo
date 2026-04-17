@@ -134,12 +134,10 @@ export const BUBBLE_TEXTS: Record<AgentState, string[]> = {
 
 /** 初始策略数据 (后续从 JSON 加载) */
 export const INITIAL_STRATEGIES = [
-  { id: 'hv1', name: '人气追涨', category: 'hot' as const, returnPct: 28.78, maxDrawdownPct: 26.79, totalTrades: 292, winRate: 44.18, avgReturnPct: 0.423, capital: 128780, description: '相对竞价>1.5%, 竞价涨幅<5%, 0931涨幅>-5%, 次日收盘卖出' },
-  { id: 'hv2', name: '妖股追涨', category: 'hot' as const, returnPct: -5.50, maxDrawdownPct: 25.16, totalTrades: 295, winRate: 44.07, avgReturnPct: -0.02, capital: 94500, description: '信号生成时按相对竞价排序取前5只' },
-  { id: 'hv3', name: '上影线追涨', category: 'hot' as const, returnPct: 5.97, maxDrawdownPct: 20.39, totalTrades: 78, winRate: 42.31, avgReturnPct: 0.214, capital: 105970, description: '竞价涨幅<0.5%, 次日开盘卖出' },
-  { id: 'hv4', name: '分时大票追涨', category: 'hot' as const, returnPct: 73.74, maxDrawdownPct: 17.61, totalTrades: 116, winRate: 47.41, avgReturnPct: 0.996, capital: 173741, description: '竞价涨幅<0.5%, 次日开盘卖出' },
-  { id: 'nv1', name: '多信号综合版', category: 'normal' as const, returnPct: -13.99, maxDrawdownPct: 28.23, totalTrades: 260, winRate: 43.85, avgReturnPct: -0.277, capital: 86010, description: '盘前选股+早盘强势突破/健康回调' },
-  { id: 'nv2', name: '早盘强势突破', category: 'normal' as const, returnPct: -22.32, maxDrawdownPct: 30.36, totalTrades: 106, winRate: 40.57, avgReturnPct: -0.456, capital: 77675, description: '连续阳线+突破前高+量比>1.5' },
-  { id: 'e1', name: '融合一号', category: 'emerged' as const, returnPct: 35.2, maxDrawdownPct: 15.8, totalTrades: 98, winRate: 49.0, avgReturnPct: 0.82, capital: 135200, description: '继承人气追涨+分时大票卖出规则', parents: ['hv1', 'hv4'], relation: '杂交' },
-  { id: 'e2', name: '变异二号', category: 'emerged' as const, returnPct: 8.4, maxDrawdownPct: 12.3, totalTrades: 65, winRate: 46.2, avgReturnPct: 0.31, capital: 108400, description: '上影线追涨参数优化版', parents: ['hv3'], relation: '变异' },
+  { id: 'hv1', name: '人气追涨', category: 'hot' as const, returnPct: 20.25, maxDrawdownPct: 13.17, totalTrades: 218, winRate: 47.25, avgReturnPct: 0.608, capital: 120250, description: '相对竞价>1.5%, 竞价涨幅<5%, 0931涨幅>-5%, 次日收盘卖出' },
+  { id: 'hv2', name: '妖股追涨', category: 'hot' as const, returnPct: -3.2, maxDrawdownPct: 25.0, totalTrades: 225, winRate: 44.4, avgReturnPct: -0.01, capital: 96800, description: '信号生成时按相对竞价排序取前5只' },
+  { id: 'hv3', name: '上影线追涨', category: 'hot' as const, returnPct: 4.7, maxDrawdownPct: 20.4, totalTrades: 81, winRate: 43.2, avgReturnPct: 0.118, capital: 104700, description: '竞价涨幅<0.5%, 次日开盘卖出' },
+  { id: 'hv4', name: '分时大票追涨', category: 'hot' as const, returnPct: 77.1, maxDrawdownPct: 17.6, totalTrades: 126, winRate: 47.6, avgReturnPct: 0.996, capital: 177100, description: '竞价涨幅<0.5%, 次日开盘卖出' },
+  { id: 'nv1', name: '多信号综合版', category: 'normal' as const, returnPct: -13.6, maxDrawdownPct: 19.7, totalTrades: 209, winRate: 42.1, avgReturnPct: -0.277, capital: 86400, description: '盘前选股+早盘强势突破/健康回调' },
+  { id: 'nv2', name: '早盘强势突破', category: 'normal' as const, returnPct: -0.2, maxDrawdownPct: 5.5, totalTrades: 78, winRate: 55.1, avgReturnPct: -0.001, capital: 99800, description: '连续阳线+突破前高+量比>1.5' },
 ];

@@ -102,6 +102,14 @@ def save_experiences(base_path: Path, agent_id: str, experiences: list[Experienc
     _write_json(d / "experience.json", data)
 
 
+def load_experiences(base_path: Path, agent_id: str) -> list[dict]:
+    """读取 experience.json"""
+    path = _agent_dir(base_path, agent_id) / "memory" / "experience.json"
+    if not path.exists():
+        return []
+    return _read_json(path)
+
+
 def save_conversation(base_path: Path, agent_id: str, conversation: Conversation) -> None:
     """保存与某个 agent 的对话"""
     d = _agent_dir(base_path, agent_id) / "memory" / "conversations"
@@ -144,11 +152,85 @@ def load_world_status(base_path: Path) -> WorldStatus | None:
     return WorldStatus.from_dict(_read_json(p))
 
 
+def append_experience(base_path: Path, agent_id: str, experience: Experience) -> None:
+    """追加一条经验到 experience.json"""
+    d = _agent_dir(base_path, agent_id) / "memory"
+    d.mkdir(parents=True, exist_ok=True)
+    path = d / "experience.json"
+
+    if path.exists():
+        data = _read_json(path)
+    else:
+        data = []
+
+    data.append({
+        "timestamp": experience.timestamp,
+        "type": experience.type,
+        "content": experience.content,
+    })
+    _write_json(path, data)
+
+
+def append_conversation_turn(
+    base_path: Path,
+    agent_id: str,
+    with_agent: str,
+    turn: dict,
+) -> None:
+    """追加一轮对话到与某个 agent 的对话文件
+
+    Args:
+        turn: {"agent_id": str, "role": str, "text": str, "timestamp": str}
+    """
+    d = _agent_dir(base_path, agent_id) / "memory" / "conversations"
+    d.mkdir(parents=True, exist_ok=True)
+
+    filename = f"with_{with_agent}.json"
+    path = d / filename
+
+    if path.exists():
+        data = _read_json(path)
+    else:
+        data = {
+            "with_agent": with_agent,
+            "topic": "",
+            "turns": [],
+        }
+
+    data.setdefault("turns", []).append(turn)
+    data["last_updated"] = turn.get("timestamp", "")
+
+    _write_json(path, data)
+
+
 def remove_agent(base_path: Path, agent_id: str) -> None:
     """删除 agent 目录"""
     d = _agent_dir(base_path, agent_id)
     if d.exists():
         shutil.rmtree(d)
+
+
+def is_strategy_implemented(base_path: Path, agent_id: str) -> bool:
+    """判断 Agent 的策略是否已被实现（夜间系统已回填数据）。
+
+    标准：交易记录.json 存在且非空，且有日度账户数据。
+    """
+    trades_path = _agent_dir(base_path, agent_id) / "strategy" / "交易记录.json"
+    account_path = _agent_dir(base_path, agent_id) / "strategy" / "账户信息.json"
+
+    if not trades_path.exists() or not account_path.exists():
+        return False
+
+    try:
+        trades = _read_json(trades_path)
+        if not trades or not isinstance(trades, list) or len(trades) == 0:
+            return False
+        account = _read_json(account_path)
+        if not account.get("daily"):
+            return False
+        return True
+    except (json.JSONDecodeError, KeyError):
+        return False
 
 
 # ── helpers ──
@@ -160,5 +242,5 @@ def _write_json(path: Path, data: dict | list) -> None:
     )
 
 
-def _read_json(path: Path) -> dict:
+def _read_json(path: Path) -> dict | list:
     return json.loads(path.read_text(encoding="utf-8"))
