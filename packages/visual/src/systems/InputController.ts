@@ -9,6 +9,7 @@ export class InputController {
   private wasd: Record<string, Phaser.Input.Keyboard.Key>;
   private interactKey: Phaser.Input.Keyboard.Key;
   private cancelKey: Phaser.Input.Keyboard.Key;
+  private battleKey: Phaser.Input.Keyboard.Key;
 
   constructor(scene: Phaser.Scene) {
     const keyboard = scene.input.keyboard!;
@@ -16,6 +17,7 @@ export class InputController {
     this.wasd = keyboard.addKeys('W,A,S,D') as Record<string, Phaser.Input.Keyboard.Key>;
     this.interactKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE) as Phaser.Input.Keyboard.Key;
     this.cancelKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC) as Phaser.Input.Keyboard.Key;
+    this.battleKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B) as Phaser.Input.Keyboard.Key;
   }
 
   /** 获取移动方向 (-1, 0, 1) */
@@ -44,5 +46,10 @@ export class InputController {
   /** ESC 键是否刚按下（取消键） */
   isCancelPressed(): boolean {
     return Phaser.Input.Keyboard.JustDown(this.cancelKey);
+  }
+
+  /** B 键是否刚按下（战斗键） */
+  isBattlePressed(): boolean {
+    return Phaser.Input.Keyboard.JustDown(this.battleKey);
   }
 }

@@ -9,7 +9,7 @@ import { StrategyListPanel } from './StrategyListPanel';
 import { EventLogPanel } from './EventLogPanel';
 import { DetailPanel } from './DetailPanel';
 import { HeaderBar } from './HeaderBar';
-import { DialoguePanel } from './DialoguePanel';
+import { ConversationPanel } from './ConversationPanel';
 import { TokenCenterUI } from './TokenCenterUI';
 import type { ChatService } from '../services/ChatService';
 import './styles.css';
@@ -19,7 +19,7 @@ export class UIManager {
   private strategyList: StrategyListPanel;
   private eventLog: EventLogPanel;
   private detailPanel: DetailPanel;
-  dialoguePanel: DialoguePanel;
+  conversationPanel: ConversationPanel;
   tokenCenterUI: TokenCenterUI;
 
   private panel: HTMLElement;
@@ -88,8 +88,7 @@ export class UIManager {
     this.strategyList = new StrategyListPanel(listContainer, eventBus, store);
     this.eventLog = new EventLogPanel(eventContainer, eventBus, store);
     this.detailPanel = new DetailPanel(detailContainer, eventBus, store);
-    this.dialoguePanel = new DialoguePanel(eventBus);
-    this.dialoguePanel.setChatService(chatService);
+    this.conversationPanel = new ConversationPanel(eventBus);
     this.tokenCenterUI = new TokenCenterUI(this.tokenPanel, eventBus, tokenStore);
     this.headerBar.refresh();
 
@@ -117,11 +116,6 @@ export class UIManager {
         this.tokenPanel.style.display = 'none';
         this.tokenCenterUI.hide();
       }
-    });
-
-    // 策略 Agent 点击 → 打开自由聊天
-    eventBus.on('chat:open', (strategy: import('../types').Strategy) => {
-      this.dialoguePanel.openChat(strategy);
     });
   }
 

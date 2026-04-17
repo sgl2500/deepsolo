@@ -160,145 +160,58 @@ body {
 }
 
 /* ============================================================
-   对话面板
+   统一对话面板 (ConversationPanel)
    ============================================================ */
 
-.dialogue-overlay {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.dialogue-panel {
-  display: flex;
-  gap: 12px;
-  background: rgba(10, 14, 26, 0.95);
-  border: 2px solid #f0c040;
-  border-radius: 8px;
-  padding: 12px 16px;
-  min-width: 500px;
-  max-width: 700px;
-}
-
-.dialogue-portrait {
-  flex-shrink: 0;
-  width: 100px;
-  height: 100px;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 2px solid #555;
-  background: #1a1a2e;
-}
-
-.dialogue-portrait img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  image-rendering: pixelated;
-}
-
-.dialogue-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dialogue-speaker {
-  font-size: 14px;
-  font-weight: bold;
-  color: #f0c040;
-  font-family: 'PingFang SC', monospace;
-}
-
-.dialogue-text {
-  font-size: 14px;
-  color: #e5e7eb;
-  line-height: 1.6;
-  white-space: pre-line;
-  min-height: 48px;
-  font-family: 'PingFang SC', monospace;
-}
-
-.dialogue-choices {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 4px;
-}
-
-.dialogue-choice-btn {
-  background: rgba(30, 40, 60, 0.9);
-  border: 1px solid #60a5fa;
-  color: #60a5fa;
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  text-align: left;
-  font-family: 'PingFang SC', monospace;
-  transition: all 0.15s;
-}
-
-.dialogue-choice-btn:hover {
-  background: rgba(96, 165, 250, 0.2);
-  border-color: #93c5fd;
-  color: #93c5fd;
-}
-
-.dialogue-hint {
-  font-size: 11px;
-  color: #6b7280;
-  text-align: right;
-  margin-top: 4px;
-}
-
-/* ============================================================
-   自由聊天面板
-   ============================================================ */
-
-.dialogue-overlay-bg {
+.conv-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0, 0, 0, 0.3);
   z-index: 999;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 20px;
 }
 
-.chat-panel {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  width: 480px;
+.conv-panel {
+  width: 520px;
   max-height: 500px;
   background: rgba(10, 14, 26, 0.97);
-  border: 2px solid var(--blue);
+  border: 2px solid var(--gold);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.chat-header {
+.conv-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   padding: 10px 14px;
   background: rgba(30, 40, 60, 0.8);
   border-bottom: 1px solid var(--border);
+}
+
+.conv-portrait {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  object-fit: cover;
+  image-rendering: pixelated;
+  border: 1px solid #555;
+}
+
+.conv-title {
+  flex: 1;
   font-size: 14px;
   font-weight: bold;
   color: var(--gold);
   font-family: 'PingFang SC', monospace;
 }
 
-.chat-close-btn {
+.conv-close-btn {
   background: none;
   border: none;
   color: var(--text2);
@@ -307,12 +220,12 @@ body {
   padding: 2px 6px;
   border-radius: 3px;
 }
-.chat-close-btn:hover {
+.conv-close-btn:hover {
   color: var(--text);
   background: rgba(255, 255, 255, 0.1);
 }
 
-.chat-messages {
+.conv-messages {
   flex: 1;
   padding: 12px 14px;
   overflow-y: auto;
@@ -320,12 +233,14 @@ body {
   flex-direction: column;
   gap: 8px;
   max-height: 340px;
-  min-height: 200px;
+  min-height: 120px;
 }
-.chat-messages::-webkit-scrollbar { width: 4px; }
-.chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.conv-messages::-webkit-scrollbar { width: 4px; }
+.conv-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-.chat-msg {
+/* --- 消息样式（按 role） --- */
+
+.conv-msg {
   max-width: 85%;
   padding: 8px 12px;
   border-radius: 8px;
@@ -335,36 +250,111 @@ body {
   font-family: 'PingFang SC', monospace;
 }
 
-.chat-msg-user {
+.conv-msg-npc {
+  align-self: flex-start;
+  display: flex;
+  gap: 8px;
+  max-width: 90%;
+  background: none;
+  padding: 0;
+  border: none;
+}
+
+.conv-msg-npc .conv-msg-portrait {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+  image-rendering: pixelated;
+  border: 1px solid #555;
+  flex-shrink: 0;
+}
+
+.conv-msg-npc .conv-msg-body {
+  background: rgba(30, 40, 60, 0.9);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.conv-msg-npc .conv-msg-name {
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--gold);
+  margin-bottom: 2px;
+}
+
+.conv-msg-npc .conv-msg-text {
+  color: var(--text);
+}
+
+.conv-msg-user {
   align-self: flex-end;
   background: rgba(96, 165, 250, 0.2);
   border: 1px solid rgba(96, 165, 250, 0.3);
   color: var(--text);
 }
 
-.chat-msg-assistant {
+.conv-msg-assistant {
   align-self: flex-start;
   background: rgba(30, 40, 60, 0.9);
   border: 1px solid var(--border);
   color: var(--text);
 }
 
-.chat-msg-system {
+.conv-msg-system {
   align-self: center;
   font-size: 11px;
   color: var(--text2);
   padding: 4px 8px;
+  background: none;
+  border: none;
+  white-space: pre-line;
 }
 
-.chat-input-area {
+.conv-msg-text {
+  white-space: pre-line;
+}
+
+/* --- 选项按钮 --- */
+
+.conv-msg-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.conv-choice-btn {
+  background: rgba(30, 40, 60, 0.9);
+  border: 1px solid var(--blue);
+  color: var(--blue);
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  font-family: 'PingFang SC', monospace;
+  transition: all 0.15s;
+}
+.conv-choice-btn:hover {
+  background: rgba(96, 165, 250, 0.2);
+  border-color: #93c5fd;
+  color: #93c5fd;
+}
+
+/* --- 输入区域 --- */
+
+.conv-input-area {
   display: flex;
   gap: 8px;
   padding: 10px 14px;
   border-top: 1px solid var(--border);
   background: rgba(17, 24, 39, 0.9);
+  align-items: center;
 }
 
-.chat-input {
+.conv-text-input {
   flex: 1;
   background: rgba(30, 40, 60, 0.9);
   border: 1px solid var(--border);
@@ -376,14 +366,14 @@ body {
   outline: none;
   transition: border-color 0.2s;
 }
-.chat-input:focus {
-  border-color: var(--blue);
+.conv-text-input:focus {
+  border-color: var(--gold);
 }
-.chat-input::placeholder {
+.conv-text-input::placeholder {
   color: #4b5563;
 }
 
-.chat-send-btn {
+.conv-send-btn {
   background: var(--blue);
   border: none;
   color: #fff;
@@ -394,15 +384,16 @@ body {
   font-weight: 600;
   transition: background 0.2s;
 }
-.chat-send-btn:hover {
+.conv-send-btn:hover {
   background: #3b82f6;
 }
 
-.chat-typing {
-  padding: 6px 14px 8px;
+.conv-hint {
   font-size: 11px;
-  color: var(--text2);
-  font-style: italic;
+  color: #6b7280;
+  width: 100%;
+  text-align: center;
+  padding: 2px 0;
 }
 
 /* ============================================================
@@ -574,67 +565,4 @@ body {
 .tc-tx-time {
   font-size: 8px;
   color: #4b5563;
-}
-
-/* --- 上架弹窗 --- */
-.tc-dialog-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.tc-dialog {
-  background: var(--card);
-  border: 2px solid var(--gold);
-  border-radius: 8px;
-  padding: 16px 20px;
-  min-width: 260px;
-  max-width: 340px;
-}
-.tc-dialog-title {
-  font-size: 14px;
-  font-weight: bold;
-  color: var(--gold);
-  margin-bottom: 8px;
-}
-.tc-dialog-token {
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-.tc-dialog-desc {
-  font-size: 11px;
-  color: var(--text2);
-  margin-bottom: 10px;
-}
-.tc-dialog-label {
-  font-size: 11px;
-  color: var(--text);
-  margin-bottom: 4px;
-}
-.tc-dialog-input {
-  width: 100%;
-  background: rgba(30, 40, 60, 0.9);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 6px 10px;
-  color: var(--text);
-  font-size: 13px;
-  outline: none;
-  margin-bottom: 10px;
-}
-.tc-dialog-input:focus {
-  border-color: var(--gold);
-}
-.tc-dialog-btns {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-.tc-dialog-btns .tc-btn {
-  padding: 5px 14px;
-  font-size: 11px;
 }

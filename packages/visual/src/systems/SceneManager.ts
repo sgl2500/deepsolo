@@ -94,7 +94,8 @@ export class SceneManager {
   isPlayerLocked(): boolean {
     return this.state === SceneState.TransitionOut
       || this.state === SceneState.TransitionIn
-      || this.state === SceneState.Dialogue;
+      || this.state === SceneState.Dialogue
+      || this.state === SceneState.Battle;
   }
 
   /** 每帧更新 */
@@ -302,5 +303,29 @@ export class SceneManager {
   /** 结束对话模式 */
   endDialogue(): void {
     this.state = this.prevSceneState;
+  }
+
+  /** 进入战斗模式 */
+  startBattle(): void {
+    this.prevSceneState = this.state;
+    this.state = SceneState.Battle;
+
+    // 隐藏世界元素
+    this.entitySystem.setWorldAgentsVisible(false);
+    this.minimapSystem.setVisible(false);
+    setBuildingMarkersVisible(this.buildingMarkers, false);
+
+    this.eventBus.emit('scene:state-changed', { state: SceneState.Battle });
+  }
+
+  /** 结束战斗模式 */
+  endBattle(): void {
+    // 恢复世界元素
+    this.entitySystem.setWorldAgentsVisible(true);
+    this.minimapSystem.setVisible(true);
+    setBuildingMarkersVisible(this.buildingMarkers, true);
+
+    this.state = this.prevSceneState;
+    this.eventBus.emit('scene:state-changed', { state: this.state });
   }
 }

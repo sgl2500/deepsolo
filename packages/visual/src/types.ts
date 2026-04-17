@@ -117,14 +117,13 @@ export interface GameEvents {
   'discussion:view': DiscussionGroup;
   'ui:refresh': void;
   'scene:state-changed': { state: SceneState; buildingId?: string };
-  'dialogue:show': { speaker: string; portraitKey: string; text: string; choices: DialogueChoice[] };
-  'dialogue:text-update': string;
-  'dialogue:hide': void;
-  'dialogue:choice': number;
-  'dialogue:advance': void;
-  'npc:interact': { npcId: string };
-  'chat:open': Strategy;
-  'chat:close': void;
+  // ── 统一对话事件 ──
+  'conv:open': Conversation;
+  'conv:message': ConvMessage;
+  'conv:update-last': { text: string; choices?: ConvChoice[]; inputMode?: ConvInputMode };
+  'conv:close': void;
+  'conv:choice': string;
+  'conv:send': string;
   // ── 生命周期事件（后端驱动） ──
   'agent:born': { id: string; name: string; parents?: string[]; detail: string };
   'agent:eliminated': { id: string; name: string; reason: string; detail: string };
@@ -133,6 +132,10 @@ export interface GameEvents {
   'token:listed': TokenListing;
   'token:cancel': string;
   'account:updated': ObserverAccount;
+  // ── 战斗系统事件 ──
+  'battle:start': { redId: string; blueId: string };
+  'battle:action': { actorId: string; actorName: string; action: string; damage: number; targetHp: number; hit: boolean };
+  'battle:end': BattleResult;
 }
 
 /** 讨论话题 */
@@ -219,6 +222,7 @@ export enum SceneState {
   Indoor = 'indoor',
   TransitionIn = 'transition_in',
   Dialogue = 'dialogue',
+  Battle = 'battle',
 }
 
 /** 建筑定义 */
@@ -335,4 +339,95 @@ export interface Transaction {
   tokenName: string;
   price: number;
   timestamp: string;
+}
+
+// ============================================================
+// 统一对话模型
+// ============================================================
+
+/** 对话选项 */
+export interface ConvChoice {
+  text: string;
+  value: string;
+}
+
+/** 对话消息 */
+export interface ConvMessage {
+  id: string;
+  role: 'npc' | 'user' | 'assistant' | 'system';
+  speakerName?: string;
+  portraitKey?: string;
+  text: string;
+  choices?: ConvChoice[];
+}
+
+/** 输入模式 */
+export type ConvInputMode = 'none' | 'choices' | 'text';
+
+/** 对话 */
+export interface Conversation {
+  id: string;
+  title: string;
+  portraitKey?: string;
+  messages: ConvMessage[];
+  inputMode: ConvInputMode;
+  inputPlaceholder?: string;
+  inputType?: 'text' | 'number';
+}
+
+// ============================================================
+// 战斗系统类型
+// ============================================================
+
+/** 武功类型 */
+export enum WugongType {
+  Fist = 0,
+  Sword = 1,
+  Blade = 2,
+  Special = 3,
+  Neigong = 4,
+}
+
+/** 武功定义 */
+export interface WugongDef {
+  id: string;
+  name: string;
+  type: WugongType;
+  mpCost: number;
+  power: number;
+  hitRate: number;
+  attackRange: number;
+}
+
+/** 战斗角色 */
+export interface BattlePerson {
+  id: string;
+  name: string;
+  team: 'red' | 'blue';
+  hp: number;
+  maxHp: number;
+  mp: number;
+  maxMp: number;
+  attack: number;
+  defense: number;
+  speed: number;
+  moveRange: number;
+  wugong: WugongDef;
+  pos: { x: number; y: number };
+  facing: Direction;
+  alive: boolean;
+}
+
+/** 战斗行动 */
+export type BattleAction =
+  | { type: 'move'; target: { x: number; y: number } }
+  | { type: 'attack'; skill: WugongDef; targetId: string };
+
+/** 战斗结果 */
+export interface BattleResult {
+  winnerId: string;
+  winnerName: string;
+  loserId: string;
+  loserName: string;
+  rounds: number;
 }

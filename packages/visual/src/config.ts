@@ -113,6 +113,16 @@ export const NPC_INTERACT_DIST = 2.0;
 /** 对话打字速度 (ms/字) */
 export const DIALOGUE_TYPE_SPEED = 50;
 
+// --- 战斗系统 ---
+/** 竞技场网格尺寸 */
+export const ARENA_SIZE = 10;
+/** 战斗动画时长 (ms) */
+export const BATTLE_ANIM_SPEED = 400;
+/** 回合间隔 (ms) */
+export const BATTLE_TURN_DELAY = 300;
+/** 战斗日志最大行数 */
+export const BATTLE_LOG_MAX = 6;
+
 /** 策略各状态对应的地图区域中心 */
 export const STATE_REGIONS: Record<AgentState, StateRegion> = {
   [AgentState.Idle]: { x: 50, y: 50, radius: 5 },

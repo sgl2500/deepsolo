@@ -16,15 +16,23 @@ import { DiscussionSystem } from '../systems/DiscussionSystem';
 import { SceneManager } from '../systems/SceneManager';
 import { DialogueSystem } from '../systems/DialogueSystem';
 import { VFXSystem } from '../systems/VFXSystem';
+import { BattleSystem } from '../systems/BattleSystem';
 import { BUILDINGS } from '../data/BuildingData';
+import { getAvailableFighterIds } from '../data/BattleData';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
+import type { ChatService, ChatMessage } from '../services/ChatService';
 
 let _eventBus: EventBus;
 let _store: GameStore;
+let _chatService: ChatService | null = null;
 
 export function setWorldContext(eventBus: EventBus, store: GameStore): void {
   _eventBus = eventBus;
   _store = store;
+}
+
+export function setChatService(service: ChatService): void {
+  _chatService = service;
 }
 
 export class WorldScene extends Phaser.Scene {
@@ -37,12 +45,19 @@ export class WorldScene extends Phaser.Scene {
   private sceneManager!: SceneManager;
   private dialogueSystem!: DialogueSystem;
   private vfxSystem!: VFXSystem;
+  private battleSystem!: BattleSystem;
   private buildingMarkers!: Phaser.GameObjects.Container[];
 
   private mapData!: MapData;
   private tileMeta!: TileMeta;
   private charMeta!: CharMeta;
-  private chatOpen = false;
+
+  /** 当前处于对话/聊天状态 */
+  private convOpen = false;
+  /** 当前对话 ID */
+  private currentConvId: string | null = null;
+  /** Agent 聊天相关 */
+  private chatAgentId: string | null = null;
 
   constructor() {
     super('WorldScene');
@@ -81,6 +96,9 @@ export class WorldScene extends Phaser.Scene {
     // VFX 特效系统
     this.vfxSystem = new VFXSystem(this);
 
+    // 战斗系统
+    this.battleSystem = new BattleSystem(this, _eventBus);
+
     // 建筑入口标记（必须在 SceneManager 之前创建）
     this.buildingMarkers = createBuildingMarkers(this, this.mapData);
 
@@ -96,17 +114,84 @@ export class WorldScene extends Phaser.Scene {
       this.entitySystem.showBubble('player', '我今天心情不错');
     });
 
-    // 监听对话 advance/choice 事件（室内 NPC 预设对话）
-    _eventBus.on('dialogue:advance', () => {
-      this.dialogueSystem.advance();
-    });
-    _eventBus.on('dialogue:choice', (index: number) => {
-      this.dialogueSystem.choose(index);
+    // ── 统一对话事件 ──
+
+    // conv:open → 进入对话状态
+    _eventBus.on('conv:open', (conv) => {
+      this.convOpen = true;
+      this.currentConvId = conv.id;
+      // 仅在未被锁定时调用 startDialogue（避免多次调用覆写 prevSceneState）
+      if (!this.sceneManager.isPlayerLocked()) {
+        this.sceneManager.startDialogue();
+      }
     });
 
-    // 聊天面板状态
-    _eventBus.on('chat:open', () => { this.chatOpen = true; });
-    _eventBus.on('chat:close', () => { this.chatOpen = false; });
+    // conv:close → 退出对话状态
+    _eventBus.on('conv:close', () => {
+      this.convOpen = false;
+      this.currentConvId = null;
+      this.chatAgentId = null;
+      // 强制清理 DialogueSystem（不发事件，避免递归）
+      if (this.dialogueSystem.isActive()) {
+        this.dialogueSystem.forceEnd();
+      }
+      this.sceneManager.endDialogue();
+    });
+
+    // conv:choice → 转发给 DialogueSystem（NPC 对话时）
+    // 已在 DialogueSystem 构造函数中订阅
+
+    // conv:send → 用户输入文字（Agent 聊天 / Token 弹窗）
+    _eventBus.on('conv:send', (text: string) => {
+      if (this.chatAgentId) {
+        // Agent 聊天：发送到后端
+        _eventBus.emit('conv:message', {
+          id: 'user_' + Date.now(),
+          role: 'user' as const,
+          text,
+        });
+        _chatService?.send(this.chatAgentId, text);
+      }
+      // Token 弹窗的处理在 TokenCenterUI 中
+    });
+
+    // ChatService 回复 → 追加到 Conversation
+    if (_chatService) {
+      _chatService.onReply((data: { type: string; agent_id: string; text: string; messages?: ChatMessage[] }) => {
+        if (data.type === 'history' && data.messages && this.chatAgentId) {
+          if (data.messages.length === 0) {
+            _eventBus.emit('conv:message', {
+              id: 'sys_start',
+              role: 'system',
+              text: `与「${_store.getStrategy(this.chatAgentId!)?.name || ''}」开始对话`,
+            });
+          } else {
+            data.messages.forEach(m => {
+              _eventBus.emit('conv:message', {
+                id: 'hist_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
+                role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+                text: m.text,
+              });
+            });
+          }
+          return;
+        }
+        if (data.type === 'reply' && data.agent_id === this.chatAgentId) {
+          _eventBus.emit('conv:message', {
+            id: 'asst_' + Date.now(),
+            role: 'assistant' as const,
+            text: data.text,
+          });
+        }
+        if (data.type === 'error') {
+          _eventBus.emit('conv:message', {
+            id: 'err_' + Date.now(),
+            role: 'system' as const,
+            text: data.text,
+          });
+        }
+      });
+    }
 
     // 监听新策略（衍生 NPC 动态添加）
     _eventBus.on('strategy:loaded', (strategies: Strategy[]) => {
@@ -121,7 +206,6 @@ export class WorldScene extends Phaser.Scene {
     _eventBus.on('agent:eliminated', (data: { id: string; name: string; reason: string; detail: string }) => {
       const agent = this.entitySystem.agents.get(data.id);
       if (!agent) {
-        // Agent 可能已从 strategy:loaded 中被移除，直接显示气泡通知
         this.entitySystem.showBubble('player', `${data.name} 被天道消灭!`);
         _store.addEvent(data.name, `被天道消灭: ${data.detail}`);
         _eventBus.emit('ui:refresh');
@@ -131,12 +215,9 @@ export class WorldScene extends Phaser.Scene {
       const screenX = agent.container.x;
       const screenY = agent.container.y;
 
-      // 先显示气泡
       this.entitySystem.showBubble(data.id, '天道降罚...');
 
-      // 播放雷击特效
       this.vfxSystem.playHeavenStrike(screenX, screenY, () => {
-        // 特效完成，Agent 缩小消失
         this.tweens.add({
           targets: agent.container,
           scaleX: 0,
@@ -156,11 +237,8 @@ export class WorldScene extends Phaser.Scene {
 
     // ── 策略诞生特效 ──
     _eventBus.on('agent:born', (data: { id: string; name: string; parents?: string[]; detail: string }) => {
-      // 先通过 strategy:loaded 添加 Agent（下一轮轮询会触发）
-      // 如果已存在，直接播放特效
       const agent = this.entitySystem.agents.get(data.id);
       if (!agent) {
-        // 尝试立即添加
         const strategy = _store.strategies.find(s => s.id === data.id);
         if (strategy) {
           this.entitySystem.addAgent(this.charMeta, strategy);
@@ -179,7 +257,6 @@ export class WorldScene extends Phaser.Scene {
 
     // ── 讨论事件可视化 ──
     _eventBus.on('discussion:event', (data: { agents: string[]; agentNames: string[]; dialogues: Array<{ agent_id: string; text: string }>; complementary: boolean }) => {
-      // 让参与讨论的 Agent 走向茶馆
       const centerX = 50;
       const centerY = 50;
       data.agents.forEach((agentId, idx) => {
@@ -190,7 +267,6 @@ export class WorldScene extends Phaser.Scene {
         }
       });
 
-      // 逐轮显示对话气泡
       data.dialogues.forEach((line, idx) => {
         this.time.delayedCall(3000 * (idx + 1), () => {
           const agent = this.entitySystem.agents.get(line.agent_id);
@@ -207,7 +283,6 @@ export class WorldScene extends Phaser.Scene {
         });
       });
 
-      // 讨论结束后让 Agent 回归
       this.time.delayedCall(3000 * (data.dialogues.length + 1), () => {
         data.agents.forEach(agentId => {
           const agent = this.entitySystem.agents.get(agentId);
@@ -225,6 +300,11 @@ export class WorldScene extends Phaser.Scene {
     });
 
     _eventBus.emit('ui:refresh');
+
+    // ── 战斗结束事件 ──
+    _eventBus.on('battle:end', () => {
+      this.sceneManager.endBattle();
+    });
   }
 
   /** Agent 交互距离（地图格） */
@@ -232,14 +312,12 @@ export class WorldScene extends Phaser.Scene {
 
   /** 为新诞生的 Agent 播放涌现特效 */
   private playBirthForAgent(agent: import('../entities/Agent').Agent, name: string): void {
-    // 初始不可见
     agent.container.setAlpha(0);
     agent.container.setScale(0);
 
     const screenX = agent.container.x;
     const screenY = agent.container.y;
 
-    // 播放星光特效，完成后 Agent 出现
     this.vfxSystem.playBirthEffect(screenX, screenY, () => {
       this.tweens.add({
         targets: agent.container,
@@ -256,26 +334,41 @@ export class WorldScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     const state = this.sceneManager.getState();
 
-    // 聊天面板打开时：只处理 ESC 关闭
-    if (this.chatOpen) {
-      if (this.inputController.isCancelPressed()) {
-        _eventBus.emit('chat:close');
-      }
+    // ── 战斗状态 ──
+    if (state === SceneState.Battle) {
+      this.battleSystem.update(time, delta);
       return;
     }
 
-    // 对话状态下处理交互键（室内 NPC 预设对话）
-    if (state === SceneState.Dialogue) {
-      if (this.inputController.isInteractPressed()) {
+    // 对话/聊天面板打开时：只处理关闭和 NPC 对话推进
+    if (this.convOpen) {
+      if (this.inputController.isCancelPressed()) {
+        _eventBus.emit('conv:close');
+      }
+      // NPC 对话中：空格推进
+      if (this.dialogueSystem.isActive() && this.inputController.isInteractPressed()) {
         this.dialogueSystem.advance();
       }
-      // 对话中不更新游戏逻辑
       return;
     }
 
     // 过渡状态：锁定玩家移动
     if (this.sceneManager.isPlayerLocked()) {
       return;
+    }
+
+    // B 键触发战斗
+    if (this.inputController.isBattlePressed() && !this.battleSystem.isActive()) {
+      const fighters = getAvailableFighterIds();
+      if (fighters.length >= 2) {
+        // 随机选两个不同的 Agent
+        const shuffled = fighters.sort(() => Math.random() - 0.5);
+        const redId = shuffled[0];
+        const blueId = shuffled[1];
+        this.sceneManager.startBattle();
+        this.battleSystem.start(redId, blueId);
+        return;
+      }
     }
 
     // 正常更新
@@ -320,7 +413,8 @@ export class WorldScene extends Phaser.Scene {
               _eventBus.emit('discussion:view', group);
             }
           } else {
-            _eventBus.emit('chat:open', agent.strategy);
+            // 通过 Conversation 模型打开 Agent 聊天
+            this.openAgentChat(agent.strategy);
           }
         }
       }
@@ -331,7 +425,7 @@ export class WorldScene extends Phaser.Scene {
       const sceneLabel = state === SceneState.Indoor ? ' [室内]' : '';
       let exitInfo = '';
       if (state === SceneState.Indoor && this.sceneManager.isIndoor()) {
-        const building = BUILDINGS.find(b => true); // get current building
+        const building = BUILDINGS.find(b => true);
         if (building) {
           const dx = px - building.exitX;
           const dy = py - building.exitY;
@@ -339,6 +433,33 @@ export class WorldScene extends Phaser.Scene {
         }
       }
       debugEl.textContent = `x:${px.toFixed(1)} y:${py.toFixed(1)}${sceneLabel}${exitInfo}`;
+    }
+  }
+
+  /** 打开 Agent 聊天 (通过 Conversation) */
+  private openAgentChat(strategy: Strategy): void {
+    this.chatAgentId = strategy.id;
+    this.sceneManager.startDialogue();
+
+    const retColor = strategy.returnPct >= 0 ? 'var(--green)' : 'var(--red)';
+    const retText = `${strategy.returnPct >= 0 ? '+' : ''}${strategy.returnPct.toFixed(1)}%`;
+
+    _eventBus.emit('conv:open', {
+      id: 'chat_' + strategy.id,
+      title: `${strategy.name}  ${retText}`,
+      messages: [{
+        id: 'sys_1',
+        role: 'system',
+        text: `正在与「${strategy.name}」对话...`,
+      }],
+      inputMode: 'text',
+      inputPlaceholder: '输入消息...',
+      inputType: 'text',
+    });
+
+    // 请求历史对话
+    if (_chatService?.isConnected()) {
+      _chatService.requestHistory(strategy.id);
     }
   }
 }

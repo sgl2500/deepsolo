@@ -1,11 +1,16 @@
 // ============================================================
-// DialogueSystem.ts — 对话引擎
+// DialogueSystem.ts — 对话引擎（适配 Conversation 模型）
 // ============================================================
 
-import type { DialogueTree, DialogueNode, DialogueChoice } from '../types';
+import type { DialogueTree, DialogueNode, ConvChoice } from '../types';
 import { DIALOGUE_TYPE_SPEED } from '../config';
 import { DIALOGUE_SCRIPTS } from '../data/DialogueScripts';
 import type { EventBus } from '../core/EventBus';
+
+let msgCounter = 0;
+function nextMsgId(): string {
+  return 'dm_' + (++msgCounter);
+}
 
 export class DialogueSystem {
   private eventBus: EventBus;
@@ -20,6 +25,11 @@ export class DialogueSystem {
   constructor(scene: Phaser.Scene, eventBus: EventBus) {
     this.scene = scene;
     this.eventBus = eventBus;
+
+    // 监听选项选择
+    eventBus.on('conv:choice', (value: string) => {
+      this.choose(value);
+    });
   }
 
   /** 开始对话 */
@@ -30,6 +40,15 @@ export class DialogueSystem {
       return false;
     }
     this.activeTree = tree;
+
+    // 先创建空的 Conversation
+    this.eventBus.emit('conv:open', {
+      id: 'dialogue_' + dialogueId,
+      title: '',
+      messages: [],
+      inputMode: 'none',
+    });
+
     this.showNode(tree.firstNode);
     return true;
   }
@@ -47,9 +66,12 @@ export class DialogueSystem {
     this.typedIndex = 0;
     this.isTyping = true;
 
-    // 显示面板（先空文本）
-    this.eventBus.emit('dialogue:show', {
-      speaker: node.speaker,
+    // 更新 Conversation 的 title/portrait（首次通过 header 逻辑不在这处理，消息里带头像）
+    // 推送一条空的 NPC 消息
+    this.eventBus.emit('conv:message', {
+      id: nextMsgId(),
+      role: 'npc',
+      speakerName: node.speaker,
       portraitKey: node.portraitKey,
       text: '',
       choices: [],
@@ -70,19 +92,22 @@ export class DialogueSystem {
         if (!this.isTyping || !this.currentNode) return;
         this.typedIndex++;
         const currentText = this.fullText.slice(0, this.typedIndex);
-        this.eventBus.emit('dialogue:text-update', currentText);
+        this.eventBus.emit('conv:update-last', { text: currentText });
 
         if (this.typedIndex >= this.fullText.length) {
           this.isTyping = false;
           this.typeTimer?.destroy();
           this.typeTimer = null;
-          // 打字完成，显示选项（如果有）
+          // 打字完成，如果有选项则显示
           if (this.currentNode.choices && this.currentNode.choices.length > 0) {
-            this.eventBus.emit('dialogue:show', {
-              speaker: this.currentNode.speaker,
-              portraitKey: this.currentNode.portraitKey,
+            const convChoices: ConvChoice[] = this.currentNode.choices.map((c, i) => ({
+              text: c.text,
+              value: String(i),
+            }));
+            this.eventBus.emit('conv:update-last', {
               text: this.fullText,
-              choices: this.currentNode.choices,
+              choices: convChoices,
+              inputMode: 'choices',
             });
           }
         }
@@ -91,7 +116,7 @@ export class DialogueSystem {
     });
   }
 
-  /** 推进对话（点击/按键） */
+  /** 推进对话（空格键触发） */
   advance(): void {
     if (!this.currentNode) return;
 
@@ -100,17 +125,17 @@ export class DialogueSystem {
       this.isTyping = false;
       this.typeTimer?.destroy();
       this.typeTimer = null;
-      this.eventBus.emit('dialogue:text-update', this.fullText);
-
-      // 显示选项
+      const emitData: { text: string; choices?: ConvChoice[]; inputMode?: 'choices' } = {
+        text: this.fullText,
+      };
       if (this.currentNode.choices && this.currentNode.choices.length > 0) {
-        this.eventBus.emit('dialogue:show', {
-          speaker: this.currentNode.speaker,
-          portraitKey: this.currentNode.portraitKey,
-          text: this.fullText,
-          choices: this.currentNode.choices,
-        });
+        emitData.choices = this.currentNode.choices.map((c, i) => ({
+          text: c.text,
+          value: String(i),
+        }));
+        emitData.inputMode = 'choices';
       }
+      this.eventBus.emit('conv:update-last', emitData);
       return;
     }
 
@@ -128,15 +153,26 @@ export class DialogueSystem {
   }
 
   /** 选择分支 */
-  choose(choiceIndex: number): void {
+  choose(choiceValue: string): void {
     if (!this.currentNode?.choices) return;
-    const choice = this.currentNode.choices[choiceIndex];
+    const index = parseInt(choiceValue, 10);
+    const choice = this.currentNode.choices[index];
     if (!choice) return;
     this.showNode(choice.next);
   }
 
   /** 结束对话 */
   endDialogue(): void {
+    this.cleanup();
+    this.eventBus.emit('conv:close');
+  }
+
+  /** 强制终止（不触发事件，用于外部关闭时清理状态） */
+  forceEnd(): void {
+    this.cleanup();
+  }
+
+  private cleanup(): void {
     this.activeTree = null;
     this.currentNode = null;
     this.isTyping = false;
@@ -144,7 +180,6 @@ export class DialogueSystem {
       this.typeTimer.destroy();
       this.typeTimer = null;
     }
-    this.eventBus.emit('dialogue:hide');
   }
 
   isActive(): boolean {

@@ -5,7 +5,7 @@
 import { EventBus } from '../core/EventBus';
 import { TokenStore } from '../core/TokenStore';
 import { RARITY_COLORS, RARITY_LABELS } from '../config';
-import type { Token, TokenListing } from '../types';
+import type { Token, TokenListing, Conversation } from '../types';
 
 type TabId = 'tokens' | 'listings' | 'account';
 
@@ -266,62 +266,48 @@ export class TokenCenterUI {
     this.contentEl.appendChild(resetBtn);
   }
 
-  // ── 弹窗: 上架售卖 ──
+  // ── 弹窗: 上架售卖（通过 Conversation） ──
+
+  private pendingListToken: Token | null = null;
 
   private showListDialog(token: Token): void {
-    const overlay = document.createElement('div');
-    overlay.className = 'tc-dialog-overlay';
-
-    const dialog = document.createElement('div');
-    dialog.className = 'tc-dialog';
-
+    this.pendingListToken = token;
     const rarityColor = RARITY_COLORS[token.rarity] || '#9ca3af';
-    dialog.innerHTML = `
-      <div class="tc-dialog-title">上架售卖</div>
-      <div class="tc-dialog-token" style="color:${rarityColor}">${token.name}</div>
-      <div class="tc-dialog-desc">${token.description}</div>
-      <div class="tc-dialog-label">设定价格 (金币):</div>
-    `;
+    const rarityLabel = RARITY_LABELS[token.rarity] || token.rarity;
 
-    const input = document.createElement('input');
-    input.type = 'number';
-    input.className = 'tc-dialog-input';
-    input.placeholder = '输入价格';
-    input.min = '1';
-    dialog.appendChild(input);
+    const conv: Conversation = {
+      id: 'token_list_' + token.id,
+      title: '上架售卖',
+      messages: [{
+        id: 'sys_1',
+        role: 'system',
+        text: `${rarityLabel} Token「${token.name}」— ${token.description}\n请输入售卖价格 (金币)`,
+      }],
+      inputMode: 'text',
+      inputPlaceholder: '输入价格',
+      inputType: 'number',
+    };
 
-    const btnRow = document.createElement('div');
-    btnRow.className = 'tc-dialog-btns';
-
-    const confirmBtn = document.createElement('button');
-    confirmBtn.className = 'tc-btn tc-btn-confirm';
-    confirmBtn.textContent = '确认上架';
-    confirmBtn.addEventListener('click', () => {
-      const price = parseInt(input.value, 10);
+    // 一次性监听用户输入
+    const handler = (text: string) => {
+      const price = parseInt(text, 10);
       if (!price || price <= 0) {
-        input.style.borderColor = 'var(--red)';
+        this.eventBus.emit('conv:message', {
+          id: 'sys_err',
+          role: 'system',
+          text: '请输入有效的价格（正整数）',
+        });
         return;
       }
-      this.store.listToken(token.id, price);
-      overlay.remove();
-    });
+      if (this.pendingListToken) {
+        this.store.listToken(this.pendingListToken.id, price);
+        this.pendingListToken = null;
+      }
+      this.eventBus.emit('conv:close');
+      this.eventBus.off('conv:send', handler);
+    };
+    this.eventBus.on('conv:send', handler);
 
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'tc-btn tc-btn-cancel';
-    cancelBtn.textContent = '取消';
-    cancelBtn.addEventListener('click', () => overlay.remove());
-
-    btnRow.appendChild(confirmBtn);
-    btnRow.appendChild(cancelBtn);
-    dialog.appendChild(btnRow);
-    overlay.appendChild(dialog);
-
-    // 点击遮罩关闭
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) overlay.remove();
-    });
-
-    document.body.appendChild(overlay);
-    input.focus();
+    this.eventBus.emit('conv:open', conv);
   }
 }

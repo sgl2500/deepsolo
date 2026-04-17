@@ -9,7 +9,7 @@ import { GameStore } from './core/GameStore';
 import { UIManager } from './ui/UIManager';
 import { ChatService } from './services/ChatService';
 import { BootScene } from './scenes/BootScene';
-import { WorldScene, setWorldContext } from './scenes/WorldScene';
+import { WorldScene, setWorldContext, setChatService } from './scenes/WorldScene';
 
 // 创建核心
 const eventBus = new EventBus();
@@ -24,6 +24,7 @@ const ui = new UIManager(eventBus, store, chatService);
 
 // 注入共享上下文给 WorldScene
 setWorldContext(eventBus, store);
+setChatService(chatService);
 
 // 启动 Phaser
 const config: Phaser.Types.Core.GameConfig = {
