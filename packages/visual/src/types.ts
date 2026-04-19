@@ -379,6 +379,14 @@ export interface Conversation {
 // 战斗系统类型
 // ============================================================
 
+/** 手动控制子状态 */
+export enum ManualPhase {
+  ActionMenu   = 'action_menu',     // 显示操作菜单
+  MoveSelect   = 'move_select',     // 光标选移动目标
+  WugongSelect = 'wugong_select',   // 选武功
+  TargetSelect = 'target_select',   // 光标选攻击目标
+}
+
 /** 武功类型 */
 export enum WugongType {
   Fist = 0,
@@ -397,6 +405,10 @@ export interface WugongDef {
   power: number;
   hitRate: number;
   attackRange: number;
+  /** 对应 jy-assets/13_eft/{effectId} 特效贴图 */
+  effectId: string;
+  /** 范围攻击尺寸 (1=单体, 3=3x3 范围) */
+  aoeSize?: number;
 }
 
 /** 战斗角色 */

@@ -312,6 +312,8 @@ export class SceneManager {
 
     // 隐藏世界元素
     this.entitySystem.setWorldAgentsVisible(false);
+    this.entitySystem.getPlayer().container.setVisible(false);
+    this.mapRenderer.scrImage.setVisible(false);
     this.minimapSystem.setVisible(false);
     setBuildingMarkersVisible(this.buildingMarkers, false);
 
@@ -322,6 +324,8 @@ export class SceneManager {
   endBattle(): void {
     // 恢复世界元素
     this.entitySystem.setWorldAgentsVisible(true);
+    this.entitySystem.getPlayer().container.setVisible(true);
+    this.mapRenderer.scrImage.setVisible(true);
     this.minimapSystem.setVisible(true);
     setBuildingMarkersVisible(this.buildingMarkers, true);
 

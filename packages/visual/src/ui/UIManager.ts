@@ -107,14 +107,24 @@ export class UIManager {
 
     // 场景切换 → 面板切换
     eventBus.on('scene:state-changed', ({ state, buildingId }) => {
-      if (state === 'indoor' && buildingId === 'token_center') {
+      if (state === 'battle') {
+        // 战斗时隐藏所有世界地图 UI
+        this.panel.style.display = 'none';
+        this.tokenPanel.style.display = 'none';
+        this.headerBar.setVisible(false);
+        this.hideGameContainerOverlays(true);
+      } else if (state === 'indoor' && buildingId === 'token_center') {
         this.panel.style.display = 'none';
         this.tokenPanel.style.display = 'block';
         this.tokenCenterUI.show();
+        this.headerBar.setVisible(true);
+        this.hideGameContainerOverlays(false);
       } else {
         this.panel.style.display = 'block';
         this.tokenPanel.style.display = 'none';
         this.tokenCenterUI.hide();
+        this.headerBar.setVisible(true);
+        this.hideGameContainerOverlays(false);
       }
     });
   }
@@ -128,5 +138,15 @@ export class UIManager {
 
   getGameContainer(): HTMLElement {
     return document.getElementById('game-container')!;
+  }
+
+  /** 战斗时隐藏小地图、调试信息等 DOM 覆盖层 */
+  private hideGameContainerOverlays(hide: boolean): void {
+    const gc = document.getElementById('game-container');
+    if (!gc) return;
+    const minimap = gc.querySelector('#minimap-canvas') as HTMLElement | null;
+    const debug = gc.querySelector('#debug-info') as HTMLElement | null;
+    if (minimap) minimap.style.display = hide ? 'none' : '';
+    if (debug) debug.style.display = hide ? 'none' : '';
   }
 }

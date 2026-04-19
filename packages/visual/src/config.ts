@@ -122,6 +122,12 @@ export const BATTLE_ANIM_SPEED = 400;
 export const BATTLE_TURN_DELAY = 300;
 /** 战斗日志最大行数 */
 export const BATTLE_LOG_MAX = 6;
+/** 战斗精灵每方向帧数 */
+export const FIGHT_FRAMES_PER_DIR = 12;
+/** 战斗精灵帧间隔 (ms) */
+export const FIGHT_FRAME_INTERVAL = 50;
+/** 战场瓦片缩放倍率（1.0 = 与世界地图等大） */
+export const BATTLE_TILE_SCALE = 1.0;
 
 /** 策略各状态对应的地图区域中心 */
 export const STATE_REGIONS: Record<AgentState, StateRegion> = {

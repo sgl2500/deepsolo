@@ -5,6 +5,7 @@
 import Phaser from 'phaser';
 import { BUILDINGS } from '../data/BuildingData';
 import { NPC_DEFS } from '../data/NPCData';
+import { EFT_FRAME_COUNTS } from '../data/BattleData';
 
 /** 收集所有室内地图需要的 smap 瓦片 ID */
 function collectSmapTileIds(): number[] {
@@ -92,6 +93,26 @@ export class BootScene extends Phaser.Scene {
     const portraitIds = collectPortraitIds();
     for (const id of portraitIds) {
       this.load.image(`portrait_${id}`, `assets/jy-assets/14_head/${id}.png`);
+    }
+
+    // === 战斗精灵 (JYQXZ 12_fight/Fight000) ===
+    // 加载 Attack Type 0: 4 方向 × 12 帧 (frame 40-87)
+    for (let i = 40; i <= 87; i++) {
+      const padded = String(i).padStart(4, '0');
+      this.load.image(`fight000_${padded}`, `assets/jy-assets/12_fight/Fight000/${padded}.png`);
+    }
+    // 加载 Fight000 的帧偏移数据
+    this.load.json('fight000_info', 'assets/jy-assets/12_fight/Fight000/_info.json');
+
+    // === 武功特效贴图 (JYQXZ 13_eft) ===
+    for (const [eftId, count] of Object.entries(EFT_FRAME_COUNTS)) {
+      for (let i = 0; i < count; i++) {
+        const padded = String(i).padStart(4, '0');
+        this.load.image(
+          `eft_${eftId}_${padded}`,
+          `assets/jy-assets/13_eft/${eftId}/${padded}.png`,
+        );
+      }
     }
 
     // === NPC 地图精灵 (JYQXZ 17_npc_map) ===

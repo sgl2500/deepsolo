@@ -53,4 +53,8 @@ export class HeaderBar {
     this.loseEl.textContent = String(strategies.filter(s => s.returnPct <= 0).length);
     this.tradesEl.textContent = strategies.reduce((a, s) => a + s.totalTrades, 0).toLocaleString();
   }
+
+  setVisible(visible: boolean): void {
+    this.el.style.display = visible ? '' : 'none';
+  }
 }

@@ -7,24 +7,67 @@ import {
   type BattleAction,
   type BattleResult,
   type WugongDef,
+  WugongType,
   Direction,
+  ManualPhase,
 } from '../types';
 import {
   ARENA_SIZE,
   BATTLE_ANIM_SPEED,
   BATTLE_TURN_DELAY,
   BATTLE_LOG_MAX,
+  FIGHT_FRAMES_PER_DIR,
+  FIGHT_FRAME_INTERVAL,
+  BATTLE_TILE_SCALE,
   SCREEN_WIDTH,
   SCREEN_HEIGHT,
   TILE_HALF_W,
   TILE_HALF_H,
+  WALK_FRAME_COUNT,
+  WALK_FRAME_INTERVAL,
 } from '../config';
-import { createBattlePerson, NORMAL_ATTACK } from '../data/BattleData';
+import { createBattlePerson, NORMAL_ATTACK, WUGONG_DEFS, EFT_FRAME_COUNTS } from '../data/BattleData';
 import type { EventBus } from '../core/EventBus';
 
 // ── 战斗状态 ──
 
-type Phase = 'idle' | 'running' | 'animating' | 'ended';
+type Phase = 'idle' | 'running' | 'animating' | 'ended' | 'manual';
+
+/** 手动控制键盘输入类型 */
+type BattleInput = 'up' | 'down' | 'left' | 'right' | 'confirm' | 'cancel';
+
+/**
+ * JYQXZ Fight000 精灵帧布局 (Attack Type 0):
+ *   右上: 40-51  (12帧)
+ *   右下: 52-63  (12帧)
+ *   左上: 64-75  (12帧)
+ *   左下: 76-87  (12帧)
+ *
+ * 等距视角下 DeepSolo Direction → Fight 帧偏移:
+ *   Direction.Up(0)    → 右上 → 40
+ *   Direction.Right(1) → 右下 → 52
+ *   Direction.Left(2)  → 左上 → 64
+ *   Direction.Down(3)  → 左下 → 76
+ */
+const DIR_TO_FIGHT_OFFSET: Record<number, number> = {
+  [Direction.Up]: 40,
+  [Direction.Right]: 52,
+  [Direction.Left]: 64,
+  [Direction.Down]: 76,
+};
+
+/** Direction 枚举值 → chars atlas 方向后缀 */
+const DIR_CHARS_D: Record<number, number> = {
+  [Direction.Up]: 0,
+  [Direction.Right]: 1,
+  [Direction.Left]: 2,
+  [Direction.Down]: 3,
+};
+
+/** 根据 frame index 获取 fight sprite 的 texture key */
+function fightKey(frameIdx: number): string {
+  return `fight000_${String(frameIdx).padStart(4, '0')}`;
+}
 
 export class BattleSystem {
   private scene: Phaser.Scene;
@@ -38,12 +81,55 @@ export class BattleSystem {
 
   // 渲染对象
   private container: Phaser.GameObjects.Container | null = null;
+  /** 角色 sprite 初始缩放 */
+  private readonly spriteScale = 2.0;
+  /** chars 走路帧缩放 (fight视觉高度100 / chars帧高度195 ≈ 0.51) */
+  private readonly walkSpriteScale = 0.51;
   private sprites: Map<string, Phaser.GameObjects.Image> = new Map();
   private hpBars: Map<string, Phaser.GameObjects.Graphics> = new Map();
   private nameLabels: Map<string, Phaser.GameObjects.Text> = new Map();
   private logTexts: Phaser.GameObjects.Text[] = [];
   private roundLabel: Phaser.GameObjects.Text | null = null;
   private endOverlay: Phaser.GameObjects.Container | null = null;
+
+  // ── 手动控制 ──
+  private isAutoMode = true;
+  private manualPhase: ManualPhase = ManualPhase.ActionMenu;
+  private currentManualPerson: BattlePerson | null = null;
+  private savedPos: { x: number; y: number } | null = null;
+
+  // 光标
+  private cursorGridPos = { x: 0, y: 0 };
+  private cursorSprite: Phaser.GameObjects.Graphics | null = null;
+
+  // 范围覆盖
+  private moveRangeOverlay: Phaser.GameObjects.Graphics | null = null;
+  private attackRangeOverlay: Phaser.GameObjects.Graphics | null = null;
+  private moveRangeCells: { x: number; y: number }[] = [];
+
+  // 操作菜单
+  private menuContainer: Phaser.GameObjects.Container | null = null;
+  private menuCursorIndex = 0;
+  private menuHighlight: Phaser.GameObjects.Graphics | null = null;
+  private menuTexts: Phaser.GameObjects.Text[] = [];
+  private readonly MENU_ITEMS = ['移动', '攻击', '防御', '休息', '状态', '自动'];
+
+  // 武功子菜单
+  private wugongContainer: Phaser.GameObjects.Container | null = null;
+  private wugongCursorIndex = 0;
+  private availableSkills: WugongDef[] = [];
+  private selectedSkill: WugongDef | null = null;
+
+  // 键盘
+  private battleKeys!: {
+    up: Phaser.Input.Keyboard.Key;
+    down: Phaser.Input.Keyboard.Key;
+    left: Phaser.Input.Keyboard.Key;
+    right: Phaser.Input.Keyboard.Key;
+    confirm: Phaser.Input.Keyboard.Key;
+    cancel: Phaser.Input.Keyboard.Key;
+    toggleAuto: Phaser.Input.Keyboard.Key;
+  };
 
   constructor(scene: Phaser.Scene, eventBus: EventBus) {
     this.scene = scene;
@@ -68,7 +154,9 @@ export class BattleSystem {
     this.persons = [red, blue];
     this.round = 0;
     this.phase = 'running';
+    this.isAutoMode = true;
 
+    this.initBattleKeys();
     this.renderArena();
     this.renderPersons();
     this.renderHUD();
@@ -81,7 +169,32 @@ export class BattleSystem {
 
   /** 每帧更新 */
   update(_time: number, _delta: number): void {
-    // 目前由定时器驱动回合，帧更新保留给动画插值
+    if (this.phase === 'idle' || this.phase === 'ended') return;
+
+    // Tab 键切换手动/自动
+    if (this.battleKeys?.toggleAuto && Phaser.Input.Keyboard.JustDown(this.battleKeys.toggleAuto)) {
+      if (this.phase === 'manual') {
+        this.switchToAuto();
+        return;
+      } else {
+        // 自动 → 手动：下一回合开始生效
+        this.isAutoMode = false;
+        this.addLog('>> 下一回合切换为手动模式 (Tab切回自动)');
+        return;
+      }
+    }
+
+    if (this.phase !== 'manual') return;
+
+    const input = this.getBattleInput();
+    if (!input) return;
+
+    switch (this.manualPhase) {
+      case ManualPhase.ActionMenu:   this.handleMenuInput(input); break;
+      case ManualPhase.MoveSelect:   this.handleMoveSelectInput(input); break;
+      case ManualPhase.WugongSelect: this.handleWugongSelectInput(input); break;
+      case ManualPhase.TargetSelect: this.handleTargetSelectInput(input); break;
+    }
   }
 
   /** 清理战斗 */
@@ -92,6 +205,67 @@ export class BattleSystem {
   // ============================================================
   // 回合驱动
   // ============================================================
+
+  private initBattleKeys(): void {
+    const kb = this.scene.input.keyboard!;
+    this.battleKeys = {
+      up: kb.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
+      down: kb.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN),
+      left: kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
+      right: kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
+      confirm: kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
+      cancel: kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC),
+      toggleAuto: kb.addKey(Phaser.Input.Keyboard.KeyCodes.TAB),
+    };
+  }
+
+  private getBattleInput(): BattleInput | null {
+    const k = this.battleKeys;
+    if (!k) return null;
+    if (Phaser.Input.Keyboard.JustDown(k.up)) return 'up';
+    if (Phaser.Input.Keyboard.JustDown(k.down)) return 'down';
+    if (Phaser.Input.Keyboard.JustDown(k.left)) return 'left';
+    if (Phaser.Input.Keyboard.JustDown(k.right)) return 'right';
+    if (Phaser.Input.Keyboard.JustDown(k.confirm)) return 'confirm';
+    if (Phaser.Input.Keyboard.JustDown(k.cancel)) return 'cancel';
+    return null;
+  }
+
+  // ── 手动模式进入/退出 ──
+
+  private enterManualMode(person: BattlePerson): void {
+    this.phase = 'manual';
+    this.currentManualPerson = person;
+    this.savedPos = { ...person.pos };
+    this.manualPhase = ManualPhase.ActionMenu;
+    this.menuCursorIndex = 0;
+    this.addLog(`>> ${person.name} 的回合 (手动)`);
+    this.showActionMenu(person);
+  }
+
+  exitManualMode(): void {
+    this.hideActionMenu();
+    this.hideWugongMenu();
+    this.clearRangeOverlays();
+    this.hideCursor();
+    this.hideHintText();
+    this.currentManualPerson = null;
+    this.savedPos = null;
+    this.selectedSkill = null;
+  }
+
+  private switchToAuto(): void {
+    this.isAutoMode = true;
+    const person = this.currentManualPerson;
+    this.exitManualMode();
+    this.phase = 'running';
+    this.addLog('>> 切换为自动模式');
+    if (person && person.alive) {
+      this.executePersonTurn(person);
+    } else {
+      this.scene.time.delayedCall(BATTLE_TURN_DELAY, () => this.nextTurn());
+    }
+  }
 
   private nextTurn(): void {
     if (this.phase === 'ended') return;
@@ -112,7 +286,11 @@ export class BattleSystem {
     }
 
     const person = this.turnQueue.shift()!;
-    this.executePersonTurn(person);
+    if (this.isAutoMode) {
+      this.executePersonTurn(person);
+    } else {
+      this.enterManualMode(person);
+    }
   }
 
   private executePersonTurn(person: BattlePerson): void {
@@ -130,6 +308,650 @@ export class BattleSystem {
       this.phase = 'running';
       this.scene.time.delayedCall(BATTLE_TURN_DELAY, () => this.nextTurn());
     });
+  }
+
+  // ============================================================
+  // 手动控制 — 菜单输入处理
+  // ============================================================
+
+  private handleMenuInput(input: BattleInput): void {
+    const items = this.MENU_ITEMS.length;
+    if (input === 'up') {
+      this.menuCursorIndex = (this.menuCursorIndex - 1 + items) % items;
+      this.updateMenuHighlight();
+    } else if (input === 'down') {
+      this.menuCursorIndex = (this.menuCursorIndex + 1) % items;
+      this.updateMenuHighlight();
+    } else if (input === 'confirm') {
+      switch (this.menuCursorIndex) {
+        case 0: this.enterMoveSelect(); break;
+        case 1: this.enterWugongSelect(); break;
+        case 2: this.executeManualAction('defend'); break;
+        case 3: this.executeManualAction('rest'); break;
+        case 4: this.showStatusInLog(); break;
+        case 5: this.switchToAuto(); break;
+      }
+    } else if (input === 'cancel') {
+      // ESC 从菜单 = 结束回合（等同休息）
+      this.executeManualAction('rest');
+    }
+  }
+
+  private handleMoveSelectInput(input: BattleInput): void {
+    if (input === 'up') {
+      this.moveCursorBy(0, -1);
+    } else if (input === 'down') {
+      this.moveCursorBy(0, 1);
+    } else if (input === 'left') {
+      this.moveCursorBy(-1, 0);
+    } else if (input === 'right') {
+      this.moveCursorBy(1, 0);
+    } else if (input === 'confirm') {
+      const inRange = this.moveRangeCells.some(c => c.x === this.cursorGridPos.x && c.y === this.cursorGridPos.y);
+      if (inRange) {
+        this.executeManualMove();
+      } else {
+        this.addLog(`不能移动到(${this.cursorGridPos.x},${this.cursorGridPos.y}) 范围${this.moveRangeCells.length}格`);
+      }
+    } else if (input === 'cancel') {
+      this.clearRangeOverlays();
+      this.hideCursor();
+      this.hideHintText();
+      this.manualPhase = ManualPhase.ActionMenu;
+      this.showActionMenu(this.currentManualPerson!);
+    }
+  }
+
+  private handleWugongSelectInput(input: BattleInput): void {
+    const count = this.availableSkills.length;
+    if (input === 'up') {
+      this.wugongCursorIndex = (this.wugongCursorIndex - 1 + count) % count;
+      this.updateWugongHighlight();
+    } else if (input === 'down') {
+      this.wugongCursorIndex = (this.wugongCursorIndex + 1) % count;
+      this.updateWugongHighlight();
+    } else if (input === 'confirm') {
+      const skill = this.availableSkills[this.wugongCursorIndex];
+      if (!skill) return;
+      const person = this.currentManualPerson!;
+      if (person.mp < skill.mpCost) {
+        this.addLog(`MP不足，${skill.name}需要${skill.mpCost}MP`);
+        return;
+      }
+      this.selectedSkill = skill;
+      this.hideWugongMenu();
+      // 进入选中心点
+      this.enterTargetSelect();
+    } else if (input === 'cancel') {
+      this.hideWugongMenu();
+      this.manualPhase = ManualPhase.ActionMenu;
+      this.showActionMenu(this.currentManualPerson!);
+    }
+  }
+
+  private handleTargetSelectInput(input: BattleInput): void {
+    if (input === 'up') {
+      this.moveCursorBy(0, -1);
+    } else if (input === 'down') {
+      this.moveCursorBy(0, 1);
+    } else if (input === 'left') {
+      this.moveCursorBy(-1, 0);
+    } else if (input === 'right') {
+      this.moveCursorBy(1, 0);
+    } else if (input === 'confirm') {
+      // 以光标为中心点释放技能
+      this.executeManualAttack();
+    } else if (input === 'cancel') {
+      this.clearRangeOverlays();
+      this.hideCursor();
+      this.hideHintText();
+      this.enterWugongSelect();
+    }
+  }
+
+  // ── 手动行动执行 ──
+
+  private executeManualAction(action: 'defend' | 'rest'): void {
+    const person = this.currentManualPerson!;
+    this.hideActionMenu();
+
+    if (action === 'defend') {
+      this.addLog(`${person.name} 防御，伤害减半`);
+      // 防御效果：标记，下一回合恢复（简化实现）
+    } else {
+      // 休息：恢复少量 MP
+      const mpRecover = Math.floor(person.maxMp * 0.1);
+      person.mp = Math.min(person.maxMp, person.mp + mpRecover);
+      this.addLog(`${person.name} 休息，恢复 ${mpRecover} MP`);
+    }
+
+    this.exitManualMode();
+    this.phase = 'running';
+    this.scene.time.delayedCall(BATTLE_TURN_DELAY, () => this.nextTurn());
+  }
+
+  private executeManualMove(): void {
+    const person = this.currentManualPerson!;
+    const target = { ...this.cursorGridPos };
+
+    this.clearRangeOverlays();
+    this.hideCursor();
+    this.hideHintText();
+
+    this.addLog(`移动到 (${target.x},${target.y})`);
+
+    // 如果位置没变，直接回菜单
+    if (target.x === person.pos.x && target.y === person.pos.y) {
+      this.manualPhase = ManualPhase.ActionMenu;
+      this.showActionMenu(person);
+      return;
+    }
+
+    this.phase = 'animating';
+    this.animateMove(person, target, () => {
+      this.phase = 'manual';
+      this.manualPhase = ManualPhase.ActionMenu;
+      this.showActionMenu(person);
+    });
+  }
+
+  private showStatusInLog(): void {
+    const person = this.currentManualPerson!;
+    this.addLog(`${person.name} HP:${person.hp}/${person.maxHp} MP:${person.mp}/${person.maxMp} ATK:${person.attack} DEF:${person.defense}`);
+  }
+
+  // ── 手动子阶段进入 ──
+
+  private enterMoveSelect(): void {
+    const person = this.currentManualPerson!;
+    this.hideActionMenu();
+    this.moveRangeCells = this.calcMoveRange(person.pos, person.moveRange);
+    this.showMoveRange(this.moveRangeCells);
+    this.cursorGridPos = { ...person.pos };
+    this.showCursor(person.pos.x, person.pos.y);
+    this.showHintText('方向键移动光标，Space确认，ESC取消');
+    this.addLog(`可移动 ${this.moveRangeCells.length} 格 (从${person.pos.x},${person.pos.y})`);
+    this.manualPhase = ManualPhase.MoveSelect;
+  }
+
+  private enterWugongSelect(): void {
+    const person = this.currentManualPerson!;
+    this.hideActionMenu();
+    // 专属武功 + 普通攻击
+    this.availableSkills = [person.wugong, NORMAL_ATTACK];
+    this.wugongCursorIndex = 0;
+    this.renderWugongMenu(person);
+    this.manualPhase = ManualPhase.WugongSelect;
+  }
+
+  private enterTargetSelect(): void {
+    const person = this.currentManualPerson!;
+    const skill = this.selectedSkill!;
+    this.hideWugongMenu();
+    // 光标初始定位到敌人位置（方便瞄准）
+    const enemy = this.getEnemy(person);
+    this.cursorGridPos = enemy ? { ...enemy.pos } : { ...person.pos };
+    this.showCursor(this.cursorGridPos.x, this.cursorGridPos.y);
+    const aoe = skill.aoeSize ?? 1;
+    const half = Math.floor(aoe / 2);
+    this.showHintText(`[${skill.name}] 方向键选中心点，Space释放${aoe > 1 ? `(${aoe}x${aoe}范围)` : ''}`);
+    this.manualPhase = ManualPhase.TargetSelect;
+  }
+
+  /** 以光标为中心释放技能 */
+  private executeManualAttack(): void {
+    const person = this.currentManualPerson!;
+    const skill = this.selectedSkill!;
+    const centerX = this.cursorGridPos.x;
+    const centerY = this.cursorGridPos.y;
+
+    this.clearRangeOverlays();
+    this.hideCursor();
+    this.hideActionMenu();
+    this.hideHintText();
+    this.manualPhase = ManualPhase.ActionMenu;
+    this.phase = 'animating';
+
+    // 消耗 MP
+    person.mp = Math.max(0, person.mp - skill.mpCost);
+
+    const isSpecial = skill.id !== 'normal_attack';
+    const aoeSize = skill.aoeSize ?? 1;
+    const half = Math.floor(aoeSize / 2);
+
+    // 找 AoE 范围内的敌人
+    const targets: BattlePerson[] = [];
+    for (const p of this.persons) {
+      if (!p.alive || p.team === person.team) continue;
+      const dx = p.pos.x - centerX;
+      const dy = p.pos.y - centerY;
+      if (Math.abs(dx) <= half && Math.abs(dy) <= half) {
+        targets.push(p);
+      }
+    }
+
+    // 面朝中心点方向
+    const fakeTarget = { x: centerX, y: centerY };
+    this.faceToward(person, fakeTarget);
+
+    // 显示武功名
+    if (isSpecial) {
+      this.showKungfuName(skill.name, skill.type);
+    }
+    const nameDelay = isSpecial ? 400 : 100;
+
+    this.scene.time.delayedCall(nameDelay, () => {
+      // 播放攻击帧
+      this.cycleAttackFrames(person);
+
+      const attackerSprite = this.sprites.get(person.id);
+      if (attackerSprite) {
+        const s = this.spriteScale;
+        this.scene.tweens.add({
+          targets: attackerSprite,
+          scaleX: s * 0.85, scaleY: s * 0.9,
+          duration: 120, ease: 'Quad.easeIn',
+          onComplete: () => {
+            this.scene.tweens.add({
+              targets: attackerSprite,
+              scaleX: s * 1.15, scaleY: s * 1.15,
+              duration: 150, ease: 'Back.easeOut',
+              onComplete: () => {
+                // ===== 播放技能特效（以中心点扩散） =====
+                const centerScreen = this.arenaToScreen(centerX, centerY);
+                if (aoeSize >= 3) {
+                  this.playAoeEffect(centerX, centerY, skill.effectId, aoeSize);
+                } else {
+                  this.playEftSprite(centerScreen.x, centerScreen.y, skill.effectId);
+                }
+
+                // ===== 处理伤害 =====
+                this.scene.time.delayedCall(250, () => {
+                  // 恢复攻击者缩放
+                  if (attackerSprite) {
+                    this.scene.tweens.add({
+                      targets: attackerSprite,
+                      scaleX: this.spriteScale, scaleY: this.spriteScale,
+                      duration: 200, ease: 'Quad.easeOut',
+                      onComplete: () => this.resetSpriteFrame(person),
+                    });
+                  }
+
+                  if (targets.length > 0) {
+                    for (const target of targets) {
+                      const { damage, hit } = this.calcDamage(person, target, skill);
+                      const targetScreen = this.arenaToScreen(target.pos.x, target.pos.y);
+                      const targetSprite = this.sprites.get(target.id);
+
+                      if (hit && damage > 0) {
+                        target.hp = Math.max(0, target.hp - damage);
+                        this.updateHPBar(target);
+                        this.playHitFlash(targetScreen.x, targetScreen.y);
+                        if (targetSprite) {
+                          targetSprite.setTint(0xff4444);
+                          this.scene.tweens.add({
+                            targets: targetSprite,
+                            x: targetScreen.x - 4, duration: 40, yoyo: true, repeat: 3,
+                            onComplete: () => {
+                              targetSprite.clearTint();
+                              this.scene.tweens.add({ targets: targetSprite, x: targetScreen.x, duration: 50 });
+                            },
+                          });
+                        }
+                        this.scene.time.delayedCall(80, () => {
+                          this.showDamageNumber(targetScreen.x, targetScreen.y - 45, damage, damage > 80);
+                        });
+                        this.addLog(`${person.name} [${skill.name}] → ${target.name} ${damage}伤害！`);
+                        if (target.hp <= 0) {
+                          target.alive = false;
+                          this.scene.time.delayedCall(500, () => this.playDeathEffect(target));
+                        }
+                      } else {
+                        this.showDamageNumber(targetScreen.x, targetScreen.y - 45, 0, false);
+                        this.addLog(`${person.name} [${skill.name}] → ${target.name} 未命中！`);
+                      }
+                    }
+                  } else {
+                    // 空挥：只显示技能效果
+                    this.addLog(`${person.name} [${skill.name}] → 空挥`);
+                  }
+
+                  this.eventBus.emit('battle:action', {
+                    actorId: person.id, actorName: person.name,
+                    action: skill.name, damage: 0, targetHp: 0, hit: targets.length > 0,
+                  });
+
+                  this.scene.time.delayedCall(700, () => {
+                    const result = this.checkEnd();
+                    if (result) { this.endBattle(result); return; }
+                    this.phase = 'running';
+                    this.scene.time.delayedCall(BATTLE_TURN_DELAY, () => this.nextTurn());
+                  });
+                });
+              },
+            });
+          },
+        });
+      } else {
+        const centerScreen = this.arenaToScreen(centerX, centerY);
+        this.playEftSprite(centerScreen.x, centerScreen.y, skill.effectId);
+        this.scene.time.delayedCall(500, () => {
+          const result = this.checkEnd();
+          if (result) { this.endBattle(result); return; }
+          this.phase = 'running';
+          this.scene.time.delayedCall(BATTLE_TURN_DELAY, () => this.nextTurn());
+        });
+      }
+    });
+  }
+
+  // ── 攻击范围计算 ──
+
+  private calcAttackRange(pos: { x: number; y: number }, range: number): { x: number; y: number }[] {
+    const result: { x: number; y: number }[] = [];
+    for (let dy = -range; dy <= range; dy++) {
+      for (let dx = -range; dx <= range; dx++) {
+        if (Math.abs(dx) + Math.abs(dy) > range) continue;
+        const nx = pos.x + dx;
+        const ny = pos.y + dy;
+        if (nx < 0 || nx >= ARENA_SIZE || ny < 0 || ny >= ARENA_SIZE) continue;
+        result.push({ x: nx, y: ny });
+      }
+    }
+    return result;
+  }
+
+  private getPersonAt(x: number, y: number): BattlePerson | undefined {
+    return this.persons.find(p => p.alive && p.pos.x === x && p.pos.y === y);
+  }
+
+  // ── 光标 ──
+
+  private moveCursorBy(dx: number, dy: number): void {
+    const nx = this.cursorGridPos.x + dx;
+    const ny = this.cursorGridPos.y + dy;
+    if (nx < 0 || nx >= ARENA_SIZE || ny < 0 || ny >= ARENA_SIZE) return;
+    this.cursorGridPos = { x: nx, y: ny };
+    this.updateCursorPosition();
+    this.showHintText(`光标(${nx},${ny}) 方向键移动，Space确认`);
+  }
+
+  private showCursor(gx: number, gy: number): void {
+    this.hideCursor();
+    const screen = this.arenaToScreen(gx, gy);
+    const hw = TILE_HALF_W * BATTLE_TILE_SCALE;
+    const hh = TILE_HALF_H * BATTLE_TILE_SCALE;
+
+    this.cursorSprite = this.scene.add.graphics();
+    this.cursorSprite.setDepth(9000);
+    this.cursorSprite.setScrollFactor(0);
+
+    this.drawCursorDiamond(this.cursorSprite, screen.x, screen.y, hw, hh, 0xfbbf24);
+
+    this.container?.add(this.cursorSprite);
+
+    // 闪烁 tween
+    this.scene.tweens.add({
+      targets: this.cursorSprite,
+      alpha: { from: 1, to: 0.3 },
+      duration: 350,
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  private updateCursorPosition(): void {
+    if (!this.cursorSprite) return;
+    const screen = this.arenaToScreen(this.cursorGridPos.x, this.cursorGridPos.y);
+    const hw = TILE_HALF_W * BATTLE_TILE_SCALE;
+    const hh = TILE_HALF_H * BATTLE_TILE_SCALE;
+
+    this.cursorSprite.clear();
+    this.drawCursorDiamond(this.cursorSprite, screen.x, screen.y, hw, hh, 0xfbbf24);
+  }
+
+  /** 画一个明显的光标菱形：填充 + 粗边框 */
+  private drawCursorDiamond(g: Phaser.GameObjects.Graphics, cx: number, cy: number, hw: number, hh: number, color: number): void {
+    const e = 3; // 外扩像素
+    g.fillStyle(color, 0.35);
+    g.beginPath();
+    g.moveTo(cx, cy - hh - e);
+    g.lineTo(cx + hw + e, cy);
+    g.lineTo(cx, cy + hh + e);
+    g.lineTo(cx - hw - e, cy);
+    g.closePath();
+    g.fillPath();
+
+    g.lineStyle(2, color, 0.9);
+    g.beginPath();
+    g.moveTo(cx, cy - hh - e);
+    g.lineTo(cx + hw + e, cy);
+    g.lineTo(cx, cy + hh + e);
+    g.lineTo(cx - hw - e, cy);
+    g.closePath();
+    g.strokePath();
+  }
+
+  private hideCursor(): void {
+    if (this.cursorSprite) {
+      this.scene.tweens.killTweensOf(this.cursorSprite);
+      this.cursorSprite.destroy();
+      this.cursorSprite = null;
+    }
+  }
+
+  // ── 提示文字 ──
+
+  private hintText: Phaser.GameObjects.Text | null = null;
+
+  private showHintText(text: string): void {
+    this.hideHintText();
+    this.hintText = this.scene.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT - 130, text, {
+      fontSize: '12px',
+      color: '#fbbf24',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5, 0).setDepth(9500).setScrollFactor(0);
+    this.container?.add(this.hintText);
+  }
+
+  private hideHintText(): void {
+    if (this.hintText) {
+      this.hintText.destroy();
+      this.hintText = null;
+    }
+  }
+
+  // ── 范围覆盖渲染 ──
+
+  private showMoveRange(cells: { x: number; y: number }[]): void {
+    this.clearMoveRange();
+    this.moveRangeOverlay = this.scene.add.graphics();
+    this.moveRangeOverlay.setDepth(8000);
+    this.moveRangeOverlay.setScrollFactor(0);
+
+    const hw = TILE_HALF_W * BATTLE_TILE_SCALE;
+    const hh = TILE_HALF_H * BATTLE_TILE_SCALE;
+
+    for (const c of cells) {
+      const s = this.arenaToScreen(c.x, c.y);
+      this.moveRangeOverlay.fillStyle(0x3b82f6, 0.25);
+      this.moveRangeOverlay.beginPath();
+      this.moveRangeOverlay.moveTo(s.x, s.y - hh);
+      this.moveRangeOverlay.lineTo(s.x + hw, s.y);
+      this.moveRangeOverlay.lineTo(s.x, s.y + hh);
+      this.moveRangeOverlay.lineTo(s.x - hw, s.y);
+      this.moveRangeOverlay.closePath();
+      this.moveRangeOverlay.fillPath();
+    }
+
+    this.container?.add(this.moveRangeOverlay);
+  }
+
+  private showAttackRange(cells: { x: number; y: number }[]): void {
+    this.clearAttackRange();
+    this.attackRangeOverlay = this.scene.add.graphics();
+    this.attackRangeOverlay.setDepth(8000);
+    this.attackRangeOverlay.setScrollFactor(0);
+
+    const hw = TILE_HALF_W * BATTLE_TILE_SCALE;
+    const hh = TILE_HALF_H * BATTLE_TILE_SCALE;
+
+    for (const c of cells) {
+      const s = this.arenaToScreen(c.x, c.y);
+      this.attackRangeOverlay.fillStyle(0xef4444, 0.25);
+      this.attackRangeOverlay.beginPath();
+      this.attackRangeOverlay.moveTo(s.x, s.y - hh);
+      this.attackRangeOverlay.lineTo(s.x + hw, s.y);
+      this.attackRangeOverlay.lineTo(s.x, s.y + hh);
+      this.attackRangeOverlay.lineTo(s.x - hw, s.y);
+      this.attackRangeOverlay.closePath();
+      this.attackRangeOverlay.fillPath();
+    }
+
+    this.container?.add(this.attackRangeOverlay);
+  }
+
+  private clearRangeOverlays(): void {
+    this.clearMoveRange();
+    this.clearAttackRange();
+  }
+
+  private clearMoveRange(): void {
+    if (this.moveRangeOverlay) {
+      this.moveRangeOverlay.destroy();
+      this.moveRangeOverlay = null;
+    }
+  }
+
+  private clearAttackRange(): void {
+    if (this.attackRangeOverlay) {
+      this.attackRangeOverlay.destroy();
+      this.attackRangeOverlay = null;
+    }
+  }
+
+  // ── 操作菜单 ──
+
+  private showActionMenu(person: BattlePerson): void {
+    this.hideActionMenu();
+    const menuX = SCREEN_WIDTH - 150;
+    const menuY = SCREEN_HEIGHT / 2 - 100;
+    const itemH = 26;
+    const menuW = 130;
+    const menuH = this.MENU_ITEMS.length * itemH + 16;
+
+    this.menuContainer = this.scene.add.container(menuX, menuY);
+    this.menuContainer.setDepth(9500);
+    this.menuContainer.setScrollFactor(0);
+
+    // 背景
+    const bg = this.scene.add.graphics();
+    bg.fillStyle(0x0f172a, 0.92);
+    bg.fillRoundedRect(0, 0, menuW, menuH, 6);
+    bg.lineStyle(1, 0xfbbf24, 0.6);
+    bg.strokeRoundedRect(0, 0, menuW, menuH, 6);
+    this.menuContainer.add(bg);
+
+    // 高亮条
+    this.menuHighlight = this.scene.add.graphics();
+    this.menuHighlight.fillStyle(0xfbbf24, 0.25);
+    this.menuHighlight.fillRoundedRect(4, 8 + this.menuCursorIndex * itemH, menuW - 8, itemH - 4, 3);
+    this.menuContainer.add(this.menuHighlight);
+
+    // 菜单项
+    this.menuTexts = [];
+    for (let i = 0; i < this.MENU_ITEMS.length; i++) {
+      const isSelected = i === this.menuCursorIndex;
+      const t = this.scene.add.text(menuW / 2, 14 + i * itemH, this.MENU_ITEMS[i], {
+        fontSize: '13px',
+        color: isSelected ? '#fbbf24' : '#cccccc',
+        fontStyle: isSelected ? 'bold' : 'normal',
+      }).setOrigin(0.5, 0);
+      this.menuContainer.add(t);
+      this.menuTexts.push(t);
+    }
+
+    this.container?.add(this.menuContainer);
+  }
+
+  private updateMenuHighlight(): void {
+    if (!this.menuHighlight) return;
+    const itemH = 26;
+    const menuW = 130;
+    this.menuHighlight.clear();
+    this.menuHighlight.fillStyle(0xfbbf24, 0.25);
+    this.menuHighlight.fillRoundedRect(4, 8 + this.menuCursorIndex * itemH, menuW - 8, itemH - 4, 3);
+
+    for (let i = 0; i < this.menuTexts.length; i++) {
+      const isSelected = i === this.menuCursorIndex;
+      this.menuTexts[i].setColor(isSelected ? '#fbbf24' : '#cccccc');
+      this.menuTexts[i].setStyle({ fontStyle: isSelected ? 'bold' : 'normal' });
+    }
+  }
+
+  private hideActionMenu(): void {
+    if (this.menuContainer) {
+      this.menuContainer.destroy(true);
+      this.menuContainer = null;
+    }
+    this.menuHighlight = null;
+    this.menuTexts = [];
+  }
+
+  // ── 武功子菜单 ──
+
+  private renderWugongMenu(person: BattlePerson): void {
+    this.hideWugongMenu();
+    const menuX = SCREEN_WIDTH - 290;
+    const menuY = SCREEN_HEIGHT / 2 - 60;
+    const itemH = 26;
+    const menuW = 130;
+    const menuH = this.availableSkills.length * itemH + 16;
+
+    this.wugongContainer = this.scene.add.container(menuX, menuY);
+    this.wugongContainer.setDepth(9600);
+    this.wugongContainer.setScrollFactor(0);
+
+    // 背景
+    const bg = this.scene.add.graphics();
+    bg.fillStyle(0x0f172a, 0.92);
+    bg.fillRoundedRect(0, 0, menuW, menuH, 6);
+    bg.lineStyle(1, 0x44ffaa, 0.6);
+    bg.strokeRoundedRect(0, 0, menuW, menuH, 6);
+    this.wugongContainer.add(bg);
+
+    // 武功项
+    for (let i = 0; i < this.availableSkills.length; i++) {
+      const skill = this.availableSkills[i];
+      const hasMp = person.mp >= skill.mpCost;
+      const isSelected = i === this.wugongCursorIndex;
+      const label = skill.mpCost > 0 ? `${skill.name} (${skill.mpCost}MP)` : skill.name;
+
+      const t = this.scene.add.text(menuW / 2, 14 + i * itemH, label, {
+        fontSize: '12px',
+        color: !hasMp ? '#666666' : isSelected ? '#44ffaa' : '#cccccc',
+        fontStyle: isSelected ? 'bold' : 'normal',
+      }).setOrigin(0.5, 0);
+      this.wugongContainer.add(t);
+    }
+
+    this.container?.add(this.wugongContainer);
+  }
+
+  private updateWugongHighlight(): void {
+    // 简化：重新渲染
+    if (this.currentManualPerson) {
+      this.renderWugongMenu(this.currentManualPerson);
+    }
+  }
+
+  private hideWugongMenu(): void {
+    if (this.wugongContainer) {
+      this.wugongContainer.destroy(true);
+      this.wugongContainer = null;
+    }
   }
 
   // ============================================================
@@ -196,8 +1018,15 @@ export class BattleSystem {
     const sprite = this.sprites.get(person.id);
     if (!sprite) { done(); return; }
 
+    // 先面朝移动方向
+    this.faceToward(person, target);
+
     person.pos = { ...target };
     const screenPos = this.arenaToScreen(target.x, target.y);
+
+    // 切换到 chars 走路帧 + 匹配缩放
+    sprite.setScale(this.walkSpriteScale);
+    const walkTimer = this.cycleWalkFrames(person);
 
     this.scene.tweens.add({
       targets: sprite,
@@ -206,10 +1035,70 @@ export class BattleSystem {
       duration: BATTLE_ANIM_SPEED,
       ease: 'Linear',
       onComplete: () => {
+        if (walkTimer) walkTimer.remove();
+        // 恢复 fight 精灵 + 原始缩放
+        sprite.setScale(this.spriteScale);
+        this.resetSpriteFrame(person);
         this.faceToward(person, this.getEnemy(person)?.pos ?? person.pos);
         done();
       },
     });
+  }
+
+  /** 移动时用 chars atlas 走路帧播放行走动画 */
+  private cycleWalkFrames(person: BattlePerson): Phaser.Time.TimerEvent | null {
+    const sprite = this.sprites.get(person.id);
+    if (!sprite) return null;
+    const d = DIR_CHARS_D[person.facing] ?? 0;
+    let step = 0;
+    const timer = this.scene.time.addEvent({
+      delay: WALK_FRAME_INTERVAL,
+      repeat: -1,
+      callback: () => {
+        const f = step % WALK_FRAME_COUNT;
+        const frameKey = `player_d${d}_f${f}`;
+        const frame = this.scene.textures.getFrame('chars', frameKey);
+        if (frame) {
+          sprite.setTexture('chars', frameKey);
+        }
+        step++;
+      },
+    });
+    // 立即显示第一帧走路（f1 而非 f0 站立）
+    const firstKey = `player_d${d}_f1`;
+    if (this.scene.textures.getFrame('chars', firstKey)) {
+      sprite.setTexture('chars', firstKey);
+    }
+    return timer;
+  }
+
+  /** 用 JYQXZ fight 精灵帧播放攻击动画 */
+  private cycleAttackFrames(person: BattlePerson): void {
+    const sprite = this.sprites.get(person.id);
+    if (!sprite) return;
+    const dirOffset = DIR_TO_FIGHT_OFFSET[person.facing] ?? 0;
+    let step = 0;
+    const timer = this.scene.time.addEvent({
+      delay: FIGHT_FRAME_INTERVAL,
+      repeat: FIGHT_FRAMES_PER_DIR - 1,
+      callback: () => {
+        const frameIdx = dirOffset + step;
+        const key = fightKey(frameIdx);
+        const tex = this.scene.textures.exists(key);
+        if (tex) sprite.setTexture(key);
+        step++;
+      },
+    });
+    this.scene.time.delayedCall(FIGHT_FRAMES_PER_DIR * FIGHT_FRAME_INTERVAL + 50, () => timer.remove());
+  }
+
+  /** 恢复角色精灵到站立帧（fight sprite 第 0 帧） */
+  private resetSpriteFrame(person: BattlePerson): void {
+    const sprite = this.sprites.get(person.id);
+    if (!sprite) return;
+    const dirOffset = DIR_TO_FIGHT_OFFSET[person.facing] ?? 0;
+    const key = fightKey(dirOffset);
+    if (this.scene.textures.exists(key)) sprite.setTexture(key);
   }
 
   private animateAttack(
@@ -223,71 +1112,286 @@ export class BattleSystem {
 
     // 伤害计算
     const { damage, hit } = this.calcDamage(attacker, target, skill);
-
     // 消耗内力
     attacker.mp = Math.max(0, attacker.mp - skill.mpCost);
 
-    // 播放攻击特效
+    const attackerScreen = this.arenaToScreen(attacker.pos.x, attacker.pos.y);
     const targetScreen = this.arenaToScreen(target.pos.x, target.pos.y);
 
-    // 1) 攻击者小幅前冲
-    if (attackerSprite) {
-      const dx = targetScreen.x - attackerSprite.x;
-      const dy = targetScreen.y - attackerSprite.y;
-      const len = Math.sqrt(dx * dx + dy * dy) || 1;
-      const rushDist = 10;
+    // 面朝目标
+    this.faceToward(attacker, target.pos);
 
-      this.scene.tweens.add({
-        targets: attackerSprite,
-        x: attackerSprite.x + (dx / len) * rushDist,
-        y: attackerSprite.y + (dy / len) * rushDist,
-        duration: 120,
-        yoyo: true,
-        ease: 'Quad.easeOut',
-      });
+    const isSpecial = skill.id !== 'normal_attack';
+    const isAoe = (skill.aoeSize ?? 1) >= 3;
+
+    // ===== 阶段 1: 武功名显示 (350ms) =====
+    if (isSpecial) {
+      this.showKungfuName(skill.name, skill.type);
     }
+    const nameDelay = isSpecial ? 400 : 100;
 
-    // 2) 延迟后显示伤害
-    this.scene.time.delayedCall(200, () => {
-      if (hit && damage > 0) {
-        target.hp = Math.max(0, target.hp - damage);
-        this.updateHPBar(target);
-        this.showDamageNumber(targetScreen.x, targetScreen.y - 40, damage);
+    // ===== 阶段 2: 蓄力 + 帧动画（原地发招） =====
+    this.scene.time.delayedCall(nameDelay, () => {
+      // 启动 fight 精灵帧动画
+      this.cycleAttackFrames(attacker);
 
-        // 目标闪红
-        if (targetSprite) {
-          targetSprite.setTint(0xff4444);
-          this.scene.time.delayedCall(200, () => {
-            targetSprite?.clearTint();
-          });
-        }
+      if (attackerSprite) {
+        const s = this.spriteScale;
+        // 蓄力微蹲
+        this.scene.tweens.add({
+          targets: attackerSprite,
+          scaleX: s * 0.85,
+          scaleY: s * 0.9,
+          duration: 120,
+          ease: 'Quad.easeIn',
+          onComplete: () => {
+            // 原地弹出（不冲过去）
+            this.scene.tweens.add({
+              targets: attackerSprite,
+              scaleX: s * 1.15,
+              scaleY: s * 1.15,
+              duration: 150,
+              ease: 'Back.easeOut',
+              onComplete: () => {
+                // ===== 阶段 3: 武功特效 =====
+                if (isAoe) {
+                  this.playAoeEffect(target.pos.x, target.pos.y, skill.effectId, 3);
+                } else {
+                  this.playEftSprite(targetScreen.x, targetScreen.y, skill.effectId);
+                }
 
-        // 检查死亡
-        if (target.hp <= 0) {
-          target.alive = false;
-          this.playDeathEffect(target);
-        }
+                // ===== 阶段 4: 命中反馈 =====
+                this.scene.time.delayedCall(250, () => {
+                  // 恢复初始缩放
+                  this.scene.tweens.add({
+                    targets: attackerSprite,
+                    scaleX: this.spriteScale,
+                    scaleY: this.spriteScale,
+                    duration: 200,
+                    ease: 'Quad.easeOut',
+                    onComplete: () => {
+                      this.resetSpriteFrame(attacker);
+                    },
+                  });
+
+                  if (hit && damage > 0) {
+                    target.hp = Math.max(0, target.hp - damage);
+                    this.updateHPBar(target);
+
+                    this.playHitFlash(targetScreen.x, targetScreen.y);
+
+                    if (targetSprite) {
+                      targetSprite.setTint(0xff4444);
+                      this.scene.tweens.add({
+                        targets: targetSprite,
+                        x: targetScreen.x - 4,
+                        duration: 40,
+                        yoyo: true,
+                        repeat: 3,
+                        onComplete: () => {
+                          targetSprite.clearTint();
+                          this.scene.tweens.add({
+                            targets: targetSprite,
+                            x: targetScreen.x,
+                            duration: 50,
+                          });
+                        },
+                      });
+                    }
+
+                    this.scene.time.delayedCall(80, () => {
+                      this.showDamageNumber(targetScreen.x, targetScreen.y - 45, damage, damage > 80);
+                    });
+
+                    if (target.hp <= 0) {
+                      target.alive = false;
+                      this.scene.time.delayedCall(500, () => this.playDeathEffect(target));
+                    }
+                  } else {
+                    this.showDamageNumber(targetScreen.x, targetScreen.y - 45, 0, false);
+                  }
+
+                  const actionText = hit
+                    ? `${attacker.name} 使用 [${skill.name}] → ${target.name} 受到 ${damage} 伤害！`
+                    : `${attacker.name} 使用 [${skill.name}] → 未命中！`;
+                  this.addLog(actionText);
+
+                  this.eventBus.emit('battle:action', {
+                    actorId: attacker.id,
+                    actorName: attacker.name,
+                    action: skill.name,
+                    damage: hit ? damage : 0,
+                    targetHp: target.hp,
+                    hit,
+                  });
+
+                  this.scene.time.delayedCall(hit ? 700 : 300, done);
+                });
+              },
+            });
+          },
+        });
       } else {
-        this.showDamageNumber(targetScreen.x, targetScreen.y - 40, 0); // MISS
+        this.playEftSprite(targetScreen.x, targetScreen.y, skill.effectId);
+        this.scene.time.delayedCall(500, done);
       }
+    });
+  }
 
-      // 日志
-      const actionText = hit
-        ? `${attacker.name} 使用 [${skill.name}] → ${target.name} 受到 ${damage} 伤害！`
-        : `${attacker.name} 使用 [${skill.name}] → 未命中！`;
-      this.addLog(actionText);
+  /** 3x3 范围特效：在以 (cx, cy) 为中心的 aoeSize×aoeSize 格上播放特效 */
+  private playAoeEffect(centerX: number, centerY: number, effectId: string, size: number): void {
+    const half = Math.floor(size / 2);
+    for (let dy = -half; dy <= half; dy++) {
+      for (let dx = -half; dx <= half; dx++) {
+        const tx = centerX + dx;
+        const ty = centerY + dy;
+        if (tx < 0 || tx >= ARENA_SIZE || ty < 0 || ty >= ARENA_SIZE) continue;
+        const screen = this.arenaToScreen(tx, ty);
+        // 给每个格子加一点随机延迟，形成波浪扩散感
+        const dist = Math.abs(dx) + Math.abs(dy);
+        const delay = dist * 40;
+        this.scene.time.delayedCall(delay, () => {
+          this.playEftSprite(screen.x, screen.y, effectId);
+        });
+      }
+    }
+  }
 
-      this.eventBus.emit('battle:action', {
-        actorId: attacker.id,
-        actorName: attacker.name,
-        action: skill.name,
-        damage: hit ? damage : 0,
-        targetHp: target.hp,
-        hit,
+  // ============================================================
+  // 战斗特效 — 武功名放大显示
+  // ============================================================
+
+  private showKungfuName(name: string, type: WugongType): void {
+    const colors: Record<number, string> = {
+      [WugongType.Fist]: '#ff8844',
+      [WugongType.Sword]: '#44aaff',
+      [WugongType.Blade]: '#ff4466',
+      [WugongType.Special]: '#aa66ff',
+      [WugongType.Neigong]: '#44ffaa',
+    };
+    const color = colors[type] ?? '#fbbf24';
+
+    const txt = this.scene.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 80, name, {
+      fontSize: '10px',
+      color,
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(9998).setScrollFactor(0).setAlpha(0);
+    this.container!.add(txt);
+
+    // 放大 + 淡入效果
+    this.scene.tweens.add({
+      targets: txt,
+      alpha: 1,
+      fontSize: '28px',
+      duration: 250,
+      ease: 'Back.easeOut',
+      hold: 100,
+      onComplete: () => {
+        // 缩小淡出
+        this.scene.tweens.add({
+          targets: txt,
+          alpha: 0,
+          y: txt.y - 15,
+          duration: 150,
+          onComplete: () => txt.destroy(),
+        });
+      },
+    });
+  }
+
+  // ============================================================
+  // 战斗特效 — JYQXZ 原版武功特效贴图播放
+  // ============================================================
+
+  /** 播放 JYQXZ eft 特效贴图序列 */
+  private playEftSprite(cx: number, cy: number, effectId: string): void {
+    const frameCount = EFT_FRAME_COUNTS[effectId];
+    if (!frameCount) return;
+
+    // 创建特效精灵，从第一帧开始
+    const firstKey = `eft_${effectId}_0000`;
+    if (!this.scene.textures.exists(firstKey)) return;
+
+    const sprite = this.scene.add.image(cx, cy - 20, firstKey);
+    sprite.setScale(1.5);
+    sprite.setOrigin(0.5, 0.7);
+    sprite.setDepth(9998);
+    sprite.setScrollFactor(0);
+    this.container!.add(sprite);
+
+    let step = 0;
+    const timer = this.scene.time.addEvent({
+      delay: 60,
+      repeat: frameCount - 1,
+      callback: () => {
+        step++;
+        const key = `eft_${effectId}_${String(step).padStart(4, '0')}`;
+        if (this.scene.textures.exists(key)) {
+          sprite.setTexture(key);
+        }
+      },
+    });
+
+    // 播完后淡出销毁
+    const totalTime = frameCount * 60 + 100;
+    this.scene.time.delayedCall(totalTime, () => {
+      this.scene.tweens.add({
+        targets: sprite,
+        alpha: 0,
+        duration: 120,
+        onComplete: () => sprite.destroy(),
       });
+      timer.remove();
+    });
+  }
 
-      // 等 HP 条动画结束后回调
-      this.scene.time.delayedCall(300, done);
+  // ============================================================
+  // 战斗特效 — 命中闪光
+  // ============================================================
+
+  private playHitFlash(cx: number, cy: number): void {
+    const flash = this.scene.add.graphics();
+    flash.setDepth(9997);
+    flash.setScrollFactor(0);
+    this.container!.add(flash);
+
+    flash.fillStyle(0xffffff, 0.5);
+    flash.fillCircle(cx, cy, 20);
+    this.scene.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 150,
+      onComplete: () => flash.destroy(),
+    });
+  }
+
+  // ============================================================
+  // 战斗特效 — 屏幕震动
+  // ============================================================
+
+  private shakeScreen(): void {
+    if (!this.container) return;
+    const origX = this.container.x;
+    const origY = this.container.y;
+
+    // 快速左右抖动
+    const offsets = [-3, 3, -2, 2, -1, 1, 0];
+    let i = 0;
+    const timer = this.scene.time.addEvent({
+      delay: 30,
+      repeat: offsets.length - 1,
+      callback: () => {
+        if (this.container) {
+          this.container.x = origX + (offsets[i] ?? 0);
+        }
+        i++;
+      },
+    });
+    this.scene.time.delayedCall(offsets.length * 30 + 50, () => {
+      if (this.container) this.container.x = origX;
+      timer.remove();
     });
   }
 
@@ -411,30 +1515,26 @@ export class BattleSystem {
     } else {
       person.facing = dy > 0 ? Direction.Down : Direction.Up;
     }
-    // 更新精灵朝向帧
+    // 更新精灵朝向（fight sprite 站立帧）
     const sprite = this.sprites.get(person.id);
     if (sprite) {
-      const charKey = this.getCharKey(person);
-      const frameKey = `${charKey}_d${person.facing}_f0`;
-      const frame = this.scene.textures.getFrame('chars', frameKey);
-      if (frame) sprite.setTexture('chars', frameKey);
+      const dirOffset = DIR_TO_FIGHT_OFFSET[person.facing] ?? 0;
+      const key = fightKey(dirOffset);
+      if (this.scene.textures.exists(key)) sprite.setTexture(key);
     }
   }
 
-  private getCharKey(_person: BattlePerson): string {
-    return 'player'; // 统一用 player 精灵
-  }
-
-  /** 竞技场地图坐标 → 屏幕坐标 */
+  /** 竞技场地图坐标 → 屏幕坐标（使用战场专用缩放） */
   private arenaToScreen(x: number, y: number): { x: number; y: number } {
-    // 以竞技场中心 (4.5, 4.5) 为视点
     const cx = (ARENA_SIZE - 1) / 2;
     const cy = (ARENA_SIZE - 1) / 2;
     const dx = x - cx;
     const dy = y - cy;
+    const hw = TILE_HALF_W * BATTLE_TILE_SCALE;
+    const hh = TILE_HALF_H * BATTLE_TILE_SCALE;
     return {
-      x: TILE_HALF_W * (dx - dy) + SCREEN_WIDTH / 2,
-      y: TILE_HALF_H * (dx + dy) + SCREEN_HEIGHT / 2,
+      x: hw * (dx - dy) + SCREEN_WIDTH / 2,
+      y: hh * (dx + dy) + SCREEN_HEIGHT / 2,
     };
   }
 
@@ -461,7 +1561,7 @@ export class BattleSystem {
     for (let y = 0; y < ARENA_SIZE; y++) {
       for (let x = 0; x < ARENA_SIZE; x++) {
         const screen = this.arenaToScreen(x, y);
-        this.drawDiamond(grid, screen.x, screen.y, TILE_HALF_W, TILE_HALF_H, 0x2a2e3a, 0x3a3e4a);
+        this.drawDiamond(grid, screen.x, screen.y, TILE_HALF_W * BATTLE_TILE_SCALE, TILE_HALF_H * BATTLE_TILE_SCALE, 0x2a2e3a, 0x3a3e4a);
       }
     }
     this.container.add(grid);
@@ -504,36 +1604,53 @@ export class BattleSystem {
       const screen = this.arenaToScreen(person.pos.x, person.pos.y);
       const tint = person.team === 'red' ? 0xff6666 : 0x6699ff;
 
-      // 精灵
-      const frameKey = `player_d${person.facing}_f0`;
-      const frame = this.scene.textures.getFrame('chars', frameKey);
+      // 使用 JYQXZ fight 精灵
+      const dirOffset = DIR_TO_FIGHT_OFFSET[person.facing] ?? 0;
+      const key = fightKey(dirOffset);
       let sprite: Phaser.GameObjects.Image;
-      if (frame) {
-        sprite = this.scene.add.image(screen.x, screen.y, 'chars', frameKey);
-        sprite.setScale(0.7);
+      const hasFight = this.scene.textures.exists(key);
+
+      if (hasFight) {
+        sprite = this.scene.add.image(screen.x, screen.y, key);
+        sprite.setScale(this.spriteScale);
+        sprite.setOrigin(0.5, 0.85);
       } else {
-        // 回退：彩色圆
-        sprite = this.scene.add.image(screen.x, screen.y, '__DEFAULT');
-        // 用 graphics 代替
-        const g = this.scene.add.graphics();
-        g.setScrollFactor(0);
-        g.fillStyle(tint, 0.9);
-        g.fillCircle(screen.x, screen.y, 12);
-        g.fillStyle(0xffffff, 0.8);
-        g.fillCircle(screen.x, screen.y - 4, 5);
-        this.container!.add(g);
-        sprite = this.scene.add.image(screen.x, screen.y, '__DEFAULT');
-        sprite.setVisible(false);
+        // 回退：用 chars atlas 的站立帧
+        const frameKey = `player_d${person.facing}_f0`;
+        const frame = this.scene.textures.getFrame('chars', frameKey);
+        if (frame) {
+          sprite = this.scene.add.image(screen.x, screen.y, 'chars', frameKey);
+          sprite.setScale(0.7);
+          sprite.setOrigin(0.5, 0.85);
+        } else {
+          // 最终回退：彩色圆
+          sprite = this.scene.add.image(screen.x, screen.y, '__DEFAULT');
+          const g = this.scene.add.graphics();
+          g.setScrollFactor(0);
+          g.fillStyle(tint, 0.9);
+          g.fillCircle(screen.x, screen.y, 12);
+          g.fillStyle(0xffffff, 0.8);
+          g.fillCircle(screen.x, screen.y - 4, 5);
+          this.container!.add(g);
+          sprite.setVisible(false);
+          sprite.setOrigin(0.5, 0.85);
+        }
       }
-      sprite.setOrigin(0.5, 0.85);
+
       sprite.setDepth(screen.y + 100);
       sprite.setScrollFactor(0);
       this.container!.add(sprite);
       this.sprites.set(person.id, sprite);
 
+      // 队伍颜色标记（半透明底色圆）
+      const marker = this.scene.add.circle(screen.x, screen.y + 5, 14, tint, 0.2);
+      marker.setDepth(screen.y + 99);
+      marker.setScrollFactor(0);
+      this.container!.add(marker);
+
       // 名字标签
       const nameColor = person.team === 'red' ? '#ff6666' : '#6699ff';
-      const label = this.scene.add.text(screen.x, screen.y + 10, person.name, {
+      const label = this.scene.add.text(screen.x, screen.y + 12, person.name, {
         fontSize: '11px',
         color: nameColor,
         fontStyle: 'bold',
@@ -615,6 +1732,14 @@ export class BattleSystem {
       this.container!.add(t);
       this.logTexts.push(t);
     }
+
+    // 模式提示
+    const hint = this.scene.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT - 15, '按 Tab 切换手动/自动模式', {
+      fontSize: '11px',
+      color: '#666666',
+    }).setOrigin(0.5, 0.5);
+    hint.setScrollFactor(0);
+    this.container!.add(hint);
   }
 
   private drawHPBar(
@@ -675,41 +1800,76 @@ export class BattleSystem {
   // 渲染 — 特效
   // ============================================================
 
-  private showDamageNumber(x: number, y: number, damage: number): void {
-    const text = damage > 0 ? `-${damage}` : 'MISS';
-    const color = damage > 0 ? '#ff4444' : '#888888';
-    const fontSize = damage > 80 ? '20px' : '16px';
+  private showDamageNumber(x: number, y: number, damage: number, isCrit: boolean): void {
+    const text = damage > 0 ? (isCrit ? `${damage} !!` : `-${damage}`) : 'MISS';
+    const color = isCrit ? '#fbbf24' : damage > 0 ? '#ff4444' : '#888888';
+    const fontSize = isCrit ? '24px' : damage > 0 ? '18px' : '16px';
 
     const txt = this.scene.add.text(x, y, text, {
       fontSize,
       color,
       fontStyle: 'bold',
       stroke: '#000000',
-      strokeThickness: 3,
+      strokeThickness: isCrit ? 5 : 3,
     }).setOrigin(0.5, 0.5);
     txt.setScrollFactor(0);
     txt.setDepth(9998);
     this.container!.add(txt);
 
+    // 先弹起再上飘淡出
     this.scene.tweens.add({
       targets: txt,
-      y: y - 30,
-      alpha: 0,
-      duration: 800,
-      ease: 'Power2',
-      onComplete: () => txt.destroy(),
+      y: y - 15,
+      scaleX: isCrit ? 1.3 : 1,
+      scaleY: isCrit ? 1.3 : 1,
+      duration: 150,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: txt,
+          y: y - 45,
+          alpha: 0,
+          scaleX: isCrit ? 0.8 : 0.9,
+          scaleY: isCrit ? 0.8 : 0.9,
+          duration: 600,
+          ease: 'Power2',
+          onComplete: () => txt.destroy(),
+        });
+      },
     });
   }
 
   private playDeathEffect(person: BattlePerson): void {
     const sprite = this.sprites.get(person.id);
+    const pos = this.arenaToScreen(person.pos.x, person.pos.y);
+
+    // 死亡粒子爆发
+    for (let i = 0; i < 10; i++) {
+      const angle = Math.PI * 2 * i / 10;
+      const color = person.team === 'red' ? 0xff6666 : 0x6699ff;
+      const p = this.scene.add.circle(pos.x, pos.y, 3 + Math.random() * 2, color, 0.8);
+      p.setDepth(9998);
+      p.setScrollFactor(0);
+      this.container!.add(p);
+      this.scene.tweens.add({
+        targets: p,
+        x: pos.x + Math.cos(angle) * (20 + Math.random() * 25),
+        y: pos.y + Math.sin(angle) * (20 + Math.random() * 25),
+        alpha: 0,
+        duration: 500 + Math.random() * 200,
+        onComplete: () => p.destroy(),
+      });
+    }
+
+    // 精灵缩小消失
     if (sprite) {
       this.scene.tweens.add({
         targets: sprite,
         alpha: 0,
-        scaleX: 0.3,
-        scaleY: 0.3,
-        duration: 500,
+        scaleX: 0.1,
+        scaleY: 0.1,
+        y: sprite.y - 20,
+        duration: 600,
         ease: 'Power2',
       });
     }
@@ -718,7 +1878,7 @@ export class BattleSystem {
       this.scene.tweens.add({
         targets: label,
         alpha: 0,
-        duration: 500,
+        duration: 400,
       });
     }
   }
@@ -780,6 +1940,7 @@ export class BattleSystem {
   // ============================================================
 
   private cleanup(): void {
+    this.exitManualMode();
     this.sprites.clear();
     this.hpBars.clear();
     this.nameLabels.clear();
