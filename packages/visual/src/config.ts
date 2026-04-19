@@ -126,8 +126,8 @@ export const BATTLE_LOG_MAX = 6;
 export const FIGHT_FRAMES_PER_DIR = 12;
 /** 战斗精灵帧间隔 (ms) */
 export const FIGHT_FRAME_INTERVAL = 50;
-/** 战场瓦片缩放倍率（1.0 = 与世界地图等大） */
-export const BATTLE_TILE_SCALE = 1.0;
+/** 战场瓦片缩放倍率（2.0 = 放大2倍，使精灵与格子比例合适） */
+export const BATTLE_TILE_SCALE = 2.0;
 
 /** 策略各状态对应的地图区域中心 */
 export const STATE_REGIONS: Record<AgentState, StateRegion> = {

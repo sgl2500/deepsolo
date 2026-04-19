@@ -1305,20 +1305,31 @@ export class BattleSystem {
   // 战斗特效 — JYQXZ 原版武功特效贴图播放
   // ============================================================
 
-  /** 播放 JYQXZ eft 特效贴图序列 */
+  /** 播放 JYQXZ eft 特效贴图序列（使用 _info.json 逐帧偏移精确定位） */
   private playEftSprite(cx: number, cy: number, effectId: string): void {
     const frameCount = EFT_FRAME_COUNTS[effectId];
     if (!frameCount) return;
 
-    // 创建特效精灵，从第一帧开始
     const firstKey = `eft_${effectId}_0000`;
     if (!this.scene.textures.exists(firstKey)) return;
 
-    const sprite = this.scene.add.image(cx, cy - 20, firstKey);
+    // 读取逐帧偏移数据
+    const info: Array<{ w: number; h: number; xoff: number; yoff: number }> | undefined
+      = this.scene.cache.json.get(`eft_${effectId}_info`);
+
+    const sprite = this.scene.add.image(cx, cy, firstKey);
     sprite.setScale(1.5);
-    sprite.setOrigin(0.5, 0.7);
     sprite.setDepth(9998);
     sprite.setScrollFactor(0);
+
+    // 用第一帧的 xoff/yoff 设置 origin（锚点对齐格子中心）
+    if (info && info[0]) {
+      const f = info[0];
+      sprite.setOrigin(f.w > 0 ? f.xoff / f.w : 0.5, f.h > 0 ? f.yoff / f.h : 0.7);
+    } else {
+      sprite.setOrigin(0.5, 0.7);
+    }
+
     this.container!.add(sprite);
 
     let step = 0;
@@ -1330,6 +1341,11 @@ export class BattleSystem {
         const key = `eft_${effectId}_${String(step).padStart(4, '0')}`;
         if (this.scene.textures.exists(key)) {
           sprite.setTexture(key);
+          // 每帧更新 origin（帧尺寸变化时保持锚点位置正确）
+          if (info && info[step]) {
+            const f = info[step];
+            sprite.setOrigin(f.w > 0 ? f.xoff / f.w : 0.5, f.h > 0 ? f.yoff / f.h : 0.7);
+          }
         }
       },
     });
@@ -1554,14 +1570,45 @@ export class BattleSystem {
     bg.setScrollFactor(0);
     this.container.add(bg);
 
-    // 画等距菱形网格
+    // 用 smap 瓦片贴图渲染地板（与策略茶馆相同的 smap_588）
+    const floorTexKey = 'smap_588';
+    const hasFloor = this.scene.textures.exists(floorTexKey);
+
+    if (hasFloor) {
+      // 读取瓦片偏移数据
+      const smapInfo = this.scene.cache.json.get('smap_info') as Array<{ idx: number; xoff: number; yoff: number }> | undefined;
+      let ox = TILE_HALF_W;
+      let oy = 17;
+      if (Array.isArray(smapInfo)) {
+        const entry = smapInfo.find(t => t.idx === 588);
+        if (entry) { ox = entry.xoff; oy = entry.yoff; }
+      }
+      const scale = BATTLE_TILE_SCALE;
+
+      for (let y = 0; y < ARENA_SIZE; y++) {
+        for (let x = 0; x < ARENA_SIZE; x++) {
+          const screen = this.arenaToScreen(x, y);
+          const img = this.scene.add.image(
+            screen.x - ox * scale,
+            screen.y - oy * scale,
+            floorTexKey,
+          );
+          img.setOrigin(0, 0);
+          img.setScale(scale);
+          img.setScrollFactor(0);
+          this.container.add(img);
+        }
+      }
+    }
+
+    // 网格边框叠加层（半透明细线）
     const grid = this.scene.add.graphics();
     grid.setScrollFactor(0);
 
     for (let y = 0; y < ARENA_SIZE; y++) {
       for (let x = 0; x < ARENA_SIZE; x++) {
         const screen = this.arenaToScreen(x, y);
-        this.drawDiamond(grid, screen.x, screen.y, TILE_HALF_W * BATTLE_TILE_SCALE, TILE_HALF_H * BATTLE_TILE_SCALE, 0x2a2e3a, 0x3a3e4a);
+        this.drawDiamond(grid, screen.x, screen.y, TILE_HALF_W * BATTLE_TILE_SCALE, TILE_HALF_H * BATTLE_TILE_SCALE, -1, 0x3a3e4a);
       }
     }
     this.container.add(grid);
@@ -1576,22 +1623,24 @@ export class BattleSystem {
     this.container.add(title);
   }
 
-  /** 画一个等距菱形（填充 + 边框） */
+  /** 画一个等距菱形（fillColor<0 时只画边框） */
   private drawDiamond(
     g: Phaser.GameObjects.Graphics,
     cx: number, cy: number,
     hw: number, hh: number,
     fillColor: number, lineColor: number,
   ): void {
-    g.fillStyle(fillColor, 0.6);
-    g.lineStyle(1, lineColor, 0.4);
     g.beginPath();
     g.moveTo(cx, cy - hh);     // 上
     g.lineTo(cx + hw, cy);     // 右
     g.lineTo(cx, cy + hh);     // 下
     g.lineTo(cx - hw, cy);     // 左
     g.closePath();
-    g.fillPath();
+    if (fillColor >= 0) {
+      g.fillStyle(fillColor, 0.6);
+      g.fillPath();
+    }
+    g.lineStyle(1, lineColor, 0.4);
     g.strokePath();
   }
 

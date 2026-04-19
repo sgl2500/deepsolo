@@ -113,6 +113,8 @@ export class BootScene extends Phaser.Scene {
           `assets/jy-assets/13_eft/${eftId}/${padded}.png`,
         );
       }
+      // 加载每帧偏移数据（xoff/yoff 定义锚点位置）
+      this.load.json(`eft_${eftId}_info`, `assets/jy-assets/13_eft/${eftId}/_info.json`);
     }
 
     // === NPC 地图精灵 (JYQXZ 17_npc_map) ===
