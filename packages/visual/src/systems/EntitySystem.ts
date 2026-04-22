@@ -9,6 +9,7 @@ import { NPC_DEFS } from '../data/NPCData';
 import type { BubbleHandle } from '../ui/BubbleFactory';
 import { BubbleFactory } from '../ui/BubbleFactory';
 import type { MapData, CharMeta, Strategy, BubbleConfig } from '../types';
+import { SCREEN_WIDTH, SCREEN_HEIGHT, TILE_HALF_W, TILE_HALF_H, INDOOR_SCALE } from '../config';
 
 export class EntitySystem {
   player!: Player;
@@ -106,9 +107,18 @@ export class EntitySystem {
 
   /** 立即同步所有实体的屏幕位置（场景切换时调用，防止闪现） */
   syncEntityScreenPositions(playerX: number, playerY: number): void {
-    // 玩家固定在屏幕中心
-    this.player.container.x = 1280 / 2;
-    this.player.container.y = 720 / 2;
+    if (this.player.isIndoor) {
+      // 室内模式：按地图坐标计算玩家在容器内的位置
+      const s = INDOOR_SCALE;
+      const cx = this.player.indoorCenterX;
+      const cy = this.player.indoorCenterY;
+      this.player.container.x = TILE_HALF_W * s * ((playerX - cx) - (playerY - cy)) + SCREEN_WIDTH / 2;
+      this.player.container.y = TILE_HALF_H * s * ((playerX - cx) + (playerY - cy)) + SCREEN_HEIGHT / 2;
+    } else {
+      // 世界模式：玩家固定在屏幕中心
+      this.player.container.x = SCREEN_WIDTH / 2;
+      this.player.container.y = SCREEN_HEIGHT / 2;
+    }
     // NPC 按相对玩家位置放置
     for (const npc of this.npcs.values()) {
       npc.updateScreenPosition(playerX, playerY);

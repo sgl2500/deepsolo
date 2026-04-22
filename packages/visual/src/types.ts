@@ -241,9 +241,12 @@ export interface BuildingDef {
   entryRadius: number;
   /** 室内地图 Phaser cache key */
   indoorMapKey: string;
-  /** 室内出生点 */
+  /** 室内出生点（初始/游戏开始） */
   spawnX: number;
   spawnY: number;
+  /** 从外部进入时的出生点（门口），不指定则默认 exitX, exitY-3 */
+  doorSpawnX?: number;
+  doorSpawnY?: number;
   /** 室内出口坐标 */
   exitX: number;
   exitY: number;

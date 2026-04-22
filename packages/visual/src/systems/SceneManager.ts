@@ -181,8 +181,8 @@ export class SceneManager {
     this.savedPlayerX = player.mapX;
     this.savedPlayerY = player.mapY;
 
-    // 跳过淡出，直接进入室内
-    this.onEnterMidpoint(building);
+    // 跳过淡出，直接进入室内（初始出生 → 房间中心）
+    this.onEnterMidpoint(building, false);
   }
 
   /** 进入建筑的实际逻辑 */
@@ -202,13 +202,15 @@ export class SceneManager {
       alpha: { from: 0, to: 1 },
       duration: TRANSITION_FADE_MS,
       onComplete: () => {
-        this.onEnterMidpoint(building);
+        this.onEnterMidpoint(building, true);
       },
     });
   }
 
-  /** 进入建筑 — 中间点（切换地图） */
-  private onEnterMidpoint(building: typeof BUILDINGS[0]): void {
+  /** 进入建筑 — 中间点（切换地图）
+   *  @param fromOutside true=从外部重新进入(门口出生), false=初始出生(中心)
+   */
+  private onEnterMidpoint(building: typeof BUILDINGS[0], fromOutside: boolean): void {
     // 加载室内地图
     const indoorMap = this.scene.cache.json.get(building.indoorMapKey);
     if (!indoorMap) {
@@ -221,7 +223,15 @@ export class SceneManager {
 
     // 移动玩家到室内出生点（必须在切地图之前，确保渲染中心正确）
     const player = this.entitySystem.getPlayer();
-    player.setMapPosition(building.spawnX, building.spawnY);
+    if (fromOutside) {
+      // 从外部重新进入 → 门口出生点
+      const dx = building.doorSpawnX ?? building.exitX;
+      const dy = building.doorSpawnY ?? building.exitY - 3;
+      player.setMapPosition(dx, dy);
+    } else {
+      // 初始出生 → 房间中心
+      player.setMapPosition(building.spawnX, building.spawnY);
+    }
     player.switchMapData(indoorMap);
     player.setIndoorMode(true, indoorMap.cx, indoorMap.cy);
 
@@ -247,6 +257,12 @@ export class SceneManager {
     const px = player.mapX;
     const py = player.mapY;
     this.entitySystem.syncEntityScreenPositions(px, py);
+
+    // 立即更新室内容器位置，防止首帧显示在中心再闪到门口
+    this.mapRenderer.updateIndoorCamera(px, py);
+
+    // 立即应用室内视觉状态（sprite.y、depth、朝向帧），防止淡入期间显示世界模式外观
+    player.applyIndoorVisual(this.scene.time.now);
 
     // 隐藏小地图和建筑标记
     this.minimapSystem.setVisible(false);

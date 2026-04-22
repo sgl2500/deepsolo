@@ -4,13 +4,14 @@
 
 | 属性 | 值 |
 |------|------|
-| 地图尺寸 | 20 × 20 |
-| 房间中心 | (10, 10) |
-| 玩家出生 | (10, 10) |
-| 出口位置 | (10, 19) → 世界地图 (50, 58) |
-| 引路人NPC | (10, 16) |
+| 地图尺寸 | 26 × 26（房间 20×20 + 四周各 3 格草地外围） |
+| 房间中心 | (13, 13) |
+| 玩家出生 | (13, 13) |
+| 出口位置 | (13, 22) → 世界地图 (50, 58) |
+| 引路人NPC | (13, 19) |
 | 等距瓦片 | 36×18 px (half: 18×9) |
 | 画面 | 1280×720 |
+| 室内 Canvas | 1872×936（独立，容纳完整菱形） |
 
 ## 坐标系说明
 
@@ -34,10 +35,10 @@ depth = col + row  (值越大越靠前/越靠近观察者)
 
 | 图层 | JSON字段 | 渲染方式 | depth | 用途 |
 |------|----------|----------|-------|------|
-| Layer 0 | `earth` | Canvas 画布 (静态) | N/A | 地板砖 |
-| Layer 1 | `surface` | Phaser 精灵 | col+row | 墙壁、家具、门框 |
+| Layer 0 | `earth` | 室内独立 Canvas (静态) | N/A | 地板砖 + 外围草地 |
+| Layer 1 | `surface` | 室内独立 Canvas + Phaser 精灵 | col+row | 墙壁、家具、门框 |
 | Layer 2 | `building` | Phaser 精灵 | col+row+0.5 | **遮挡装饰** — 会覆盖在前方玩家上面 |
-| 高度 | `surfaceHeight` | Y轴偏移 | N/A | 垂直提升 (当前全为4) |
+| 高度 | `surfaceHeight` | Y轴偏移 | N/A | 房间内=4，外围=0 |
 
 ## 当前布局 — Layer 0 (earth)
 
@@ -247,6 +248,9 @@ G = 6 (草地)    . = 空
 | 04/22 | 屋顶动态透明度：玩家附近半径4格内半透明渐变 | ✓ |
 | 04/22 | 底部墙壁加入 building 层 (depth=col+row+0.5 遮挡玩家) | ✓ |
 | 04/22 | **修复关键 bug**：indoorContainer 每帧 sort('depth')，解决 Container 不自动排序导致玩家始终在墙壁上方渲染的问题 | ✓ |
+| 04/22 | earth 层全部填满草地 (6)，消除墙壁下方黑色空隙 | ✓ |
+| 04/22 | 地图从 20×20 扩大为 26×26（四周各加 3 格草地外围），中心/出生/出口位置偏移 +3 | ✓ |
+| 04/22 | 室内独立 Canvas 系统：不再复用世界地图 scrCanvas，避免纹理尺寸冲突 | ✓ |
 
 ---
 
@@ -329,7 +333,7 @@ updateRoofVisibility(playerCol, playerRow):
 
 ```
 indoorContainer
-  ├── scrImage (Canvas 背景，depth=0)
+  ├── indoorFloorImage (独立 Canvas 背景，depth=0，1872×936)
   ├── 墙壁精灵 (depth = col+row 或 col+row+0.5)
   ├── 玩家容器 (depth = mapX+mapY)
   └── NPC 容器 (depth = mapX+mapY)
@@ -423,3 +427,106 @@ building 层瓦片按 `yoff` 值分为两类：
 |------|----------|---------|-----------|------|
 | wall overlay | yoff > 30 | 0（不偏移） | 不参与 | 底部墙壁 (yoff=67) |
 | roof | yoff ≤ 30 | roofOffset | 参与 | 屋顶 622 (yoff=21) |
+
+---
+
+## 室内独立 Canvas 系统
+
+### 为什么需要独立 Canvas？
+
+世界地图的 `scrCanvas` 是 1280×720，作为 Phaser CanvasTexture 绑定到 `scrImage`。
+
+室内场景的菱形比屏幕大（26×26 地图在 2x 缩放下约 1872×936），如果强行修改 `scrCanvas` 的尺寸，Phaser 纹理不会正确响应尺寸变化，导致大面积黑屏。
+
+### 解决方案
+
+室内使用完全独立的 Canvas 渲染链，**不动世界地图的 scrCanvas**：
+
+```
+世界地图:  scrCanvas (1280×720) → scrTexture → scrImage
+室内场景:  indoorFloorCanvas (1872×936) → __indoorFloor 纹理 → indoorFloorImage
+```
+
+### 实现细节
+
+```typescript
+// switchToIndoor():
+// 1. 隐藏世界地图 Canvas
+this.scrImage.setVisible(false);
+
+// 2. 创建独立 Canvas（尺寸能容纳完整菱形）
+const extent = max(width, height) - 1;  // 25
+canvasW = extent * TILE_HALF_W * scale * 2 + 36 * scale;  // 1872
+canvasH = extent * TILE_HALF_H * scale * 2 + 18 * scale;  // 936
+
+// 3. 渲染地板+墙壁到独立 Canvas（中心 = canvasW/2, canvasH/2）
+
+// 4. 创建独立纹理和 Image
+addCanvas('__indoorFloor', indoorFloorCanvas);
+indoorFloorImage = scene.add.image(imgX, imgY, '__indoorFloor');
+// imgX = SCREEN_WIDTH/2 - canvasW/2 = 640 - 936 = -296
+// imgY = SCREEN_HEIGHT/2 - canvasH/2 = 360 - 468 = -108
+
+// 5. 加入 indoorContainer
+indoorContainer.add(indoorFloorImage);
+
+// switchToWorld():
+// 1. 销毁 indoorFloorImage、移除 __indoorFloor 纹理
+// 2. 销毁 indoorContainer
+// 3. 恢复 scrImage.setVisible(true)
+```
+
+### 对齐原理
+
+墙壁精灵使用 `SCREEN_WIDTH/2, SCREEN_HEIGHT/2` (640, 360) 作为渲染中心。
+独立 Canvas 使用 `canvasW/2, canvasH/2` (936, 468) 作为渲染中心。
+indoorFloorImage 定位在 (-296, -108)，使得：
+
+```
+Canvas 像素 (936+dx, 468+dy) + Image位置 (-296, -108) = 屏幕坐标 (640+dx, 360+dy)
+```
+
+与墙壁精灵坐标完全一致。
+
+### 经验教训
+
+1. **永远不要动态修改 Phaser CanvasTexture 的源 Canvas 尺寸**：Phaser 内部缓存了纹理帧大小，修改后不会正确更新，导致渲染错乱或黑屏
+2. **独立场景用独立 Canvas**：世界地图和室内场景使用不同的 Canvas/纹理/Image，互不干扰
+3. **Canvas 尺寸计算**：`extent = max(W,H) - 1`，宽高各加一个瓦片尺寸的余量确保边缘不被裁剪
+4. **纹理 key 用前缀 `__`**：避免与其他纹理冲突，退出时必须 remove
+
+---
+
+## 地图扩展机制
+
+### 从 20×20 到 26×26
+
+扩展方式：四周各加 `OFFSET=3` 格，新地图大小 = 旧地图 + 2×OFFSET。
+
+```
+旧地图 20×20:  房间占 rows 0-19, cols 0-19, 中心 (10,10)
+新地图 26×26:  房间占 rows 3-22, cols 3-22, 中心 (13,13)
+外围:          rows 0-2, 23-25 和 cols 0-2, 23-25 全部铺草地
+```
+
+### 位置偏移规则
+
+所有旧坐标需要 +OFFSET：
+
+| 项目 | 旧值 | 新值 |
+|------|------|------|
+| 中心 cx, cy | (10, 10) | (13, 13) |
+| 出生点 spawnX, spawnY | (10, 10) | (13, 13) |
+| 出口 exitX, exitY | (10, 19) | (13, 22) |
+| 墙壁 row 0 | row 0 | row 3 |
+| 墙壁 row 19 | row 19 | row 22 |
+| 墙壁 col 0 | col 0 | col 3 |
+| 墙壁 col 19 | col 19 | col 22 |
+
+### 需要同步更新的文件
+
+| 文件 | 更新内容 |
+|------|----------|
+| `public/assets/indoor_maps/indoor_birth_house.json` | 地图数据（尺寸、坐标、各层数组） |
+| `src/data/BuildingData.ts` | spawnX/Y, exitX/Y |
+| `src/data/NPCData.ts` | birth_house NPC 的 mapX/Y（如果有） |

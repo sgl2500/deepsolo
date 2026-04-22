@@ -47,6 +47,10 @@ export class MapRenderer {
   // 室内房间中心
   private indoorCx = 0;
   private indoorCy = 0;
+  // 室内独立地板 Canvas（容纳完整菱形，不影响世界地图 scrCanvas）
+  private indoorFloorCanvas: HTMLCanvasElement | null = null;
+  private indoorFloorCtx: CanvasRenderingContext2D | null = null;
+  private indoorFloorImage: Phaser.GameObjects.Image | null = null;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -81,9 +85,19 @@ export class MapRenderer {
 
     // 创建室内容器，用于整体跟随玩家滚动
     this.indoorContainer = this.scene.add.container(0, 0);
-    // 将 Canvas 背景图放入容器
-    this.scrImage.removeFromDisplayList();
-    this.indoorContainer.add(this.scrImage);
+
+    // 隐藏世界地图 Canvas（室内用独立地板 Canvas）
+    this.scrImage.setVisible(false);
+
+    // 计算能容纳完整菱形的独立 Canvas 尺寸
+    const s = INDOOR_SCALE;
+    const extent = Math.max(mapData.width, mapData.height) - 1;
+    const canvasW = extent * TILE_HALF_W * s * 2 + 36 * s;
+    const canvasH = extent * TILE_HALF_H * s * 2 + 18 * s;
+    this.indoorFloorCanvas = document.createElement('canvas');
+    this.indoorFloorCanvas.width = canvasW;
+    this.indoorFloorCanvas.height = canvasH;
+    this.indoorFloorCtx = this.indoorFloorCanvas.getContext('2d')!;
 
     // 加载 smap 偏移
     this.smapOffsets.clear();
@@ -94,8 +108,21 @@ export class MapRenderer {
       }
     }
 
-    // 渲染地板到屏幕画布（静态背景，只画一次）
+    // 渲染地板到独立 Canvas
     this.renderIndoorFloor();
+
+    // 创建室内地板纹理和 Image，定位使菱形中心与墙壁精灵对齐
+    const texKey = '__indoorFloor';
+    if (this.scene.textures.exists(texKey)) {
+      this.scene.textures.remove(texKey);
+    }
+    this.scene.textures.addCanvas(texKey, this.indoorFloorCanvas);
+    const imgX = SCREEN_WIDTH / 2 - canvasW / 2;
+    const imgY = SCREEN_HEIGHT / 2 - canvasH / 2;
+    this.indoorFloorImage = this.scene.add.image(imgX, imgY, texKey)
+      .setOrigin(0, 0)
+      .setDepth(0);
+    this.indoorContainer.add(this.indoorFloorImage);
 
     // 创建墙壁精灵
     this.createWallSprites();
@@ -109,12 +136,19 @@ export class MapRenderer {
     this.atlasImg = null;
     this.destroyWallSprites();
 
-    // 将 Canvas 背景图和外部子对象（玩家、NPC）从容器中取出
-    if (this.indoorContainer) {
-      this.scrImage.removeFromDisplayList();
-      this.scene.add.existing(this.scrImage);
+    // 清理室内地板 Canvas/纹理
+    if (this.indoorFloorImage) {
+      this.indoorFloorImage.destroy();
+      this.indoorFloorImage = null;
+    }
+    if (this.scene.textures.exists('__indoorFloor')) {
+      this.scene.textures.remove('__indoorFloor');
+    }
+    this.indoorFloorCanvas = null;
+    this.indoorFloorCtx = null;
 
-      // 把所有非墙壁子对象移回场景（防止被 destroy）
+    // 把容器中的子对象（玩家、NPC）移回场景，然后销毁容器
+    if (this.indoorContainer) {
       const children = this.indoorContainer.getAll();
       for (const child of children) {
         this.indoorContainer!.remove(child);
@@ -124,6 +158,9 @@ export class MapRenderer {
       this.indoorContainer.destroy();
       this.indoorContainer = null;
     }
+
+    // 恢复世界地图 Canvas
+    this.scrImage.setVisible(true);
   }
 
   get isIndoorMode(): boolean { return this.isIndoor; }
@@ -216,19 +253,18 @@ export class MapRenderer {
   // 室内渲染
   // ============================================================
 
-  /** 渲染地板到屏幕画布（静态背景） */
+  /** 渲染地板到室内独立 Canvas（静态背景） */
   private renderIndoorFloor(): void {
-    const ctx = this.scrCtx;
+    const canvas = this.indoorFloorCanvas!;
+    const ctx = this.indoorFloorCtx!;
     const map = this.mapData;
     const cx = this.indoorCx;
     const cy = this.indoorCy;
-    const scrCx = SCREEN_WIDTH / 2;
-    const scrCy = SCREEN_HEIGHT / 2;
+    const scrCx = canvas.width / 2;
+    const scrCy = canvas.height / 2;
     const s = INDOOR_SCALE;
 
-    ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-    ctx.fillStyle = '#1a1410';
-    ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const pos = (col: number, row: number) => ({
       sx: TILE_HALF_W * s * ((col - cx) - (row - cy)) + scrCx,
@@ -254,8 +290,6 @@ export class MapRenderer {
         this.drawSmapTileOnCtx(ctx, sv, sx, sy, s);
       }
     }
-
-    this.scrTexture!.update();
   }
 
   /** 创建墙壁精灵（Layer 1 + Layer 2，位置固定，只创建一次） */

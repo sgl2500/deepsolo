@@ -27,7 +27,7 @@ export class Player extends Entity {
   }
 
   private createSprite(): void {
-    const frameKey = 'player_d0_f0';
+    const frameKey = `player_d${this.direction}_f0`;
     const frame = this.scene.textures.getFrame('chars', frameKey);
 
     if (isFrameValid(frame)) {
@@ -137,5 +137,16 @@ export class Player extends Entity {
     this.indoorMode = indoor;
     this.indoorCx = cx;
     this.indoorCy = cy;
+  }
+
+  get isIndoor(): boolean { return this.indoorMode; }
+  get indoorCenterX(): number { return this.indoorCx; }
+  get indoorCenterY(): number { return this.indoorCy; }
+
+  /** 立即应用室内模式的视觉状态（淡入前调用，避免过渡期间显示世界模式外观） */
+  applyIndoorVisual(time: number): void {
+    this.container.setDepth(this.mapX + this.mapY);
+    if (this.sprite) this.sprite.y = 0;
+    this.updateWalkAnimation(time, false);
   }
 }
