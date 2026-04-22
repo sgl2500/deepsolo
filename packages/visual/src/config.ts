@@ -153,6 +153,10 @@ export const BUBBLE_TEXTS: Record<AgentState, string[]> = {
 
 /** 初始策略数据 (后续从 JSON 加载) */
 
+// --- 剧情系统 ---
+/** 故事状态 localStorage key */
+export const LS_KEY_STORY = 'deepsolo_story';
+
 // --- Token 中心 ---
 /** Token 中心初始数据路径 */
 export const TOKEN_ACCOUNT_URL = './data/token_center/account.json';

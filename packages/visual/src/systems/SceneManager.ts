@@ -77,6 +77,13 @@ export class SceneManager {
     scene.time.delayedCall(2000, () => { this.startupBlocked = false; });
   }
 
+  /** 初始进入建筑：屏幕已黑，直接切换到室内再淡入 */
+  startInstant(buildingId: string): void {
+    // 遮罩设为全黑
+    this.fadeOverlay.setAlpha(1);
+    this.forceEnterBuildingInstant(buildingId);
+  }
+
   /** 保存世界地图引用，在 init 之后调用一次 */
   saveWorldContext(mapData: MapData, tileMeta: TileMeta): void {
     this.savedWorldMap = mapData;
@@ -152,6 +159,34 @@ export class SceneManager {
   /** 进入建筑 */
   private enterBuilding(building: typeof BUILDINGS[0]): void {
     if (this.state !== SceneState.WorldMap) return;
+    this.doEnterBuilding(building);
+  }
+
+  /** 强制进入建筑（跳过状态检查，用于新手教程等） */
+  forceEnterBuilding(buildingId: string): void {
+    const building = BUILDINGS.find(b => b.id === buildingId);
+    if (building) this.doEnterBuilding(building);
+  }
+
+  /** 初始直接进入建筑（无淡出，屏幕已黑，仅淡入） */
+  forceEnterBuildingInstant(buildingId: string): void {
+    const building = BUILDINGS.find(b => b.id === buildingId);
+    if (!building) return;
+
+    // 直接跳到切换室内场景逻辑
+    this.state = SceneState.TransitionOut;
+    this.currentBuildingId = building.id;
+
+    const player = this.entitySystem.getPlayer();
+    this.savedPlayerX = player.mapX;
+    this.savedPlayerY = player.mapY;
+
+    // 跳过淡出，直接进入室内
+    this.onEnterMidpoint(building);
+  }
+
+  /** 进入建筑的实际逻辑 */
+  private doEnterBuilding(building: typeof BUILDINGS[0]): void {
 
     this.state = SceneState.TransitionOut;
     this.currentBuildingId = building.id;

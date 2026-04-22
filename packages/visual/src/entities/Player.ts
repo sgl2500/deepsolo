@@ -56,8 +56,9 @@ export class Player extends Entity {
       let newX = this.mapX + input.dx * speed;
       let newY = this.mapY + input.dy * speed;
 
-      newX = clamp(newX, MAP_BORDER, this.mapWidth - MAP_BORDER - 1);
-      newY = clamp(newY, MAP_BORDER, this.mapHeight - MAP_BORDER - 1);
+      const border = this.indoorMode ? 0 : MAP_BORDER;
+      newX = clamp(newX, border, this.mapWidth - border - 1);
+      newY = clamp(newY, border, this.mapHeight - border - 1);
 
       if (this.isBlocked(newX, newY)) {
         if (input.dx !== 0 && !this.isBlocked(this.mapX + input.dx * speed, this.mapY)) {
@@ -82,6 +83,7 @@ export class Player extends Entity {
       this.container.x = TILE_HALF_W * ((this.mapX - this.indoorCx) - (this.mapY - this.indoorCy)) + SCREEN_WIDTH / 2;
       this.container.y = TILE_HALF_H * ((this.mapX - this.indoorCx) + (this.mapY - this.indoorCy)) + SCREEN_HEIGHT / 2;
       this.container.setDepth(this.mapX + this.mapY);
+      this.container.setScrollFactor(0);
       if (this.sprite) this.sprite.y = 0;
     } else {
       this.container.x = SCREEN_WIDTH / 2;

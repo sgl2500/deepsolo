@@ -35,8 +35,8 @@ export class MapRenderer {
   // 室内模式
   private isIndoor = false;
   private smapOffsets: Map<number, { xoff: number; yoff: number }> = new Map();
-  // 室内墙壁精灵
-  private wallSprites: Phaser.GameObjects.Image[] = [];
+  // 室内墙壁 + 建筑（L1+L2）精灵
+  private wallSprites: Phaser.GameObjects.GameObject[] = [];
   // 室内房间中心
   private indoorCx = 0;
   private indoorCy = 0;
@@ -61,7 +61,7 @@ export class MapRenderer {
 
     const tex = this.scene.textures.addCanvas('scrCanvas', this.scrCanvas);
     this.scrTexture = tex as Phaser.Textures.CanvasTexture;
-    this.scrImage = this.scene.add.image(0, 0, 'scrCanvas').setOrigin(0, 0).setDepth(0);
+    this.scrImage = this.scene.add.image(0, 0, 'scrCanvas').setOrigin(0, 0).setDepth(0).setScrollFactor(0);
   }
 
   /** 切换到室内地图 */
@@ -180,20 +180,46 @@ export class MapRenderer {
     ctx.fillStyle = '#1a1410';
     ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
+    const pos = (col: number, row: number) => ({
+      sx: TILE_HALF_W * ((col - cx) - (row - cy)) + scrCx,
+      sy: TILE_HALF_H * ((col - cx) + (row - cy)) + scrCy,
+    });
+
+    // Layer 0 — earth (floor)
     for (let row = 0; row < map.height; row++) {
       for (let col = 0; col < map.width; col++) {
         const ev = map.earth[row][col];
         if (ev === 0) continue;
-        const sx = TILE_HALF_W * ((col - cx) - (row - cy)) + scrCx;
-        const sy = TILE_HALF_H * ((col - cx) + (row - cy)) + scrCy;
+        const { sx, sy } = pos(col, row);
         this.drawSmapTileOnCtx(ctx, ev, sx, sy);
+      }
+    }
+
+    // Layer 1 — surface (walls) 也画到 Canvas 上，消除墙壁和地板间的缝隙
+    for (let row = 0; row < map.height; row++) {
+      for (let col = 0; col < map.width; col++) {
+        const sv = map.surface[row][col];
+        if (sv === 0) continue;
+        const { sx, sy } = pos(col, row);
+        this.drawSmapTileOnCtx(ctx, sv, sx, sy);
+      }
+    }
+
+    // Layer 2 — building 也画到 Canvas 上
+    const building = map.building;
+    for (let row = 0; row < map.height; row++) {
+      for (let col = 0; col < map.width; col++) {
+        const bId = building ? (building[row]?.[col] ?? 0) : 0;
+        if (bId === 0) continue;
+        const { sx, sy } = pos(col, row);
+        this.drawSmapTileOnCtx(ctx, bId, sx, sy);
       }
     }
 
     this.scrTexture!.update();
   }
 
-  /** 创建墙壁精灵（位置固定，只创建一次） */
+  /** 创建墙壁精灵（Layer 1 + Layer 2，位置固定，只创建一次） */
   private createWallSprites(): void {
     this.destroyWallSprites();
     const map = this.mapData;
@@ -202,28 +228,63 @@ export class MapRenderer {
     const scrCx = SCREEN_WIDTH / 2;
     const scrCy = SCREEN_HEIGHT / 2;
 
+    const building = map.building;
+    const heightMap = map.surfaceHeight;
+
+    console.log(`[MapRenderer] createWallSprites start, cam scroll: (${this.scene.cameras.main.scrollX}, ${this.scene.cameras.main.scrollY})`);
+
     for (let row = 0; row < map.height; row++) {
       for (let col = 0; col < map.width; col++) {
-        const tileId = map.surface[row][col];
-        if (tileId === 0) continue;
-
-        const texKey = `smap_${tileId}`;
-        if (!this.scene.textures.exists(texKey)) continue;
-
         const sx = TILE_HALF_W * ((col - cx) - (row - cy)) + scrCx;
         const sy = TILE_HALF_H * ((col - cx) + (row - cy)) + scrCy;
+        const d4 = heightMap ? (heightMap[row]?.[col] ?? 0) : 0;
 
-        const off = this.smapOffsets.get(tileId);
-        const ox = off ? off.xoff : TILE_HALF_W;
-        const oy = off ? off.yoff : 17;
+        // Layer 1 — surface (walls, furniture)
+        const tileId = map.surface[row][col];
+        if (tileId !== 0) {
+          const texKey = `smap_${tileId}`;
+          if (this.scene.textures.exists(texKey)) {
+            const off = this.smapOffsets.get(tileId);
+            const ox = off ? off.xoff : TILE_HALF_W;
+            const oy = off ? off.yoff : 17;
 
-        const sprite = this.scene.add.image(sx - ox, sy - oy, texKey)
-          .setOrigin(0, 0)
-          .setDepth(col + row);
+            this.wallSprites.push(
+              this.scene.add.image(sx - ox, sy - oy - d4, texKey)
+                .setOrigin(0, 0)
+                .setDepth(col + row)
+                .setScrollFactor(0),
+            );
+          }
+        }
 
-        this.wallSprites.push(sprite);
+        // Layer 2 — building decoration (pillars, overhead beams, etc.)
+        const bId = building ? (building[row]?.[col] ?? 0) : 0;
+        if (bId !== 0) {
+          const texKey = `smap_${bId}`;
+          if (this.scene.textures.exists(texKey)) {
+            const off = this.smapOffsets.get(bId);
+            const ox = off ? off.xoff : TILE_HALF_W;
+            const oy = off ? off.yoff : 17;
+
+            this.wallSprites.push(
+              this.scene.add.image(sx - ox, sy - oy - d4, texKey)
+                .setOrigin(0, 0)
+                .setDepth(col + row + 0.5)
+                .setScrollFactor(0),
+            );
+          } else {
+            // 贴图缺失时用红色矩形占位
+            this.wallSprites.push(
+              this.scene.add.rectangle(sx, sy, 40, 60, 0xff0000, 0.5)
+                .setDepth(col + row + 0.5)
+                .setScrollFactor(0),
+            );
+          }
+        }
       }
     }
+
+    console.log(`[MapRenderer] Total sprites: ${this.wallSprites.length}`);
   }
 
   private destroyWallSprites(): void {

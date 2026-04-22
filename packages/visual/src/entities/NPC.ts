@@ -56,6 +56,7 @@ export class NPC extends Entity {
       this.container.x = TILE_HALF_W * ((this.mapX - this.indoorCx) - (this.mapY - this.indoorCy)) + SCREEN_WIDTH / 2;
       this.container.y = TILE_HALF_H * ((this.mapX - this.indoorCx) + (this.mapY - this.indoorCy)) + SCREEN_HEIGHT / 2;
       this.container.setDepth(this.mapX + this.mapY);
+      this.container.setScrollFactor(0);
     } else {
       this.updateScreenPosition(playerX, playerY);
       this.container.setDepth(this.mapY);

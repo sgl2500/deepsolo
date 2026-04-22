@@ -3,7 +3,7 @@
 // ============================================================
 
 import { AgentState, type Strategy, type EventEntry } from '../types';
-import { INITIAL_STRATEGIES, STRATEGIES_URL, EVENTS_URL, POLL_INTERVAL } from '../config';
+import { INITIAL_STRATEGIES, STRATEGIES_URL, EVENTS_URL, POLL_INTERVAL, LS_KEY_STORY } from '../config';
 import { EventBus } from './EventBus';
 
 export class GameStore {
@@ -12,6 +12,12 @@ export class GameStore {
   playerPosition = { x: 50, y: 50 };
   eventLog: EventEntry[] = [];
   dayCount = 0;
+  /** 剧情标记（key=flag名, value=true） */
+  storyFlags: Record<string, boolean> = {};
+  /** 已完成的剧情 ID */
+  completedStories: Set<string> = new Set();
+  /** 新手教程是否完成 */
+  tutorialCompleted = false;
 
   private eventBus: EventBus;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -20,6 +26,7 @@ export class GameStore {
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
+    this.initStoryState();
     // 同步加载 fallback 数据，确保 WorldScene.create 有数据可用
     this.strategies = INITIAL_STRATEGIES.map(s => {
       const state = this.deriveState(s.returnPct);
@@ -183,6 +190,13 @@ export class GameStore {
     return this.strategies.filter(s => s.state !== AgentState.Retired);
   }
 
+  /** 获取收益最低的存活策略（用于引导 NPC） */
+  getLowestReturnAgent(): Strategy | undefined {
+    const active = this.strategies.filter(s => s.state !== AgentState.Retired);
+    if (active.length === 0) return undefined;
+    return active.reduce((min, s) => s.returnPct < min.returnPct ? s : min);
+  }
+
   selectStrategy(strategy: Strategy | null): void {
     this.selectedStrategyId = strategy?.id ?? null;
     this.eventBus.emit('strategy:selected', strategy);
@@ -213,6 +227,28 @@ export class GameStore {
       .map(v => String(v).padStart(2, '0')).join(':');
     this.eventLog.unshift({ time, agentName, text });
     if (this.eventLog.length > 20) this.eventLog.length = 20;
+  }
+
+  /** 从 localStorage 恢复剧情状态 */
+  private initStoryState(): void {
+    try {
+      const saved = localStorage.getItem(LS_KEY_STORY);
+      if (saved) {
+        const data = JSON.parse(saved);
+        this.storyFlags = data.flags || {};
+        this.completedStories = new Set(data.completed || []);
+        this.tutorialCompleted = data.tutorialCompleted ?? false;
+      }
+    } catch { /* ignore */ }
+  }
+
+  /** 持久化剧情状态到 localStorage */
+  persistStoryState(): void {
+    localStorage.setItem(LS_KEY_STORY, JSON.stringify({
+      flags: this.storyFlags,
+      completed: Array.from(this.completedStories),
+      tutorialCompleted: this.tutorialCompleted,
+    }));
   }
 
   tickDay(): void {

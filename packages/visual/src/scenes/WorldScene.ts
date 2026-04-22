@@ -17,6 +17,7 @@ import { SceneManager } from '../systems/SceneManager';
 import { DialogueSystem } from '../systems/DialogueSystem';
 import { VFXSystem } from '../systems/VFXSystem';
 import { BattleSystem } from '../systems/BattleSystem';
+import { StorySystem } from '../systems/StorySystem';
 import { BUILDINGS } from '../data/BuildingData';
 import { getAvailableFighterIds } from '../data/BattleData';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
@@ -46,6 +47,7 @@ export class WorldScene extends Phaser.Scene {
   private dialogueSystem!: DialogueSystem;
   private vfxSystem!: VFXSystem;
   private battleSystem!: BattleSystem;
+  private storySystem!: StorySystem;
   private buildingMarkers!: Phaser.GameObjects.Container[];
 
   private mapData!: MapData;
@@ -99,6 +101,9 @@ export class WorldScene extends Phaser.Scene {
     // 战斗系统
     this.battleSystem = new BattleSystem(this, _eventBus);
 
+    // 剧情系统
+    this.storySystem = new StorySystem(this, _eventBus, _store);
+
     // 建筑入口标记（必须在 SceneManager 之前创建）
     this.buildingMarkers = createBuildingMarkers(this, this.mapData);
 
@@ -109,10 +114,8 @@ export class WorldScene extends Phaser.Scene {
     );
     this.sceneManager.saveWorldContext(this.mapData, this.tileMeta);
 
-    // 玩家初始气泡
-    this.time.delayedCall(1000, () => {
-      this.entitySystem.showBubble('player', '我今天心情不错');
-    });
+    // ── 初始进入出生小屋（屏幕直接黑屏，无过渡） ──
+    this.sceneManager.startInstant('birth_house');
 
     // ── 统一对话事件 ──
 
@@ -134,6 +137,10 @@ export class WorldScene extends Phaser.Scene {
       // 强制清理 DialogueSystem（不发事件，避免递归）
       if (this.dialogueSystem.isActive()) {
         this.dialogueSystem.forceEnd();
+      }
+      // 强制清理 StorySystem
+      if (this.storySystem.isActive()) {
+        this.storySystem.forceEnd();
       }
       this.sceneManager.endDialogue();
     });
@@ -340,7 +347,7 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
-    // 对话/聊天面板打开时：只处理关闭和 NPC 对话推进
+    // 对话/聊天面板打开时：只处理关闭和对话推进
     if (this.convOpen) {
       if (this.inputController.isCancelPressed()) {
         _eventBus.emit('conv:close');
@@ -348,6 +355,10 @@ export class WorldScene extends Phaser.Scene {
       // NPC 对话中：空格推进
       if (this.dialogueSystem.isActive() && this.inputController.isInteractPressed()) {
         this.dialogueSystem.advance();
+      }
+      // 剧情对话中：空格推进
+      if (this.storySystem.isActive() && this.inputController.isInteractPressed()) {
+        this.storySystem.advance();
       }
       return;
     }
