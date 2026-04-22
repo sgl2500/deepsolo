@@ -393,6 +393,9 @@ export class WorldScene extends Phaser.Scene {
         this.mapRenderer.renderBuffer(px, py);
       }
       this.mapRenderer.blitToScreen(px, py);
+    } else {
+      this.mapRenderer.updateIndoorCamera(px, py);
+      this.mapRenderer.updateRoofVisibility(px, py);
     }
 
     // 小地图更新

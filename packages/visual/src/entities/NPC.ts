@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Direction, type MapData, type NPCDef } from '../types';
-import { WALK_FRAME_INTERVAL, TILE_HALF_W, TILE_HALF_H, SCREEN_WIDTH, SCREEN_HEIGHT } from '../config';
+import { WALK_FRAME_INTERVAL, TILE_HALF_W, TILE_HALF_H, SCREEN_WIDTH, SCREEN_HEIGHT, INDOOR_SCALE } from '../config';
 import { Entity } from './Entity';
 import { isFrameValid } from '../utils/MathUtils';
 
@@ -52,11 +52,11 @@ export class NPC extends Entity {
 
   update(time: number, delta: number, playerX: number, playerY: number): void {
     if (this.indoorMode) {
-      // 室内模式：相对房间中心定位
-      this.container.x = TILE_HALF_W * ((this.mapX - this.indoorCx) - (this.mapY - this.indoorCy)) + SCREEN_WIDTH / 2;
-      this.container.y = TILE_HALF_H * ((this.mapX - this.indoorCx) + (this.mapY - this.indoorCy)) + SCREEN_HEIGHT / 2;
+      // 室内模式：用缩放后的容器本地坐标定位（NPC 已在 indoorContainer 内）
+      const s = INDOOR_SCALE;
+      this.container.x = TILE_HALF_W * s * ((this.mapX - this.indoorCx) - (this.mapY - this.indoorCy)) + SCREEN_WIDTH / 2;
+      this.container.y = TILE_HALF_H * s * ((this.mapX - this.indoorCx) + (this.mapY - this.indoorCy)) + SCREEN_HEIGHT / 2;
       this.container.setDepth(this.mapX + this.mapY);
-      this.container.setScrollFactor(0);
     } else {
       this.updateScreenPosition(playerX, playerY);
       this.container.setDepth(this.mapY);

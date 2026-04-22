@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Direction, type MapData } from '../types';
-import { MOVE_SPEED, MAP_BORDER, SCREEN_WIDTH, SCREEN_HEIGHT, TILE_HALF_W, TILE_HALF_H } from '../config';
+import { MOVE_SPEED, MAP_BORDER, SCREEN_WIDTH, SCREEN_HEIGHT, TILE_HALF_W, TILE_HALF_H, INDOOR_SCALE } from '../config';
 import { Entity } from './Entity';
 import { clamp, isFrameValid } from '../utils/MathUtils';
 import { getTile } from '../utils/IsoProjection';
@@ -78,12 +78,12 @@ export class Player extends Entity {
       this.direction = this.getDirection(input.dx, input.dy);
     }
 
-    // 位置：室内模式相对房间中心，世界模式固定屏幕中心
+    // 位置：室内模式用容器本地坐标（玩家在 indoorContainer 内）
     if (this.indoorMode) {
-      this.container.x = TILE_HALF_W * ((this.mapX - this.indoorCx) - (this.mapY - this.indoorCy)) + SCREEN_WIDTH / 2;
-      this.container.y = TILE_HALF_H * ((this.mapX - this.indoorCx) + (this.mapY - this.indoorCy)) + SCREEN_HEIGHT / 2;
+      const s = INDOOR_SCALE;
+      this.container.x = TILE_HALF_W * s * ((this.mapX - this.indoorCx) - (this.mapY - this.indoorCy)) + SCREEN_WIDTH / 2;
+      this.container.y = TILE_HALF_H * s * ((this.mapX - this.indoorCx) + (this.mapY - this.indoorCy)) + SCREEN_HEIGHT / 2;
       this.container.setDepth(this.mapX + this.mapY);
-      this.container.setScrollFactor(0);
       if (this.sprite) this.sprite.y = 0;
     } else {
       this.container.x = SCREEN_WIDTH / 2;
@@ -102,10 +102,17 @@ export class Player extends Entity {
   /** 检查指定位置是否被墙壁阻挡（仅室内生效） */
   private isBlocked(x: number, y: number): boolean {
     if (!this.indoorMode) return false;  // 世界地图无碰撞
+    // 检查 surface 层
     const sv = getTile(this.mapData, 1, x, y);
-    if (sv === 0) return false;       // 空地
-    if (sv === 307) return false;     // 门口可通过
-    return true;                       // 其他 surface 瓦片都是墙
+    if (sv !== 0 && sv !== 307) return true;  // surface 有墙（门口 307 除外）
+    // 检查 building 层（前景墙，如底部墙角）
+    const bv = getTile(this.mapData, 2, x, y);
+    if (bv !== 0) {
+      // 屋顶瓦片（yoff ≤ 30）不阻挡，前景墙阻挡
+      // 简化判断：622 是屋顶，其他 building 瓦片是前景墙
+      if (bv !== 622) return true;
+    }
+    return false;
   }
 
   getDirection2(dx: number, dy: number): Direction {

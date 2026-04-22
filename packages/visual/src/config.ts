@@ -24,6 +24,9 @@ export const SCREEN_HEIGHT = 720;
 export const TILE_HALF_W = 18;
 export const TILE_HALF_H = 9;
 
+/** 室内场景瓦片放大倍率 */
+export const INDOOR_SCALE = 2;
+
 /** 双缓冲尺寸 */
 export const BUFFER_WIDTH = 3200;
 export const BUFFER_HEIGHT = 1800;

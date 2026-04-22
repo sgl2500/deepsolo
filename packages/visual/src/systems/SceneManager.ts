@@ -232,8 +232,16 @@ export class SceneManager {
     this.entitySystem.setWorldAgentsVisible(false);
     this.worldAgentsVisible = false;
 
+    // 将玩家容器加入室内容器，使其与墙壁正确深度排序
+    this.mapRenderer.addIndoorChild(player.container);
+
     // 创建室内 NPC（设置室内模式）
     this.entitySystem.createNPCs(building.id, indoorMap.cx, indoorMap.cy);
+
+    // 将 NPC 容器加入室内容器，使其跟随房间滚动
+    for (const npc of this.entitySystem.npcs.values()) {
+      this.mapRenderer.addIndoorChild(npc.container);
+    }
 
     // 立即对齐所有实体的屏幕位置（避免过渡结束后闪现）
     const px = player.mapX;
