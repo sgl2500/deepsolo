@@ -76,6 +76,7 @@ export class BootScene extends Phaser.Scene {
     this.load.json('map', 'assets/map_data.json');
     this.load.json('tmeta', 'assets/tile_meta.json');
     this.load.atlas('chars', 'assets/char_atlas.png?v=3', 'assets/char_atlas.json?v=3');
+    this.load.spritesheet('player_walk', 'assets/player_walk1.png', { frameWidth: 28, frameHeight: 45 });
     this.load.json('charmeta', 'assets/char_meta.json?v=3');
     this.load.spritesheet('lpc_e2', 'assets/char01-walk-4dir.png', { frameWidth: 64, frameHeight: 64 });
 

@@ -3,11 +3,20 @@
 // ============================================================
 
 import { Direction, type MapData } from '../types';
-import { MOVE_SPEED, MAP_BORDER, SCREEN_WIDTH, SCREEN_HEIGHT, TILE_HALF_W, TILE_HALF_H, INDOOR_SCALE } from '../config';
+import { MOVE_SPEED, MAP_BORDER, SCREEN_WIDTH, SCREEN_HEIGHT, TILE_HALF_W, TILE_HALF_H, INDOOR_SCALE, WALK_FRAME_INTERVAL, WALK_FRAME_COUNT } from '../config';
 import { Entity } from './Entity';
-import { clamp, isFrameValid } from '../utils/MathUtils';
+import { clamp } from '../utils/MathUtils';
 import { getTile } from '../utils/IsoProjection';
 import type { InputController } from '../systems/InputController';
+
+/** 方向 → player_walk 精灵图行号 (Row0=右上, Row1=右下, Row2=左上, Row3=左下) */
+const DIR_ROW: Record<number, number> = {
+  [Direction.Up]: 0,
+  [Direction.Right]: 1,
+  [Direction.Left]: 2,
+  [Direction.Down]: 3,
+};
+const WALK_COLS = 7;
 
 export class Player extends Entity {
   private inputController: InputController;
@@ -27,15 +36,13 @@ export class Player extends Entity {
   }
 
   private createSprite(): void {
-    const frameKey = `player_d${this.direction}_f0`;
-    const frame = this.scene.textures.getFrame('chars', frameKey);
+    const row = DIR_ROW[this.direction] ?? 0;
+    const frameIdx = row * WALK_COLS + 0;
 
-    if (isFrameValid(frame)) {
-      this.sprite = this.scene.add.image(0, 14, 'chars', frameKey)
-        .setOrigin(0.5, 1.0)
-        .setScale(0.6);
-      this.container.add(this.sprite);
-    }
+    this.sprite = this.scene.add.image(0, 14, 'player_walk', frameIdx)
+      .setOrigin(0.5, 1.0)
+      .setScale(3.0);
+    this.container.add(this.sprite);
 
     this.label = this.scene.add.text(5, 20, '观察者', {
       fontSize: '9px',
@@ -45,6 +52,22 @@ export class Player extends Entity {
       fontFamily: 'PingFang SC, monospace',
     }).setOrigin(0.5);
     this.container.add(this.label);
+  }
+
+  /** 覆写：使用 player_walk 精灵图编号帧 */
+  protected updateWalkAnimation(time: number, moving: boolean, _phaseOffset = 0, _overrideCharKey?: string): void {
+    if (!this.sprite) return;
+    if (moving) {
+      this.frameIndex = Math.floor(time / WALK_FRAME_INTERVAL) % WALK_FRAME_COUNT;
+    } else {
+      this.frameIndex = 0;
+    }
+    const row = DIR_ROW[this.direction] ?? 0;
+    const frameIdx = row * WALK_COLS + this.frameIndex;
+    const name = String(frameIdx);
+    if (this.sprite.frame.name !== name) {
+      this.sprite.setTexture('player_walk', frameIdx);
+    }
   }
 
   update(time: number, delta: number, playerX: number, playerY: number): void {
@@ -66,7 +89,7 @@ export class Player extends Entity {
           newY = this.mapY;
         } else if (input.dy !== 0 && !this.isBlocked(this.mapX, this.mapY + input.dy * speed)) {
           newX = this.mapX;
-          newY = this.mapY + input.dy * speed;
+          newY = this.mapY;
         } else {
           newX = this.mapX;
           newY = this.mapY;
