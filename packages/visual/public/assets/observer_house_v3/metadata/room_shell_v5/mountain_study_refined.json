@@ -1,0 +1,27 @@
+{
+  "task_id": "13442560890625787611",
+  "status": "done",
+  "image_urls": [
+    "https://p26-aiop-sign.byteimg.com/tos-cn-i-vuqhorh59i/20260424234058730305CF1689322A7624-2140-0~tplv-vuqhorh59i-image-v1.image?rk3s=7f9e702d&x-expires=1777131659&x-signature=fEqJNfZIGwlRCD8Wkhq4TuXZ%2F4Q%3D"
+  ],
+  "binary_data_base64": [],
+  "request_id": "20260424234058730305CF1689322A7624",
+  "raw": {
+    "code": 10000,
+    "data": {
+      "aigc_meta_tagged": false,
+      "binary_data_base64": null,
+      "image_urls": [
+        "https://p26-aiop-sign.byteimg.com/tos-cn-i-vuqhorh59i/20260424234058730305CF1689322A7624-2140-0~tplv-vuqhorh59i-image-v1.image?rk3s=7f9e702d&x-expires=1777131659&x-signature=fEqJNfZIGwlRCD8Wkhq4TuXZ%2F4Q%3D"
+      ],
+      "status": "done"
+    },
+    "message": "Success",
+    "request_id": "20260424234058730305CF1689322A7624",
+    "status": 10000,
+    "time_elapsed": "940.173039ms"
+  },
+  "saved_files": [
+    "/Users/sunguanlong/Desktop/AIGC/deepsolo/packages/visual/public/assets/observer_house_v3/raw/room_shell_v5/mountain_study_refined/image_01.png"
+  ]
+}

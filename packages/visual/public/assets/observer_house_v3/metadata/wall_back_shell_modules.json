@@ -1,0 +1,42 @@
+{
+  "profile": "observer_house_back_shell_v1",
+  "generatedAt": "2026-04-24T09:38:14.213393+00:00",
+  "source": "/Users/sunguanlong/Desktop/AIGC/deepsolo/packages/visual/public/assets/observer_house_v3/runtime/back_shell.png",
+  "sourceSize": {
+    "width": 2668,
+    "height": 2212
+  },
+  "runtimeDir": "/Users/sunguanlong/Desktop/AIGC/deepsolo/packages/visual/public/assets/observer_house_v3/runtime/walls",
+  "modules": [
+    {
+      "name": "wall_left",
+      "file": "wall_left.png",
+      "sourceRect": {
+        "x": 0,
+        "y": 182,
+        "width": 960,
+        "height": 1376
+      }
+    },
+    {
+      "name": "wall_center",
+      "file": "wall_center.png",
+      "sourceRect": {
+        "x": 960,
+        "y": 0,
+        "width": 750,
+        "height": 2212
+      }
+    },
+    {
+      "name": "wall_right",
+      "file": "wall_right.png",
+      "sourceRect": {
+        "x": 1710,
+        "y": 180,
+        "width": 958,
+        "height": 1376
+      }
+    }
+  ]
+}

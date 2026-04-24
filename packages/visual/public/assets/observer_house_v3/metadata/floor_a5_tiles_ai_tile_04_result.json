@@ -1,0 +1,27 @@
+{
+  "task_id": "7709713981910756092",
+  "status": "done",
+  "image_urls": [
+    "https://p3-aiop-sign.byteimg.com/tos-cn-i-vuqhorh59i/20260424162908FC9BCE73D09779A8D291-7857-0~tplv-vuqhorh59i-image-v1.image?rk3s=7f9e702d&x-expires=1777105749&x-signature=fFrDRK6Gvr%2BNIxB3f7BQ9AxVc0E%3D"
+  ],
+  "binary_data_base64": [],
+  "request_id": "20260424162908FC9BCE73D09779A8D291",
+  "raw": {
+    "code": 10000,
+    "data": {
+      "aigc_meta_tagged": false,
+      "binary_data_base64": null,
+      "image_urls": [
+        "https://p3-aiop-sign.byteimg.com/tos-cn-i-vuqhorh59i/20260424162908FC9BCE73D09779A8D291-7857-0~tplv-vuqhorh59i-image-v1.image?rk3s=7f9e702d&x-expires=1777105749&x-signature=fFrDRK6Gvr%2BNIxB3f7BQ9AxVc0E%3D"
+      ],
+      "status": "done"
+    },
+    "message": "Success",
+    "request_id": "20260424162908FC9BCE73D09779A8D291",
+    "status": 10000,
+    "time_elapsed": "1.186909734s"
+  },
+  "saved_files": [
+    "/Users/sunguanlong/Desktop/AIGC/deepsolo/packages/visual/public/assets/observer_house_v3/raw/floor_a5_tiles_ai/tile_04/image_01.png"
+  ]
+}

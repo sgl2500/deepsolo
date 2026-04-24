@@ -1,0 +1,27 @@
+{
+  "task_id": "16939264027153339475",
+  "status": "done",
+  "image_urls": [
+    "https://p26-aiop-sign.byteimg.com/tos-cn-i-vuqhorh59i/2026042416114978C023359CFDB204683F-5715-0~tplv-vuqhorh59i-image-v1.image?rk3s=7f9e702d&x-expires=1777104710&x-signature=TbwU3zxPs5oGObOOhNblBL%2BvmQU%3D"
+  ],
+  "binary_data_base64": [],
+  "request_id": "2026042416114978C023359CFDB204683F",
+  "raw": {
+    "code": 10000,
+    "data": {
+      "aigc_meta_tagged": false,
+      "binary_data_base64": null,
+      "image_urls": [
+        "https://p26-aiop-sign.byteimg.com/tos-cn-i-vuqhorh59i/2026042416114978C023359CFDB204683F-5715-0~tplv-vuqhorh59i-image-v1.image?rk3s=7f9e702d&x-expires=1777104710&x-signature=TbwU3zxPs5oGObOOhNblBL%2BvmQU%3D"
+      ],
+      "status": "done"
+    },
+    "message": "Success",
+    "request_id": "2026042416114978C023359CFDB204683F",
+    "status": 10000,
+    "time_elapsed": "829.211748ms"
+  },
+  "saved_files": [
+    "/Users/sunguanlong/Desktop/AIGC/deepsolo/packages/visual/public/assets/observer_house_v3/raw/floor_ai_pure_a/polished_planks/image_01.png"
+  ]
+}

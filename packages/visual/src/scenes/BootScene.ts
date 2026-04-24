@@ -9,7 +9,8 @@ import { EFT_FRAME_COUNTS } from '../data/BattleData';
 import { preloadAgentProfiles } from '../data/agents';
 
 const BIRTH_HOUSE_DECOR_ASSETS = [
-  { key: 'birth_house_room_shell', file: 'room_shell.png' },
+  { key: 'birth_house_room_shell_v5', file: 'room_shell_v5_tight.png' },
+  { key: 'birth_house_front_occluder', file: 'front_occluder.png' },
   { key: 'birth_house_decor_bookshelf', file: 'bookshelf.png' },
   { key: 'birth_house_decor_screen', file: 'screen.png' },
   { key: 'birth_house_decor_bed', file: 'bed.png' },
@@ -95,7 +96,7 @@ export class BootScene extends Phaser.Scene {
       this.load.json(b.indoorMapKey, `assets/indoor_maps/${b.indoorMapKey}.json?v=10`);
     }
     for (const asset of BIRTH_HOUSE_DECOR_ASSETS) {
-      this.load.image(asset.key, `assets/observer_house_v2/runtime/${asset.file}?v=2`);
+      this.load.image(asset.key, `assets/observer_house_v3/runtime/${asset.file}?v=9`);
     }
 
     // === Smap 瓦片 (JYQXZ 室内场景) ===

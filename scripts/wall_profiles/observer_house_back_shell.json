@@ -1,0 +1,13 @@
+{
+  "name": "observer_house_back_shell_v1",
+  "source": "packages/visual/public/assets/observer_house_v3/runtime/back_shell.png",
+  "runtime_dir": "packages/visual/public/assets/observer_house_v3/runtime/walls",
+  "preview_recompose": "packages/visual/public/assets/observer_house_v3/preview/wall_back_shell_recompose.png",
+  "preview_sheet": "packages/visual/public/assets/observer_house_v3/preview/wall_back_shell_sheet.png",
+  "manifest": "packages/visual/public/assets/observer_house_v3/metadata/wall_back_shell_modules.json",
+  "modules": [
+    { "name": "wall_left", "x0": 0, "x1": 960 },
+    { "name": "wall_center", "x0": 960, "x1": 1710 },
+    { "name": "wall_right", "x0": 1710, "x1": 2668 }
+  ]
+}

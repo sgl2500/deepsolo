@@ -1,0 +1,26 @@
+{
+  "generator": "scripts/generate_observer_house_floor_tiles.py",
+  "tile_size": {
+    "width": 72,
+    "height": 36
+  },
+  "style": "modular wuxia indoor wood floor",
+  "files": [
+    {
+      "file": "floor_tile_0.png",
+      "variant": "balanced"
+    },
+    {
+      "file": "floor_tile_1.png",
+      "variant": "amber"
+    },
+    {
+      "file": "floor_tile_2.png",
+      "variant": "aged"
+    },
+    {
+      "file": "floor_tile_3.png",
+      "variant": "polished"
+    }
+  ]
+}

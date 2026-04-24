@@ -1,0 +1,71 @@
+{
+  "set": "wall_modular_curated_v1_tight",
+  "modules": [
+    {
+      "name": "pillar_post",
+      "file": "packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1_tight/pillar_post.png",
+      "sourceFile": "packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1/pillar_post.png",
+      "crop": {
+        "x": 515,
+        "y": 251,
+        "width": 555,
+        "height": 1077
+      }
+    },
+    {
+      "name": "wall_corner_core",
+      "file": "packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1_tight/wall_corner_core.png",
+      "sourceFile": "packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1/wall_corner_core.png",
+      "crop": {
+        "x": 191,
+        "y": 213,
+        "width": 1186,
+        "height": 1110
+      }
+    },
+    {
+      "name": "wall_left_plain",
+      "file": "packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1_tight/wall_left_plain.png",
+      "sourceFile": "packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1/wall_left_plain.png",
+      "crop": {
+        "x": 225,
+        "y": 97,
+        "width": 1040,
+        "height": 1334
+      }
+    },
+    {
+      "name": "wall_left_window",
+      "file": "packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1_tight/wall_left_window.png",
+      "sourceFile": "packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1/wall_left_window.png",
+      "crop": {
+        "x": 376,
+        "y": 323,
+        "width": 817,
+        "height": 962
+      }
+    },
+    {
+      "name": "wall_right_plain",
+      "file": "packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1_tight/wall_right_plain.png",
+      "sourceFile": "packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1/wall_right_plain.png",
+      "crop": {
+        "x": 259,
+        "y": 195,
+        "width": 892,
+        "height": 1140
+      }
+    },
+    {
+      "name": "wall_right_window",
+      "file": "packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1_tight/wall_right_window.png",
+      "sourceFile": "packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1/wall_right_window.png",
+      "crop": {
+        "x": 199,
+        "y": 130,
+        "width": 1139,
+        "height": 1255
+      }
+    }
+  ]
+}
