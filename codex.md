@@ -122,14 +122,128 @@ DeepSolo 是一个“策略涌现世界”：
 补充（2026-04-24）：
 
 - 出生室内场景 `birth_house` 正在从旧 JYQXZ 室内瓦片拼接，切换为“自有可复用美术包 + 固定布局渲染”模式。
-- 当前可复用资源统一放在 `packages/visual/public/assets/observer_house_v2/`。
+- 当前观察者小屋的主资源目录已经迁移到 `packages/visual/public/assets/observer_house_v3/`。
 - 其中：
   - `runtime/`：前端直接加载的成品贴图。
   - `raw/`：原始生成结果。
   - `cutouts/`：抠图结果。
   - `preview/`：布局预览图。
   - `metadata/`：提示词与生成元数据。
+- `observer_house_v2/` 仅作为上一轮尝试保留，不再作为当前运行时主资源来源。
 - `birth_house` 的玩法逻辑仍沿用现有室内地图坐标、移动和交互机制；只替换视觉层，不替换底层地图/碰撞数据。
+- 同日新增第二代分层方案：
+  - `packages/visual/public/assets/observer_house_v3/` 作为观察者小屋的三层资产目录。
+  - 当前分层为：
+    - `floor_base`：地面层
+    - `back_shell`：后墙 / 侧墙 / 柱梁母版
+    - `front_occluder`：前景遮挡墙层
+  - `scripts/process_observer_house_layers.py` 用于抠纯绿背景、从高分母图切出分层贴图、生成运行时资源和预览。
+  - 2026-04-24 已开始从“三层整图”过渡到“模块化地板 tile 拼装”：
+    - 运行时新增 `floor_tile_0.png` ~ `floor_tile_3.png`
+    - 生成脚本：`scripts/generate_observer_house_floor_tiles.py`
+    - 预览图：
+      - `packages/visual/public/assets/observer_house_v3/preview/floor_tile_sheet.png`
+      - `packages/visual/public/assets/observer_house_v3/preview/floor_room_preview.png`
+    - `birth_house` 当前地面不再依赖放大后的整张 `floor_base`，而是在固定室内坐标系中按 tile 逐格拼装。
+  - 同日，地板风格路线进一步收敛到用户选定的 `A5`：
+    - 原始选型图：`packages/visual/public/assets/observer_house_v3/raw/floor_ai_pure_a_v2/surface_01/image_01.png`
+    - 基于 A5 参考图再次生成的 tile 候选：`packages/visual/public/assets/observer_house_v3/raw/floor_a5_tiles_ai/`
+    - 实践结论：A5 单图自身带较强中心拼花结构，直接缩放或简单抽样都会导致重复感过强，不适合作为最终整屋地板母版。
+  - 当前地板主路线已切换为 `A 温暖客栈` 的下半区开放地板带：
+    - 母版来源：`packages/visual/public/assets/observer_house_v3/raw/floor_ai_options/warm_inn/image_01.png`
+    - 当前处理脚本：
+      - 通用构建器：`scripts/build_floor_tileset_from_scene.py`
+      - 当前 warm_inn 包装脚本：`scripts/process_warm_inn_floor_tiles.py`
+      - 当前 warm_inn profile：`scripts/floor_profiles/warm_inn_observer_house.json`
+    - 处理方式：
+      - 先从 warm_inn 场景图中截取无遮挡地板带
+      - 再把该区域矫正为方形木纹纹理
+      - 最后通过正确的 square-to-isometric 投影生成运行时地板 tile，并降低对比、软化缝线
+    - 复用方式：
+      - 复制一份 `scripts/floor_profiles/warm_inn_observer_house.json`
+      - 替换 `source_path`、`floor_quad` 和 `tiles` 采样参数
+      - 运行 `python3 scripts/build_floor_tileset_from_scene.py --profile <profile-path>`
+    - 当前 warm_inn 地板运行时预览：
+      - `packages/visual/public/assets/observer_house_v3/preview/floor_warm_inn_rectified_texture.png`
+      - `packages/visual/public/assets/observer_house_v3/preview/floor_warm_inn_runtime_tile_sheet.png`
+      - `packages/visual/public/assets/observer_house_v3/preview/floor_warm_inn_room_preview.png`
+    - 当前 warm_inn 地板输出清单：`packages/visual/public/assets/observer_house_v3/metadata/floor_warm_inn_runtime_manifest.json`
+  - 同日，墙壁层开始从单张 `back_shell` 过渡到“半模块化后墙”：
+    - 当前仍保留 `back_shell.png` 作为母版与参考，不再直接作为 `birth_house` 的唯一后墙运行时资源。
+    - 新增后墙模块构建器：`scripts/build_wall_modules_from_shell.py`
+    - 当前墙体 profile：`scripts/wall_profiles/observer_house_back_shell.json`
+    - 运行时输出目录：`packages/visual/public/assets/observer_house_v3/runtime/walls/`
+    - 第一版模块拆分为：
+      - `wall_left.png`
+      - `wall_center.png`
+      - `wall_right.png`
+    - 对应清单：`packages/visual/public/assets/observer_house_v3/metadata/wall_back_shell_modules.json`
+    - 对应预览：
+      - `packages/visual/public/assets/observer_house_v3/preview/wall_back_shell_recompose.png`
+      - `packages/visual/public/assets/observer_house_v3/preview/wall_back_shell_sheet.png`
+    - 当前接入策略：
+      - `birth_house` 使用固定基准坐标 `BIRTH_HOUSE_BACK_WALL_BASE`
+      - 再按模块在母版中的 `sourceRect` 复原三段后墙位置
+      - 这样先替换掉整张 `birth_house_back_shell` 的运行时依赖，同时保留后续继续拆成窗格、立柱、横梁的空间
+    - 当前约束：
+      - 这一版是“半模块化”，本质上仍由同一张母版切片而来
+      - `front_occluder` 仍保持单独前景遮挡层，下一轮再继续拆
+  - 同日，开始尝试“直接 AI 生成更细的后墙模块”：
+    - 第一批提示词清单：`packages/visual/public/assets/observer_house_v3/metadata/wall_ai_modular_v2_prompts.json`
+    - 第一批原始输出：`packages/visual/public/assets/observer_house_v3/raw/wall_ai_modular_v2/`
+    - 第一批总览：`packages/visual/public/assets/observer_house_v3/preview/wall_ai_modular_v2_raw_sheet.png`
+    - 结论：
+      - 模块拆分方向是对的
+      - 但 AI 仍会频繁带出地面、接触阴影或不该出现的结构，不能直接整套进入运行时
+  - 同日，追加第二批更严格的 cutout 提示词：
+    - 提示词清单：`packages/visual/public/assets/observer_house_v3/metadata/wall_ai_modular_v3_prompts.json`
+    - 原始输出：`packages/visual/public/assets/observer_house_v3/raw/wall_ai_modular_v3/`
+    - 总览：`packages/visual/public/assets/observer_house_v3/preview/wall_ai_modular_v3_raw_sheet.png`
+    - 结论：
+      - `wall_left_window` 的 v3 版本更适合作为“后墙中心转角核心”
+      - 其余模块需和 v2 混用，不能机械地整批替换
+  - 当前实际可用路线已切换为“AI 多轮出图 + 人工筛选 + 去绿底 + 紧裁剪”：
+    - 当前精选运行时模块目录：`packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1/`
+    - 当前紧裁剪版本：`packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1_tight/`
+    - 当前精选清单：`packages/visual/public/assets/observer_house_v3/metadata/wall_modular_curated_v1.json`
+    - 当前紧裁剪清单：`packages/visual/public/assets/observer_house_v3/metadata/wall_modular_curated_v1_tight.json`
+    - 当前精选总览：`packages/visual/public/assets/observer_house_v3/preview/wall_modular_curated_v1_sheet.png`
+    - 当前紧裁剪总览：`packages/visual/public/assets/observer_house_v3/preview/wall_modular_curated_v1_tight_sheet.png`
+    - 当前可用模块为：
+      - `wall_corner_core`
+      - `wall_left_window`
+      - `wall_left_plain`
+      - `wall_right_window`
+      - `wall_right_plain`
+      - `pillar_post`
+    - 当前临时拼接预览：`packages/visual/public/assets/observer_house_v3/preview/wall_modular_curated_v1_assembly.png`
+    - 当前完整房间静态预览：`packages/visual/public/assets/observer_house_v3/preview/birth_house_modular_wall_full_preview.png`
+    - 当前判断：
+      - 这一套已经比“单张 back_shell 三切片”更细
+      - 也已经足够支撑下一步把后墙做成真正的模块拼装
+      - 但 AI 直接产出仍不稳定，后续应继续强化“筛选与清洗”这一步，而不是只靠一次出图
+  - 2026-04-24 当前运行时接入状态：
+    - `birth_house` 已不再使用 `runtime/walls/wall_left.png + wall_center.png + wall_right.png` 作为主后墙方案
+    - 中间曾尝试加载 `runtime/walls_modular_v1_tight/` 下的 6 个精选模块，但实际效果不对，已放弃作为主方案
+    - 接入文件：
+      - `packages/visual/src/scenes/BootScene.ts`
+      - `packages/visual/src/systems/MapRenderer.ts`
+    - 当前布置策略：
+      - 当前改为从原始 coherent `back_shell.png` 再细切 7 段模块，并按原母版坐标精确复原
+      - 当前细切 profile：`scripts/wall_profiles/observer_house_back_shell_fine.json`
+      - 当前运行时目录：`packages/visual/public/assets/observer_house_v3/runtime/walls_fine/`
+      - 当前清单：`packages/visual/public/assets/observer_house_v3/metadata/wall_back_shell_fine_modules.json`
+      - 当前预览：
+        - `packages/visual/public/assets/observer_house_v3/preview/wall_back_shell_fine_sheet.png`
+        - `packages/visual/public/assets/observer_house_v3/preview/wall_back_shell_fine_recompose.png`
+        - `packages/visual/public/assets/observer_house_v3/preview/birth_house_fine_wall_full_preview.png`
+      - 暂时仍保留现有家具坐标与 `front_occluder`
+  - 同日，尝试过“统一后墙 AI 母版 v4”但失败：
+    - 提示词：`packages/visual/public/assets/observer_house_v3/metadata/wall_back_master_v4_prompt.json`
+    - 原始输出：`packages/visual/public/assets/observer_house_v3/raw/wall_back_master_v4/image_01.png`
+    - 结论：
+      - 模型仍会自动带出家具、地面和完整室内陈设
+      - 不适合作为当前阶段的可控后墙生产方式
 
 ### 4.4 `data`
 
