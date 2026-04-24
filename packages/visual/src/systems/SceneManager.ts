@@ -94,6 +94,10 @@ export class SceneManager {
     return this.state;
   }
 
+  getCurrentBuildingId(): string | null {
+    return this.currentBuildingId;
+  }
+
   isIndoor(): boolean {
     return this.state === SceneState.Indoor;
   }
@@ -235,51 +239,58 @@ export class SceneManager {
     player.switchMapData(indoorMap);
     player.setIndoorMode(true, indoorMap.cx, indoorMap.cy);
 
-    // 切换地图渲染
-    this.mapRenderer.switchToIndoor(indoorMap);
+    this.mapRenderer.ensureIndoorAssets(indoorMap).then(() => {
+      // 切换地图渲染
+      this.mapRenderer.switchToIndoor(indoorMap, building.id);
 
-    // 隐藏世界 Agent
-    this.entitySystem.setWorldAgentsVisible(false);
-    this.worldAgentsVisible = false;
+      // 隐藏世界 Agent
+      this.entitySystem.setWorldAgentsVisible(false);
+      this.worldAgentsVisible = false;
 
-    // 将玩家容器加入室内容器，使其与墙壁正确深度排序
-    this.mapRenderer.addIndoorChild(player.container);
+      // 将玩家容器加入室内容器，使其与墙壁正确深度排序
+      this.mapRenderer.addIndoorChild(player.container);
 
-    // 创建室内 NPC（设置室内模式）
-    this.entitySystem.createNPCs(building.id, indoorMap.cx, indoorMap.cy);
+      // 创建室内 NPC（设置室内模式）
+      this.entitySystem.createNPCs(building.id, indoorMap.cx, indoorMap.cy);
 
-    // 将 NPC 容器加入室内容器，使其跟随房间滚动
-    for (const npc of this.entitySystem.npcs.values()) {
-      this.mapRenderer.addIndoorChild(npc.container);
-    }
+      // 将 NPC 容器加入室内容器，使其跟随房间滚动
+      for (const npc of this.entitySystem.npcs.values()) {
+        this.mapRenderer.addIndoorChild(npc.container);
+      }
 
-    // 立即对齐所有实体的屏幕位置（避免过渡结束后闪现）
-    const px = player.mapX;
-    const py = player.mapY;
-    this.entitySystem.syncEntityScreenPositions(px, py);
+      // 立即对齐所有实体的屏幕位置（避免过渡结束后闪现）
+      const px = player.mapX;
+      const py = player.mapY;
+      this.entitySystem.syncEntityScreenPositions(px, py);
 
-    // 立即更新室内容器位置，防止首帧显示在中心再闪到门口
-    this.mapRenderer.updateIndoorCamera(px, py);
+      // 立即更新室内容器位置，防止首帧显示在中心再闪到门口
+      this.mapRenderer.updateIndoorCamera(px, py);
 
-    // 立即应用室内视觉状态（sprite.y、depth、朝向帧），防止淡入期间显示世界模式外观
-    player.applyIndoorVisual(this.scene.time.now);
+      // 立即应用室内视觉状态（sprite.y、depth、朝向帧），防止淡入期间显示世界模式外观
+      player.applyIndoorVisual(this.scene.time.now);
 
-    // 隐藏小地图和建筑标记
-    this.minimapSystem.setVisible(false);
-    setBuildingMarkersVisible(this.buildingMarkers, false);
+      // 隐藏小地图和建筑标记
+      this.minimapSystem.setVisible(false);
+      setBuildingMarkersVisible(this.buildingMarkers, false);
 
-    // 淡入
-    this.state = SceneState.TransitionIn;
-    this.scene.tweens.add({
-      targets: this.fadeOverlay,
-      alpha: { from: 1, to: 0 },
-      duration: TRANSITION_FADE_MS,
-      onComplete: () => {
-        this.state = SceneState.Indoor;
-      },
+      // 淡入
+      this.state = SceneState.TransitionIn;
+      this.scene.tweens.add({
+        targets: this.fadeOverlay,
+        alpha: { from: 1, to: 0 },
+        duration: TRANSITION_FADE_MS,
+        onComplete: () => {
+          this.state = SceneState.Indoor;
+        },
+      });
+
+      this.eventBus.emit('scene:state-changed', { state: SceneState.Indoor, buildingId: building.id });
+    }).catch((error) => {
+      console.error('Failed to load indoor assets:', error);
+      this.state = SceneState.WorldMap;
+      this.currentBuildingId = null;
+      this.fadeOverlay.setAlpha(0);
     });
-
-    this.eventBus.emit('scene:state-changed', { state: SceneState.Indoor, buildingId: building.id });
   }
 
   /** 退出建筑 */

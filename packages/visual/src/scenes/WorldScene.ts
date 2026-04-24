@@ -20,6 +20,7 @@ import { BattleSystem } from '../systems/BattleSystem';
 import { StorySystem } from '../systems/StorySystem';
 import { BUILDINGS } from '../data/BuildingData';
 import { getAvailableFighterIds } from '../data/BattleData';
+import { getNearbyIndoorInteractable } from '../content/IndoorInteractables';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
 import type { ChatService, ChatMessage } from '../services/ChatService';
 
@@ -411,11 +412,24 @@ export class WorldScene extends Phaser.Scene {
 
     // 空格键交互检测
     if (this.inputController.isInteractPressed()) {
+      const buildingId = this.sceneManager.getCurrentBuildingId();
+
+      // 室内可交互物件优先于 NPC，对后续场景复用同一套交互入口
+      if (this.sceneManager.isIndoor() && buildingId) {
+        const interactable = getNearbyIndoorInteractable(buildingId, px, py, NPC_INTERACT_DIST);
+        if (interactable) {
+          this.sceneManager.startDialogue();
+          this.dialogueSystem.startDialogue(interactable.dialogueId);
+          return;
+        }
+      }
+
       // 优先检测室内 NPC
       const npc = this.entitySystem.getNearbyNPC(px, py, NPC_INTERACT_DIST);
       if (npc) {
         this.sceneManager.startDialogue();
         this.dialogueSystem.startDialogue(npc.dialogueId);
+        return;
       } else {
         // 检测附近的策略 Agent → 打开聊天
         const agent = this.entitySystem.getNearbyAgent(px, py, WorldScene.AGENT_INTERACT_DIST);
@@ -430,6 +444,7 @@ export class WorldScene extends Phaser.Scene {
             // 通过 Conversation 模型打开 Agent 聊天
             this.openAgentChat(agent.strategy);
           }
+          return;
         }
       }
     }

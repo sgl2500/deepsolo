@@ -271,6 +271,20 @@ export interface NPCDef {
   defaultDir: Direction;
 }
 
+/** 室内可交互对象定义 */
+export interface IndoorInteractableDef {
+  id: string;
+  name: string;
+  /** 所属建筑/室内场景 ID */
+  buildingId: string;
+  mapX: number;
+  mapY: number;
+  /** 交互半径（地图格） */
+  interactRadius?: number;
+  /** 触发的对话脚本 ID */
+  dialogueId: string;
+}
+
 // ============================================================
 // 对话系统类型
 // ============================================================

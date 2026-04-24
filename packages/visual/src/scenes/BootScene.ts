@@ -8,6 +8,16 @@ import { NPC_DEFS } from '../data/NPCData';
 import { EFT_FRAME_COUNTS } from '../data/BattleData';
 import { preloadAgentProfiles } from '../data/agents';
 
+const BIRTH_HOUSE_DECOR_ASSETS = [
+  { key: 'birth_house_room_shell', file: 'room_shell.png' },
+  { key: 'birth_house_decor_bookshelf', file: 'bookshelf.png' },
+  { key: 'birth_house_decor_screen', file: 'screen.png' },
+  { key: 'birth_house_decor_bed', file: 'bed.png' },
+  { key: 'birth_house_decor_chest', file: 'chest.png' },
+  { key: 'birth_house_decor_lantern', file: 'lantern.png' },
+  { key: 'birth_house_decor_table', file: 'table.png' },
+] as const;
+
 /** 收集所有室内地图需要的 smap 瓦片 ID */
 function collectSmapTileIds(): number[] {
   const ids = new Set<number>();
@@ -83,6 +93,9 @@ export class BootScene extends Phaser.Scene {
     // === 室内地图数据 ===
     for (const b of BUILDINGS) {
       this.load.json(b.indoorMapKey, `assets/indoor_maps/${b.indoorMapKey}.json?v=10`);
+    }
+    for (const asset of BIRTH_HOUSE_DECOR_ASSETS) {
+      this.load.image(asset.key, `assets/observer_house_v2/runtime/${asset.file}?v=2`);
     }
 
     // === Smap 瓦片 (JYQXZ 室内场景) ===

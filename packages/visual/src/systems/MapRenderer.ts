@@ -14,6 +14,77 @@ import type { MapData, TileMeta } from '../types';
 
 const BCY = BUFFER_HEIGHT / 2;
 const BCX = BUFFER_WIDTH / 2;
+const CUSTOM_SMAP_OFFSETS: Record<number, { xoff: number; yoff: number }> = {
+  9501: { xoff: 20, yoff: 64 },
+  9502: { xoff: 24, yoff: 33 },
+  9503: { xoff: 12, yoff: 46 },
+  9510: { xoff: 18, yoff: 17 },
+  9511: { xoff: 18, yoff: 17 },
+  9512: { xoff: 18, yoff: 17 },
+  9513: { xoff: 18, yoff: 17 },
+  9514: { xoff: 18, yoff: 17 },
+  9515: { xoff: 18, yoff: 17 },
+  9520: { xoff: 18, yoff: 46 },
+  9521: { xoff: 18, yoff: 46 },
+  9522: { xoff: 18, yoff: 46 },
+  9523: { xoff: 18, yoff: 64 },
+  9524: { xoff: 18, yoff: 64 },
+  9525: { xoff: 18, yoff: 64 },
+  9526: { xoff: 18, yoff: 34 },
+  9527: { xoff: 18, yoff: 34 },
+  9528: { xoff: 18, yoff: 28 },
+  9529: { xoff: 18, yoff: 54 },
+  9530: { xoff: 18, yoff: 54 },
+  9531: { xoff: 18, yoff: 46 },
+  9532: { xoff: 18, yoff: 46 },
+  9533: { xoff: 18, yoff: 23 },
+  9534: { xoff: 18, yoff: 24 },
+};
+
+type IndoorDecorDef = {
+  textureKey: string;
+  mapX: number;
+  mapY: number;
+  offsetX?: number;
+  offsetY?: number;
+  depthBias?: number;
+  scale?: number;
+  alpha?: number;
+};
+
+type IndoorFixedVisualDef = {
+  textureKey: string;
+  x: number;
+  y: number;
+  depth: number;
+  scale?: number;
+  alpha?: number;
+  originX?: number;
+  originY?: number;
+};
+
+type IndoorFixedRoomDef = {
+  skipTilemap: boolean;
+  visuals: IndoorFixedVisualDef[];
+};
+
+const INDOOR_DECOR_LAYOUTS: Record<string, IndoorDecorDef[]> = {
+};
+
+const INDOOR_FIXED_ROOM_LAYOUTS: Record<string, IndoorFixedRoomDef> = {
+  birth_house: {
+    skipTilemap: true,
+    visuals: [
+      { textureKey: 'birth_house_room_shell', x: 640, y: 612, scale: 0.48, depth: -100, originX: 0.5, originY: 1 },
+      { textureKey: 'birth_house_decor_bookshelf', x: 846, y: 292, scale: 0.54, depth: 22.1, originX: 0.5, originY: 1 },
+      { textureKey: 'birth_house_decor_screen', x: 930, y: 352, scale: 0.5, depth: 27.6, originX: 0.5, originY: 1 },
+      { textureKey: 'birth_house_decor_lantern', x: 968, y: 396, scale: 0.5, depth: 28.2, originX: 0.5, originY: 1 },
+      { textureKey: 'birth_house_decor_table', x: 640, y: 468, scale: 0.55, depth: 31.2, originX: 0.5, originY: 1 },
+      { textureKey: 'birth_house_decor_chest', x: 316, y: 446, scale: 0.5, depth: 23.7, originX: 0.5, originY: 1 },
+      { textureKey: 'birth_house_decor_bed', x: 360, y: 392, scale: 0.56, depth: 24.4, originX: 0.5, originY: 1 },
+    ],
+  },
+};
 
 export class MapRenderer {
   private scene: Phaser.Scene;
@@ -44,6 +115,8 @@ export class MapRenderer {
   private roofSprites: Phaser.GameObjects.Image[] = [];
   // 每个屋顶精灵对应的网格坐标
   private roofGridPos: { col: number; row: number }[] = [];
+  // 自定义室内装饰层（用于出生小屋样板）
+  private indoorDecorSprites: Phaser.GameObjects.Image[] = [];
   // 室内房间中心
   private indoorCx = 0;
   private indoorCy = 0;
@@ -51,6 +124,8 @@ export class MapRenderer {
   private indoorFloorCanvas: HTMLCanvasElement | null = null;
   private indoorFloorCtx: CanvasRenderingContext2D | null = null;
   private indoorFloorImage: Phaser.GameObjects.Image | null = null;
+  private indoorAssetLoadPromise: Promise<void> | null = null;
+  private currentIndoorBuildingId: string | null = null;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -76,12 +151,13 @@ export class MapRenderer {
   }
 
   /** 切换到室内地图 */
-  switchToIndoor(mapData: MapData): void {
+  switchToIndoor(mapData: MapData, buildingId?: string): void {
     this.mapData = mapData;
     this.isIndoor = true;
     this.atlasImg = null;
     this.indoorCx = mapData.cx;
     this.indoorCy = mapData.cy;
+    this.currentIndoorBuildingId = buildingId ?? null;
 
     // 创建室内容器，用于整体跟随玩家滚动
     this.indoorContainer = this.scene.add.container(0, 0);
@@ -107,6 +183,9 @@ export class MapRenderer {
         this.smapOffsets.set(t.idx, { xoff: t.xoff, yoff: t.yoff });
       }
     }
+    for (const [tileId, offset] of Object.entries(CUSTOM_SMAP_OFFSETS)) {
+      this.smapOffsets.set(Number(tileId), offset);
+    }
 
     // 渲染地板到独立 Canvas
     this.renderIndoorFloor();
@@ -126,6 +205,57 @@ export class MapRenderer {
 
     // 创建墙壁精灵
     this.createWallSprites();
+    this.createIndoorDecorSprites();
+  }
+
+  /** 确保当前室内地图依赖的 smap 贴图已加载 */
+  ensureIndoorAssets(mapData: MapData): Promise<void> {
+    const requiredIds = new Set<number>();
+    const layers: Array<number[][] | undefined> = [mapData.earth, mapData.surface, mapData.building];
+
+    for (const layer of layers) {
+      if (!layer) continue;
+      for (const row of layer) {
+        for (const tileId of row) {
+          if (tileId > 0) requiredIds.add(tileId);
+        }
+      }
+    }
+
+    const missing = Array.from(requiredIds).filter((tileId) => !this.scene.textures.exists(`smap_${tileId}`));
+    if (missing.length === 0) {
+      return Promise.resolve();
+    }
+
+    if (this.indoorAssetLoadPromise) {
+      return this.indoorAssetLoadPromise;
+    }
+
+    this.indoorAssetLoadPromise = new Promise((resolve) => {
+      const loader = this.scene.load;
+      const queuedKeys = new Set(loader.list.getArray().map((file) => file.key));
+      const uniqueMissing = missing.filter((tileId) => !queuedKeys.has(`smap_${tileId}`));
+
+      if (uniqueMissing.length === 0) {
+        this.indoorAssetLoadPromise = null;
+        resolve();
+        return;
+      }
+
+      loader.once(Phaser.Loader.Events.COMPLETE, () => {
+        this.indoorAssetLoadPromise = null;
+        resolve();
+      });
+
+      for (const tileId of uniqueMissing) {
+        const padded = String(tileId).padStart(4, '0');
+        loader.image(`smap_${tileId}`, `assets/jy-assets/10_smap/${padded}.png`);
+      }
+
+      loader.start();
+    });
+
+    return this.indoorAssetLoadPromise;
   }
 
   /** 切换回世界地图 */
@@ -146,6 +276,8 @@ export class MapRenderer {
     }
     this.indoorFloorCanvas = null;
     this.indoorFloorCtx = null;
+    this.currentIndoorBuildingId = null;
+    this.destroyIndoorDecorSprites();
 
     // 把容器中的子对象（玩家、NPC）移回场景，然后销毁容器
     if (this.indoorContainer) {
@@ -171,6 +303,11 @@ export class MapRenderer {
     return this.indoorContainer
       ? { x: this.indoorContainer.x, y: this.indoorContainer.y }
       : { x: 0, y: 0 };
+  }
+
+  private get currentFixedRoomLayout(): IndoorFixedRoomDef | null {
+    if (!this.currentIndoorBuildingId) return null;
+    return INDOOR_FIXED_ROOM_LAYOUTS[this.currentIndoorBuildingId] ?? null;
   }
 
   /** 将外部游戏对象加入室内容器（如 NPC），使其跟随房间滚动 */
@@ -257,14 +394,20 @@ export class MapRenderer {
   private renderIndoorFloor(): void {
     const canvas = this.indoorFloorCanvas!;
     const ctx = this.indoorFloorCtx!;
+    const fixedRoom = this.currentFixedRoomLayout;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (fixedRoom?.skipTilemap) {
+      return;
+    }
+
     const map = this.mapData;
     const cx = this.indoorCx;
     const cy = this.indoorCy;
     const scrCx = canvas.width / 2;
     const scrCy = canvas.height / 2;
     const s = INDOOR_SCALE;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const pos = (col: number, row: number) => ({
       sx: TILE_HALF_W * s * ((col - cx) - (row - cy)) + scrCx,
@@ -295,6 +438,10 @@ export class MapRenderer {
   /** 创建墙壁精灵（Layer 1 + Layer 2，位置固定，只创建一次） */
   private createWallSprites(): void {
     this.destroyWallSprites();
+    if (this.currentFixedRoomLayout) {
+      return;
+    }
+
     const map = this.mapData;
     const cx = this.indoorCx;
     const cy = this.indoorCy;
@@ -421,6 +568,57 @@ export class MapRenderer {
     this.wallSprites = [];
     this.roofSprites = [];
     this.roofGridPos = [];
+  }
+
+  private createIndoorDecorSprites(): void {
+    this.destroyIndoorDecorSprites();
+    if (!this.indoorContainer || !this.currentIndoorBuildingId) return;
+
+    const fixedRoom = this.currentFixedRoomLayout;
+    if (fixedRoom) {
+      for (const visual of fixedRoom.visuals) {
+        if (!this.scene.textures.exists(visual.textureKey)) continue;
+
+        const img = this.scene.add.image(visual.x, visual.y, visual.textureKey)
+          .setOrigin(visual.originX ?? 0.5, visual.originY ?? 1)
+          .setScale(visual.scale ?? 1)
+          .setAlpha(visual.alpha ?? 1)
+          .setDepth(visual.depth);
+
+        this.indoorContainer.add(img);
+        this.indoorDecorSprites.push(img);
+      }
+      return;
+    }
+
+    const layout = INDOOR_DECOR_LAYOUTS[this.currentIndoorBuildingId];
+    if (!layout) return;
+
+    const cx = this.indoorCx;
+    const cy = this.indoorCy;
+    const scrCx = SCREEN_WIDTH / 2;
+    const scrCy = SCREEN_HEIGHT / 2;
+    const s = INDOOR_SCALE;
+
+    for (const decor of layout) {
+      if (!this.scene.textures.exists(decor.textureKey)) continue;
+
+      const sx = TILE_HALF_W * s * ((decor.mapX - cx) - (decor.mapY - cy)) + scrCx + (decor.offsetX ?? 0);
+      const sy = TILE_HALF_H * s * ((decor.mapX - cx) + (decor.mapY - cy)) + scrCy + (decor.offsetY ?? 0);
+      const img = this.scene.add.image(sx, sy, decor.textureKey)
+        .setOrigin(0.5, 1)
+        .setScale(decor.scale ?? 1)
+        .setAlpha(decor.alpha ?? 1)
+        .setDepth(decor.mapX + decor.mapY + (decor.depthBias ?? 0));
+
+      this.indoorContainer.add(img);
+      this.indoorDecorSprites.push(img);
+    }
+  }
+
+  private destroyIndoorDecorSprites(): void {
+    for (const sprite of this.indoorDecorSprites) sprite.destroy();
+    this.indoorDecorSprites = [];
   }
 
   // ============================================================

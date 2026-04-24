@@ -5,6 +5,7 @@
 import type { DialogueTree, DialogueNode, ConvChoice } from '../types';
 import { DIALOGUE_TYPE_SPEED } from '../config';
 import { DIALOGUE_SCRIPTS } from '../data/DialogueScripts';
+import { EXTRA_DIALOGUE_SCRIPTS } from '../content/ExtraDialogueScripts';
 import type { EventBus } from '../core/EventBus';
 
 let msgCounter = 0;
@@ -34,7 +35,7 @@ export class DialogueSystem {
 
   /** 开始对话 */
   startDialogue(dialogueId: string): boolean {
-    const tree = DIALOGUE_SCRIPTS[dialogueId];
+    const tree = EXTRA_DIALOGUE_SCRIPTS[dialogueId] || DIALOGUE_SCRIPTS[dialogueId];
     if (!tree) {
       console.warn('Dialogue script not found:', dialogueId);
       return false;
