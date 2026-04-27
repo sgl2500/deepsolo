@@ -122,6 +122,12 @@ export class BootScene extends Phaser.Scene {
     // 加载 Fight000 的帧偏移数据
     this.load.json('fight000_info', 'assets/jy-assets/12_fight/Fight000/_info.json');
 
+    // === 战斗走路精灵 (JYQXZ 16_walk/2501-2528) ===
+    // 4 方向 × 7 帧：右上 2501-2507，右下 2508-2514，左上 2515-2521，左下 2522-2528。
+    for (let i = 2501; i <= 2528; i++) {
+      this.load.image(`battle_walk_${i}`, `assets/jy-assets/16_walk/${i}.png`);
+    }
+
     // === 武功特效贴图 (JYQXZ 13_eft) ===
     for (const [eftId, count] of Object.entries(EFT_FRAME_COUNTS)) {
       for (let i = 0; i < count; i++) {

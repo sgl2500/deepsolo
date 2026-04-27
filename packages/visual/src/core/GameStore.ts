@@ -8,6 +8,7 @@ import {
   type PlayerAttributes,
   type PlayerEquipment,
   type PlayerInventoryStack,
+  type PlayerMartialProgress,
   type PlayerManualProgress,
   type PlayerProgress,
   type PlayerVitals,
@@ -17,6 +18,7 @@ import { INITIAL_STRATEGIES, STRATEGIES_URL, EVENTS_URL, POLL_INTERVAL, LS_KEY_S
 import { EventBus } from './EventBus';
 import { getPlayerItemDef } from '../content/PlayerItems';
 import { getPlayerManualDef, getPlayerManualDefByItemId } from '../content/PlayerManuals';
+import { MARTIAL_LEVEL_MAX, getMartialPowerMultiplier, getMartialRequiredExp } from '../content/PlayerMartialArts';
 
 const DEFAULT_PLAYER_PROGRESS: PlayerProgress = {
   version: 1,
@@ -31,9 +33,20 @@ const DEFAULT_PLAYER_PROGRESS: PlayerProgress = {
   },
   inventory: [],
   manuals: [],
+  martials: [{ martialId: 'basic_attack', level: 1, exp: 0, totalUses: 0, hitCount: 0, whiffCount: 0, stack: 0 }],
   equipment: {},
   flags: {},
 };
+
+export interface MartialUseResult {
+  martialId: string;
+  level: number;
+  exp: number;
+  requiredExp: number;
+  gainedExp: number;
+  leveledUp: boolean;
+  levelsGained: number;
+}
 
 export class GameStore {
   strategies: Strategy[] = [];
@@ -375,6 +388,53 @@ export class GameStore {
     return true;
   }
 
+  getMartialProgress(martialId: string): PlayerMartialProgress {
+    let progress = this.playerProgress.martials.find(item => item.martialId === martialId);
+    if (!progress) {
+      progress = this.createDefaultMartialProgress(martialId);
+      this.playerProgress.martials.push(progress);
+    }
+    return progress;
+  }
+
+  getMartialPowerMultiplier(martialId: string): number {
+    const progress = this.getMartialProgress(martialId);
+    return getMartialPowerMultiplier(progress.level, progress.stack);
+  }
+
+  recordMartialUse(martialId: string, hit: boolean): MartialUseResult {
+    const progress = this.getMartialProgress(martialId);
+    const gainedExp = hit ? 2 : 1;
+    const startLevel = progress.level;
+
+    progress.totalUses += 1;
+    if (hit) progress.hitCount += 1;
+    else progress.whiffCount += 1;
+
+    if (progress.level < MARTIAL_LEVEL_MAX) {
+      progress.exp += gainedExp;
+      while (progress.level < MARTIAL_LEVEL_MAX) {
+        const required = getMartialRequiredExp(progress.level);
+        if (required <= 0 || progress.exp < required) break;
+        progress.exp -= required;
+        progress.level += 1;
+      }
+      if (progress.level >= MARTIAL_LEVEL_MAX) progress.exp = 0;
+    }
+
+    this.persistPlayerProgress();
+    const requiredExp = getMartialRequiredExp(progress.level);
+    return {
+      martialId,
+      level: progress.level,
+      exp: progress.exp,
+      requiredExp,
+      gainedExp,
+      leveledUp: progress.level > startLevel,
+      levelsGained: progress.level - startLevel,
+    };
+  }
+
   addManual(manualId: string): boolean {
     return this.discoverManual(manualId);
   }
@@ -387,6 +447,13 @@ export class GameStore {
     vitals.mp = mpRecover === 'full'
       ? vitals.maxMp
       : Math.min(vitals.maxMp, vitals.mp + mpRecover);
+    this.persistPlayerProgress();
+  }
+
+  setPlayerVitals(hp: number, mp: number): void {
+    const vitals = this.playerProgress.vitals;
+    vitals.hp = Math.max(0, Math.min(vitals.maxHp, Math.round(hp)));
+    vitals.mp = Math.max(0, Math.min(vitals.maxMp, Math.round(mp)));
     this.persistPlayerProgress();
   }
 
@@ -445,6 +512,7 @@ export class GameStore {
       attributes: this.normalizeAttributes(data.attributes),
       inventory: this.normalizeInventory(data.inventory),
       manuals: this.normalizeManuals(data.manuals),
+      martials: this.normalizeMartials(data.martials),
       equipment: this.normalizeEquipment(data.equipment),
       flags: this.normalizeFlags(data.flags),
     };
@@ -519,6 +587,35 @@ export class GameStore {
       manuals.set(manualId, { manualId, learned, progress });
     }
     return Array.from(manuals.values());
+  }
+
+  private normalizeMartials(raw: unknown): PlayerMartialProgress[] {
+    const martials = new Map<string, PlayerMartialProgress>();
+    if (Array.isArray(raw)) {
+      for (const entry of raw) {
+        if (!entry || typeof entry !== 'object') continue;
+        const data = entry as Partial<PlayerMartialProgress>;
+        if (typeof data.martialId !== 'string' || !data.martialId) continue;
+        martials.set(data.martialId, {
+          martialId: data.martialId,
+          level: Math.max(1, Math.min(MARTIAL_LEVEL_MAX, Math.floor(this.safeNumber(data.level, 1)))),
+          exp: Math.max(0, Math.floor(this.safeNumber(data.exp, 0))),
+          totalUses: Math.max(0, Math.floor(this.safeNumber(data.totalUses, 0))),
+          hitCount: Math.max(0, Math.floor(this.safeNumber(data.hitCount, 0))),
+          whiffCount: Math.max(0, Math.floor(this.safeNumber(data.whiffCount, 0))),
+          stack: Math.max(0, Math.floor(this.safeNumber(data.stack, 0))),
+        });
+      }
+    }
+
+    if (!martials.has('basic_attack')) {
+      martials.set('basic_attack', this.createDefaultMartialProgress('basic_attack'));
+    }
+    return Array.from(martials.values());
+  }
+
+  private createDefaultMartialProgress(martialId: string): PlayerMartialProgress {
+    return { martialId, level: 1, exp: 0, totalUses: 0, hitCount: 0, whiffCount: 0, stack: 0 };
   }
 
   private normalizeEquipment(raw: unknown): PlayerEquipment {

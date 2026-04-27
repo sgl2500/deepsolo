@@ -2,7 +2,13 @@ import type { EventBus } from '../core/EventBus';
 import type { GameStore } from '../core/GameStore';
 import { getPlayerItemDef } from '../content/PlayerItems';
 import { getPlayerManualDef } from '../content/PlayerManuals';
-import { PLAYER_MARTIAL_ARTS, getMartialCategoryLabel } from '../content/PlayerMartialArts';
+import {
+  MARTIAL_LEVEL_MAX,
+  PLAYER_MARTIAL_ARTS,
+  getMartialCategoryLabel,
+  getMartialPowerMultiplier,
+  getMartialRequiredExp,
+} from '../content/PlayerMartialArts';
 
 type PlayerPanelTab = 'attributes' | 'martial' | 'items';
 
@@ -216,6 +222,10 @@ export class PlayerPanel {
           const canLearn = !!art.requiredManualId && hasManual && !learned && this.meetsAttributeRequirement(art.requiredAttributes);
           const state = art.innate ? '基础武功' : learned ? '已掌握' : canLearn ? '可研读' : hasManual ? '条件不足' : '缺少秘籍';
           const sourceText = art.innate ? '来源：默认掌握' : `来源：${this.escapeHtml(manual?.name ?? art.requiredManualId ?? '未知秘籍')}`;
+          const martialProgress = progress.martials.find(item => item.martialId === art.id);
+          const progressHtml = martialProgress && learned
+            ? this.renderMartialProgress(martialProgress.level, martialProgress.exp, martialProgress.totalUses, martialProgress.hitCount, martialProgress.whiffCount, martialProgress.stack)
+            : '';
           const actionButton = art.innate
             ? '<button type="button" disabled>常驻</button>'
             : learned && art.requiredManualId
@@ -230,6 +240,7 @@ export class PlayerPanel {
                 </div>
                 <p>${this.escapeHtml(art.description)}</p>
                 <small>${sourceText} · ${this.escapeHtml(art.effectText)}</small>
+                ${progressHtml}
               </div>
               <div class="martial-action">
                 <b>${state}</b>
@@ -238,6 +249,34 @@ export class PlayerPanel {
             </article>
           `;
         }).join('')}
+      </div>
+    `;
+  }
+
+  private renderMartialProgress(
+    level: number,
+    exp: number,
+    totalUses: number,
+    hitCount: number,
+    whiffCount: number,
+    stack: number,
+  ): string {
+    const required = getMartialRequiredExp(level);
+    const isMax = level >= MARTIAL_LEVEL_MAX;
+    const pct = isMax || required <= 0 ? 100 : Math.max(0, Math.min(100, exp / required * 100));
+    const power = Math.round(getMartialPowerMultiplier(level, stack) * 100);
+    return `
+      <div class="martial-progress">
+        <div class="martial-progress-top">
+          <b>Lv.${level}${isMax ? ' 满级' : ''}</b>
+          <span>熟练度 ${isMax ? 'MAX' : `${exp}/${required}`} · 威力 ${power}%</span>
+        </div>
+        <i><em style="width:${pct}%"></em></i>
+        <div class="martial-stats">
+          <span>使用 ${totalUses}</span>
+          <span>命中 ${hitCount}</span>
+          <span>空挥 ${whiffCount}</span>
+        </div>
       </div>
     `;
   }

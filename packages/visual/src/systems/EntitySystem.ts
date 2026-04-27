@@ -94,15 +94,19 @@ export class EntitySystem {
 
   /** 获取玩家附近的策略 Agent */
   getNearbyAgent(playerX: number, playerY: number, threshold: number): Agent | null {
+    let nearest: Agent | null = null;
+    let nearestDist = Infinity;
     for (const agent of this.agents.values()) {
       if (!agent.container.visible) continue;
       const dx = agent.mapX - playerX;
       const dy = agent.mapY - playerY;
-      if (Math.sqrt(dx * dx + dy * dy) <= threshold) {
-        return agent;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= threshold && dist < nearestDist) {
+        nearest = agent;
+        nearestDist = dist;
       }
     }
-    return null;
+    return nearest;
   }
 
   /** 立即同步所有实体的屏幕位置（场景切换时调用，防止闪现） */

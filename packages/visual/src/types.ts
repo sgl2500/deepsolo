@@ -349,6 +349,16 @@ export interface PlayerManualProgress {
   progress: number;
 }
 
+export interface PlayerMartialProgress {
+  martialId: string;
+  level: number;
+  exp: number;
+  totalUses: number;
+  hitCount: number;
+  whiffCount: number;
+  stack: number;
+}
+
 export interface PlayerEquipment {
   weapon?: string;
   armor?: string;
@@ -362,6 +372,7 @@ export interface PlayerProgress {
   attributes: PlayerAttributes;
   inventory: PlayerInventoryStack[];
   manuals: PlayerManualProgress[];
+  martials: PlayerMartialProgress[];
   equipment: PlayerEquipment;
   flags: Record<string, boolean>;
 }

@@ -2,6 +2,8 @@ import type { PlayerAttributes } from '../types';
 
 export type MartialArtCategory = 'inner' | 'fist' | 'sword' | 'blade' | 'lightness';
 
+export const MARTIAL_LEVEL_MAX = 10;
+
 export interface PlayerMartialArtDef {
   id: string;
   name: string;
@@ -41,4 +43,13 @@ export function getMartialCategoryLabel(category: MartialArtCategory): string {
     case 'lightness': return '轻功';
     default: return '武功';
   }
+}
+
+export function getMartialRequiredExp(level: number): number {
+  if (level >= MARTIAL_LEVEL_MAX) return 0;
+  return Math.max(10, level * 10);
+}
+
+export function getMartialPowerMultiplier(level: number, stack = 0): number {
+  return 1 + (Math.max(1, level) - 1) * 0.08 + Math.max(0, stack) * 0.05;
 }

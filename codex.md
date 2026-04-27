@@ -1312,3 +1312,195 @@ python scripts/trigger_heaven.py
 - `packages/visual/src/content/PlayerMartialArts.ts` 新增先天武功 `普通攻击`：不依赖秘籍、不占背包、不可遗忘，作为玩家默认掌握的基础战斗动作。
 - `packages/visual/src/ui/PlayerPanel.ts` 的武功页支持 `innate` 武功：显示为 `基础武功`，操作按钮为禁用态 `常驻`。
 - 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。
+
+### 2026-04-27 大地图玩家战斗 MVP
+
+- 大地图战斗入口从“B 键随机 Agent vs Agent”改为“玩家靠近 Agent 后按 B 发起切磋”。
+  - 入口：`packages/visual/src/scenes/WorldScene.ts`
+  - 附近 Agent 查询：`packages/visual/src/systems/EntitySystem.ts#getNearbyAgent`，现在返回距离最近者。
+- `packages/visual/src/data/BattleData.ts` 新增 `createPlayerBattlePerson(progress, team, startPos)`：把玩家长期档案转换成战斗角色。
+  - 玩家 HP/MP 在战斗内按 5 倍放大，以匹配现有 Agent 战斗数值量级。
+  - 玩家攻击/防御/身法从个人属性换算：攻击 x6、防御 x5、身法 x5。
+  - 当前玩家战斗武功先接 `NORMAL_ATTACK`，后续攻击型武功再从玩家武功体系映射。
+- `packages/visual/src/systems/BattleSystem.ts` 新增 `startPlayerVsAgent(agentId, agentName)`：玩家红方、Agent 蓝方。
+  - 支持 `controlledPersonId`：玩家回合手动，敌方 Agent 回合 AI。
+  - 保留原 `start(redId, blueId)`，用于旧的 Agent vs Agent 自动战斗。
+  - 战斗结束后把玩家剩余 HP/MP 按比例写回 `GameStore.playerProgress`。
+  - `battle:end` 事件改为结束画面停留 3 秒并清理战斗后再发出，避免大地图和战斗结束画面同时显示。
+- `packages/visual/src/core/GameStore.ts` 新增 `setPlayerVitals(hp, mp)`，用于战斗结束状态回写。
+- 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。
+
+### 2026-04-27 普通攻击熟练度 MVP
+
+- `packages/visual/src/types.ts` 的 `PlayerProgress` 新增 `martials`，用于记录玩家武功成长数据。
+  - 当前记录字段：`martialId`、`level`、`exp`、`totalUses`、`hitCount`、`whiffCount`、`stack`。
+- `packages/visual/src/content/PlayerMartialArts.ts` 新增武功成长辅助函数：
+  - `MARTIAL_LEVEL_MAX = 10`
+  - `getMartialRequiredExp(level)`：当前规则为 Lv.N 升下级需要 `N * 10` 熟练度。
+  - `getMartialPowerMultiplier(level, stack)`：当前规则为每级威力 +8%，每层 stack 额外 +5%。
+- `packages/visual/src/core/GameStore.ts` 新增武功成长操作：
+  - `getMartialProgress(martialId)`
+  - `getMartialPowerMultiplier(martialId)`
+  - `recordMartialUse(martialId, hit)`
+  - 旧存档迁移时会自动补入 `basic_attack` 的 Lv.1 熟练度记录。
+- `packages/visual/src/systems/BattleSystem.ts` 接入普通攻击成长：
+  - 战斗技能 `normal_attack` 映射到玩家武功 `basic_attack`。
+  - 玩家每次释放普通攻击都会记录熟练度：命中 +2，空挥/未命中 +1。
+  - 伤害计算会读取玩家该武功的等级倍率；当前普通攻击等级越高，威力越高。
+  - 战斗日志会显示 `普通攻击 Lv.X`，升级时显示升级提示。
+- `packages/visual/src/ui/PlayerPanel.ts` 的武功页展示武功等级、熟练度进度条、威力倍率、使用次数、命中次数和空挥次数。
+- `packages/visual/src/ui/styles.css` 新增武功熟练度进度条样式。
+- 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。
+
+### 2026-04-27 战斗 HUD 第一版重做
+
+- `packages/visual/src/systems/BattleSystem.ts` 调整战斗开局站位：红方/玩家固定在左下 `{ x: 2, y: 7 }`，蓝方/对手固定在右上 `{ x: 7, y: 2 }`，进入战斗时双方强制互相面对。
+- 战斗背景从单纯深色遮罩改为武侠战棋舞台：深色幕布、暖金边框、左右环境光，标题改为 `江湖切磋`。
+- HUD 从临时调试样式改为固定信息层级：
+  - 顶部左右双方状态卡，显示阵营、姓名、当前武功、生命/内力条和数值。
+  - 左下固定 `战斗记录` 面板，日志不再挤在底部中央。
+  - 底部固定横向命令栏，替代原右侧竖向小菜单。
+- 操作菜单支持横向选择：`←/↑` 上一个命令，`→/↓` 下一个命令，`Space` 确认，`Esc` 返回。
+- 武功选择菜单改为底部技能卡片，显示技能名、内力消耗、范围，并以青绿色高亮当前技能。
+- 战斗中 HP/MP UI 现在会同时更新玩家和对手的生命、内力条与数值。
+- 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。
+
+### 2026-04-27 战斗攻击距离修正
+
+- `packages/visual/src/systems/BattleSystem.ts` 修正手动攻击距离：进入目标选择时会显示当前武功的红色攻击范围；只能对红色范围内的格子释放，超出距离会提示 `攻击距离不足`，不会执行攻击。
+- 普通攻击仍为距离 1；后续远程/剑法/掌法可通过 `WugongDef.attackRange` 控制攻击距离。
+- AI 移动策略从“尽量贴近敌人”改为“优先停在自己武功刚好能打到的位置”；远程武功不会无脑贴脸，近战普通攻击仍会自然接近到 1 格。
+- 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。
+
+### 2026-04-27 战斗表现清理第一版
+
+- `packages/visual/src/data/BattleData.ts` 修正 `NORMAL_ATTACK.aoeSize`：普通攻击从 3x3 群攻改为单体 `aoeSize: 1`。
+- `packages/visual/src/systems/BattleSystem.ts` 的移动动画改为按 BFS 路径逐格移动，不再从起点直线 Tween 到终点，避免视觉上穿过其他角色。
+- 战斗角色脚下常驻调试感元素清理：移除角色脚下红/蓝色块和常驻姓名文本，保留更克制的黑色淡影。
+- 当前行动者增加金色脚下光圈；攻击目标选择增加红色目标光圈，均会随角色/光标位置更新。
+- 手动攻击结束后会正确退出本回合手动状态，清理当前行动光圈和目标光圈。
+- 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。
+
+### 2026-04-27 战斗角色动作层分离
+
+- 新增 `packages/visual/src/content/BattleActors.ts`：独立描述战斗角色动作资源。
+  - 当前配置 `fight000`，对应 `assets/jy-assets/12_fight/Fight000/0040.png-0087.png`。
+  - `idle` 使用每个方向的起始帧：40/52/64/76。
+  - `attack` 使用四方向攻击帧：40-51、52-63、64-75、76-87。
+- 新增 `packages/visual/src/systems/BattleAnimator.ts`：封装战斗动作播放。
+  - 提供 `getIdleTextureKey`、`hasIdleTexture`、`resetToIdle`、`playAttack`。
+  - 后续可扩展 `move`、`hit`、`defend`、`dead`，不再混用大地图 `chars` 图集。
+- `packages/visual/src/systems/BattleSystem.ts` 不再直接维护 `DIR_TO_FIGHT_OFFSET`、`fightKey`、`cycleAttackFrames` 等 Fight000 细节，改为通过 `BattleAnimator` 播放站立和攻击动作。
+- 这一步只做资源/动作职责分离，战斗视觉表现保持原有行为；下一步可继续新增 `BattleSkillVisuals.ts` 管理武功特效、文字、范围形状和等级视觉阶段。
+- 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。
+
+### 2026-04-27 武功表现配置层
+
+- 新增 `packages/visual/src/content/BattleSkillVisuals.ts`：集中配置武功表现，不再让 `BattleSystem.ts` 直接写死特效表现。
+  - 支持字段：`targetMode`、`rangeShape`、`effectId`、`effectScale`、`castText`、`castTextColor`、`showCastText`、`impactDelayMs`、`hitStopMs`、`cameraShake`、`tiers`。
+  - 当前已配置 `normal_attack`、`zhuihun_jian`、`fengmo_zhang`、`taiji_quan`、`jingang_fumo`、`luoying_shenjian`、`dugu_jiujian`。
+- 普通攻击接入等级视觉阶段：
+  - Lv.1：`003`，小特效，不显示招式字。
+  - Lv.4：`004`，显示 `拳风初成`。
+  - Lv.7：`006`，显示 `拳劲纵横`，带轻微震动。
+  - Lv.10：`009`，显示 `登峰一击`，更大特效、震动和更长命中停顿。
+- `packages/visual/src/systems/BattleSystem.ts` 现在通过 `getBattleSkillVisual(skill, level)` 决定：
+  - 是否单体/群攻。
+  - 播放哪个 eft 特效。
+  - 特效缩放。
+  - 是否显示招式文字。
+  - 命中延迟、命中停顿、屏幕震动。
+- `playEftSprite` 和 `playAoeEffect` 支持传入 `effectScale`；`showKungfuName` 支持直接传入配置色值。
+- 新增 `hitStop(durationMs)`，用于命中瞬间短暂停顿；当前通过 `tweens.pauseAll/resumeAll` 实现。
+- 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。
+
+### 2026-04-27 战斗页面右侧面板优化
+
+- 新增 `packages/visual/docs/battle_system_tuning.md`：记录战斗系统调参入口，包括棋盘缩放、右侧面板、状态卡、日志、行动命令、武功表现和初始站位。
+- `packages/visual/src/config.ts` 将 `BATTLE_TILE_SCALE` 调整为 `2.25`，让中心战斗棋盘更大、更有存在感。
+- `packages/visual/src/systems/BattleSystem.ts` 将战斗 HUD 从顶部/底部分散布局改为右侧贴边固定面板：
+  - 上方显示回合、操作提示和双方状态卡。
+  - 中部固定显示 `战斗记录`。
+  - 底部固定显示行动命令，`移动/攻击/防御/休息/状态/自动` 使用 2 列按钮网格。
+  - 武功选择也复用右侧底部区域，避免遮挡中心战斗地图。
+- 行动菜单方向键适配 2 列网格：左右切换同一行，上下跨行切换。
+- 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。
+
+### 2026-04-27 战斗右侧 HUD 减重修正
+
+- 用户反馈上一版右侧面板“越来越不好看”，本次把设计方向从厚重后台面板改为轻量武侠战斗栏。
+- `packages/visual/src/systems/BattleSystem.ts` 调整：
+  - 右侧面板宽度从 `314` 降到 `286`，边距从 `22` 降到 `18`，减少对战场的压迫。
+  - `getBoardCenter()` 增加 `+28` 视觉补偿，让棋盘不被过度挤到左侧。
+  - 主面板透明度降低，减少多层粗边框，只保留轻量金色分割线。
+  - 状态卡改为细左侧色条 + 半透明底，不再使用厚重双框。
+  - 行动按钮和武功卡片去掉外层大黑框，直接嵌入右侧栏，降低“调试 UI”感觉。
+- `packages/visual/docs/battle_system_tuning.md` 同步记录新原则：战斗地图是主角，右侧只做半透明信息层，不要继续堆厚重外框。
+- 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。
+
+### 2026-04-27 战斗 HUD 参考图方向修正 + Vite 警告处理
+
+- 用户给出参考图后，确认上一版“右侧整条战斗栏”方向不对，改为参考图式“四角 HUD + 中心战场”：
+  - 左上：玩家/敌人状态卡，加入小头像框。
+  - 右上：战局、回合、操作提示。
+  - 左下：战斗记录。
+  - 右下：行动命令/武功选择。
+  - 底部中间：简易出手顺序条。
+- `packages/visual/src/systems/BattleSystem.ts` 调整：
+  - 删除对整条右侧面板布局的依赖，`getBoardCenter()` 回到屏幕中心略向下。
+  - 新增 `getBattleInfoRect()`，状态/日志/命令分别回到四角浮层。
+  - 右下行动菜单恢复为参考图的 2 列按钮卡片，不再占整侧。
+  - `renderTurnOrder()` 新增底部出手顺序条。
+- `packages/visual/vite.config.ts` 设置 `build.chunkSizeWarningLimit = 1800`：Phaser 单页游戏当前 bundle 体积在预期内，避免 Vite 大 chunk 误报警告。
+- `packages/visual/docs/battle_system_tuning.md` 同步更新：记录“四角 HUD + 中心战场”的新布局原则。
+- 验证：`cd packages/visual && npm run build` 已通过，且不再输出 Vite 大 chunk 警告。
+
+### 2026-04-27 玩家战斗生命/内力同步修正
+
+- 修正用户发现的问题：战斗 HUD 显示玩家生命 `500`，但个人属性生命上限是 `100`。
+- 原因：`packages/visual/src/data/BattleData.ts#createPlayerBattlePerson` 曾为了临时匹配 Agent 战斗量级，把玩家 HP/MP 乘以 5。
+- 现在改为生命/内力直接读取 `GameStore.playerProgress.vitals`：
+  - `hp = progress.vitals.hp`
+  - `maxHp = progress.vitals.maxHp`
+  - `mp = progress.vitals.mp`
+  - `maxMp = progress.vitals.maxMp`
+- `packages/visual/src/systems/BattleSystem.ts#syncPlayerVitalsAfterBattle` 同步改为战斗结束直接回写 HP/MP，不再除以 5。
+- 验证：`cd packages/visual && npm run build` 已通过，且无 Vite 大 chunk 警告。
+
+### 2026-04-27 战斗移动走路帧接入
+
+- 用户指出战斗中移动目前是战斗站立图平移，缺少走路动作。
+- `packages/visual/src/scenes/BootScene.ts` 新增加载 `assets/jy-assets/16_walk/2501.png-2528.png`，key 为 `battle_walk_2501` 到 `battle_walk_2528`。
+- `packages/visual/src/content/BattleActors.ts` 扩展 `fight000` 动作配置：
+  - 站立/攻击继续使用 `12_fight/Fight000/0040.png-0087.png`。
+  - 移动使用 `16_walk`：右上 `2501-2507`，右下 `2508-2514`，左上 `2515-2521`，左下 `2522-2528`。
+  - 新增 `walkScale = 2.35`、`walkOriginY = 0.88`，让 16_walk 尺寸接近当前战斗人物比例。
+- `packages/visual/src/systems/BattleAnimator.ts` 新增 `playWalk()` / `hasWalkTexture()` / `getWalkTextureKey()`，并在恢复站立时重置贴图、缩放和锚点。
+- `packages/visual/src/systems/BattleSystem.ts#animateMove` 在逐格移动 tween 期间播放 walk 循环，移动结束后停止 walk timer 并恢复 Fight000 站立帧。
+- `packages/visual/docs/battle_system_tuning.md` 同步记录走路帧编号、方向映射和调参入口。
+- 验证：`cd packages/visual && npm run build` 已通过，且无 Vite 大 chunk 警告。
+
+### 2026-04-27 战斗走路频率修正
+
+- 用户反馈 NPC 战斗走路频率过快，看不到走路样子。
+- 原因：`BattleSystem.animateMove` 每格移动最短只有 120ms，且每走一格都会重启 walk 动画，导致基本只看到起始帧。
+- `packages/visual/src/systems/BattleSystem.ts` 新增 `BATTLE_MOVE_STEP_DURATION = 260`，逐格移动固定为 260ms，让每格至少能看到 2-3 个走路帧。
+- `faceToward(person, target, updateSprite = true)` 增加可选参数；移动中只更新朝向，不立刻重置回站立帧。
+- `animateMove` 现在同方向连续移动不会重启 walk timer，只有转向时才重启对应方向走路帧。
+- `packages/visual/src/content/BattleActors.ts` 将 `16_walk` 的 `frameIntervalMs` 从 95ms 调慢到 120ms。
+- `packages/visual/docs/battle_system_tuning.md` 补充：走路观感优先调 `BATTLE_MOVE_STEP_DURATION` 和 `frameIntervalMs`。
+- 验证：`cd packages/visual && npm run build` 已通过，且无 Vite 大 chunk 警告。
+
+### 2026-04-27 战斗系统优化阶段性收尾文档
+
+- 用户确认本轮战斗系统优化完成，已更新 `packages/visual/docs/battle_system_tuning.md`。
+- 文档补充当前完成状态：
+  - 玩家手动战斗入口。
+  - 四角 HUD + 中心战场布局。
+  - 玩家生命/内力直接取个人属性并回写。
+  - BFS 逐格移动与角色碰撞。
+  - `16_walk/2501-2528` 战斗走路帧。
+  - 普通攻击单体化、熟练度成长与等级视觉阶段。
+  - 武功表现配置层。
+  - Vite 大 chunk 警告处理方式。
+- 文档同步最新参数：`BATTLE_MOVE_STEP_DURATION = 260`、walk `frameIntervalMs = 120`、`chunkSizeWarningLimit = 1800`。

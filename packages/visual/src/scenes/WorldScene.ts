@@ -19,7 +19,6 @@ import { VFXSystem } from '../systems/VFXSystem';
 import { BattleSystem } from '../systems/BattleSystem';
 import { StorySystem } from '../systems/StorySystem';
 import { BUILDINGS } from '../data/BuildingData';
-import { getAvailableFighterIds } from '../data/BattleData';
 import { getNearbyIndoorInteractable } from '../content/IndoorInteractables';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
 import type { IndoorInteractableDef } from '../types';
@@ -110,7 +109,7 @@ export class WorldScene extends Phaser.Scene {
     this.vfxSystem = new VFXSystem(this);
 
     // 战斗系统
-    this.battleSystem = new BattleSystem(this, _eventBus);
+    this.battleSystem = new BattleSystem(this, _eventBus, _store);
 
     // 剧情系统
     this.storySystem = new StorySystem(this, _eventBus, _store);
@@ -404,16 +403,21 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
-    // B 键触发战斗
+    // B 键：大地图靠近 Agent 后发起玩家挑战
     if (this.inputController.isBattlePressed() && !this.battleSystem.isActive()) {
-      const fighters = getAvailableFighterIds();
-      if (fighters.length >= 2) {
-        // 随机选两个不同的 Agent
-        const shuffled = fighters.sort(() => Math.random() - 0.5);
-        const redId = shuffled[0];
-        const blueId = shuffled[1];
+      if (state === SceneState.WorldMap) {
+        const challenger = this.entitySystem.getNearbyAgent(
+          this.entitySystem.player.mapX,
+          this.entitySystem.player.mapY,
+          NPC_INTERACT_DIST + 1.2,
+        );
+        if (!challenger) {
+          this.entitySystem.showBubble('player', '靠近一位策略观察者后，按 B 发起切磋');
+          return;
+        }
+        this.entitySystem.showBubble(challenger.id, '来切磋一场？');
         this.sceneManager.startBattle();
-        this.battleSystem.start(redId, blueId);
+        this.battleSystem.startPlayerVsAgent(challenger.id, challenger.strategy.name);
         return;
       }
     }
