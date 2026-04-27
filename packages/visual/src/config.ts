@@ -160,6 +160,9 @@ export const BUBBLE_TEXTS: Record<AgentState, string[]> = {
 /** 故事状态 localStorage key */
 export const LS_KEY_STORY = 'deepsolo_story';
 
+/** 室内家具编辑器布局 localStorage key 前缀 */
+export const LS_KEY_FURNITURE_EDITOR_LAYOUTS = 'deepsolo_furniture_editor_layouts';
+
 // --- Token 中心 ---
 /** Token 中心初始数据路径 */
 export const TOKEN_ACCOUNT_URL = './data/token_center/account.json';

@@ -121,8 +121,24 @@ export class WorldScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-F2', () => {
       this.mapRenderer.toggleFurnitureEditor();
     });
-    this.input.keyboard!.on('keydown-F4', () => {
-      this.mapRenderer.exportFurnitureEditorLayout();
+    this.input.keyboard!.on('keydown-M', () => {
+      this.mapRenderer.toggleFurnitureMaskEditor();
+    });
+    this.input.keyboard!.on('keydown-BACKSPACE', (event: KeyboardEvent) => {
+      event.preventDefault();
+      this.mapRenderer.removeLastFurnitureMaskPoint();
+    });
+    this.input.keyboard!.on('keydown-DELETE', () => {
+      this.mapRenderer.removeLastFurnitureMaskPoint();
+    });
+    this.input.keyboard!.on('keydown-C', () => {
+      this.mapRenderer.clearFurnitureMask();
+    });
+    this.input.keyboard!.on('keydown-R', () => {
+      this.mapRenderer.resetFurnitureEditorSavedLayout();
+    });
+    this.input.keyboard!.on('keydown-H', () => {
+      this.mapRenderer.toggleFurnitureEditorGuide();
     });
 
     // ── 统一对话事件 ──

@@ -118,7 +118,13 @@ export class UIManager {
         this.tokenPanel.style.display = 'block';
         this.tokenCenterUI.show();
         this.headerBar.setVisible(true);
-        this.hideGameContainerOverlays(false);
+        this.hideGameContainerOverlays(true);
+      } else if (state === 'indoor') {
+        this.panel.style.display = 'none';
+        this.tokenPanel.style.display = 'none';
+        this.tokenCenterUI.hide();
+        this.headerBar.setVisible(true);
+        this.hideGameContainerOverlays(true);
       } else {
         this.panel.style.display = 'block';
         this.tokenPanel.style.display = 'none';

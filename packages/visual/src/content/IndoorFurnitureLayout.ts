@@ -5,6 +5,11 @@ export type IndoorFurnitureColliderBounds = {
   maxLocalY: number;
 };
 
+export type IndoorFurnitureMaskPoint = {
+  px: number;
+  py: number;
+};
+
 export type IndoorFurnitureDef = {
   buildingId: string;
   id: string;
@@ -21,6 +26,7 @@ export type IndoorFurnitureDef = {
   depthLocalY?: number;
   depthBias?: number;
   collider?: IndoorFurnitureColliderBounds;
+  occluderMask?: IndoorFurnitureMaskPoint[];
 };
 
 const INDOOR_LOCAL_ORIGINS: Record<string, { x: number; y: number }> = {
