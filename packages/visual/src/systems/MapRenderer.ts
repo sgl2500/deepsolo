@@ -261,7 +261,6 @@ export class MapRenderer {
     // 创建墙壁精灵
     this.createWallSprites();
     this.createIndoorDecorSprites();
-    this.createIndoorDebugOverlay();
   }
 
   /** 确保当前室内地图依赖的 smap 贴图已加载 */
@@ -393,6 +392,10 @@ export class MapRenderer {
     }
     if (!this.furnitureEditorActive) {
       this.furnitureEditorDrag = null;
+      this.destroyIndoorDebugOverlay();
+    } else {
+      this.createIndoorDebugOverlay();
+      this.updateIndoorDebugOverlay(0, 0);
     }
     this.updateFurnitureEditorHelpText();
   }
@@ -734,7 +737,9 @@ export class MapRenderer {
     // 按 depth 排序子对象（Phaser Container 默认按插入顺序渲染，不自动排序）
     this.indoorContainer.sort('depth');
 
-    this.updateIndoorDebugOverlay(playerCol, playerRow);
+    if (this.furnitureEditorActive) {
+      this.updateIndoorDebugOverlay(playerCol, playerRow);
+    }
   }
 
   /** 根据玩家位置动态更新屋顶透明度 */
