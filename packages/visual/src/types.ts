@@ -111,6 +111,7 @@ export interface GameEvents {
   'strategy:selected': Strategy | null;
   'agent:moved': { id: string; x: number; y: number };
   'player:moved': { x: number; y: number };
+  'player:progress-changed': PlayerProgress;
   'day:tick': number;
   'bubble:show': { entityId: string; text: string };
   'discussion:started': { groupId: string; agents: string[]; topic: DiscussionTopic };
@@ -272,6 +273,31 @@ export interface NPCDef {
 }
 
 /** 室内可交互对象定义 */
+export type IndoorInteractableAction =
+  | { type: 'dialogue'; dialogueId: string }
+  | {
+      type: 'discover_manual';
+      manualId: string;
+      manualName: string;
+      onceFlag: string;
+      firstDialogueId: string;
+      repeatDialogueId: string;
+    }
+  | {
+      type: 'rest';
+      hpRecover: 'full' | number;
+      mpRecover: 'full' | number;
+      message: string;
+    };
+
+export type IndoorInteractableZone = {
+  type: 'rect';
+  minLocalX: number;
+  maxLocalX: number;
+  minLocalY: number;
+  maxLocalY: number;
+};
+
 export interface IndoorInteractableDef {
   id: string;
   name: string;
@@ -281,8 +307,28 @@ export interface IndoorInteractableDef {
   mapY: number;
   /** 交互半径（地图格） */
   interactRadius?: number;
-  /** 触发的对话脚本 ID */
-  dialogueId: string;
+  /** 文案提示 */
+  prompt?: string;
+  /** 矩形交互区域，优先于圆形半径 */
+  interactionZone?: IndoorInteractableZone;
+  /** 触发的对话脚本 ID（旧配置兼容） */
+  dialogueId?: string;
+  /** 触发行为 */
+  action?: IndoorInteractableAction;
+}
+
+export interface PlayerVitals {
+  hp: number;
+  maxHp: number;
+  mp: number;
+  maxMp: number;
+}
+
+export interface PlayerProgress {
+  vitals: PlayerVitals;
+  inventory: string[];
+  manuals: string[];
+  flags: Record<string, boolean>;
 }
 
 // ============================================================

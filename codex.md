@@ -251,6 +251,83 @@ DeepSolo 是一个“策略涌现世界”：
       - 模型仍会自动带出家具、地面和完整室内陈设
       - 不适合作为当前阶段的可控后墙生产方式
 
+#### 2026-04-27 观察者小屋（birth_house）当前完成状态
+
+观察者小屋已经从单纯室内展示推进到“可调试、可交互、可保存”的小场景 MVP。当前以 `packages/visual/src/content/IndoorFurnitureLayout.ts`、`packages/visual/src/content/IndoorInteractables.ts` 和 `packages/visual/src/systems/MapRenderer.ts` 为主要运行时入口。
+
+已完成能力：
+
+- 固定进入 `birth_house` 小屋，正常玩家模式不暴露调试坐标、碰撞框、mask 点等后台数据。
+- `F2` 开启/关闭室内编辑模式。
+- 编辑模式内显示中文操作说明面板：
+  - 左下角显示操作说明。
+  - 点击说明面板或按 `H` 可收起/展开。
+  - 左上角只显示当前选中家具与交互对象的实时参数。
+- 家具编辑器支持：
+  - 黄色圆环：家具锚点 `localX/localY`。
+  - 紫色实心点：家具遮挡排序点 `depthLocalX/depthLocalY`。
+  - 红色框：家具碰撞框 `collider`。
+  - 橙色多边形：家具局部前景遮挡 `occluderMask`。
+  - 青色框/点：室内可交互区域，例如床休息区域、书架翻看区域。
+- 遮挡 mask 已经是所见即所得：
+  - 同一家具会渲染底层整图。
+  - `occluderMask` 区域会生成一层前景裁剪贴图，盖在玩家上方。
+  - 编辑橙色点时遮挡效果实时变化。
+- 编辑操作：
+  - 普通拖动黄色圆环移动家具锚点。
+  - 按住 `Shift` 拖动重合点时优先移动紫色 depth 点。
+  - `M` 开关 mask 模式。
+  - 点击家具图片新增橙色 mask 点。
+  - 拖动橙色点修改 mask。
+  - `Alt` + 点击橙色点或右键橙色点删除指定点。
+  - `Backspace` / `Delete` 删除当前选中 mask 点；没有选中点时删除最后一个点。
+  - `C` 清空当前家具 mask。
+  - 拖青色中心点移动交互区域。
+  - 拖青色四角调整交互触发范围。
+  - `R` 清空本地保存并恢复代码默认参数。
+- 自动保存：
+  - 家具布局、碰撞、depth、mask 保存到 `localStorage`：
+    - `deepsolo_furniture_editor_layouts:birth_house`
+  - 室内可交互区域保存到 `localStorage`：
+    - `deepsolo_interactable_editor_layouts:birth_house`
+  - 玩家生命/内力/物品/秘籍/flag 保存到 `localStorage`：
+    - `deepsolo_player_progress`
+
+当前观察者小屋交互：
+
+- 书架：
+  - 靠近书架区域按空格，第一次发现秘籍《吐纳入门》。
+  - 写入 `GameStore.playerProgress.manuals` 和 `inventory`。
+  - 设置一次性 flag：`birth_house_bookshelf_manual_found`。
+  - 再次按空格时显示已经翻过的重复提示，不重复获得。
+- 床：
+  - 只有站在床正面的青色交互区域内，按空格才触发休息。
+  - 休息会把玩家生命和内力恢复到上限。
+  - 玩家头顶显示反馈气泡，屏幕有轻微 flash。
+- 靠近可交互对象时，屏幕底部显示 `空格：...` 操作提示。
+- 顶部状态栏已经显示玩家 `生命 hp/maxHp` 和 `内力 mp/maxMp`。
+
+重要文件：
+
+- 家具定义：`packages/visual/src/content/IndoorFurnitureLayout.ts`
+- 可交互定义：`packages/visual/src/content/IndoorInteractables.ts`
+- 家具碰撞：`packages/visual/src/content/IndoorFurnitureCollision.ts`
+- 额外对话脚本：`packages/visual/src/content/ExtraDialogueScripts.ts`
+- 编辑器、室内渲染、mask 裁剪：`packages/visual/src/systems/MapRenderer.ts`
+- 空格交互执行入口：`packages/visual/src/scenes/WorldScene.ts`
+- 玩家进度与持久化：`packages/visual/src/core/GameStore.ts`
+- 顶部生命/内力显示：`packages/visual/src/ui/HeaderBar.ts`
+- 详细调参文档：
+  - `packages/visual/docs/observer_house_furniture_tuning.md`
+  - `packages/visual/docs/embedded_furniture_editor_mvp.md`
+  - `packages/visual/docs/indoor_birth_house.md`
+
+当前设计结论：
+
+- 观察者小屋的小场景闭环已经完成：家具摆放、碰撞、遮挡、局部 mask、交互区域、床休息、书架秘籍和状态持久化都可运行。
+- 当前编辑器仍是“浏览器本地保存”模型，不会自动写回源码文件；确认稳定参数后再整理回配置或迁移到 JSON 数据源。
+- 后续复用到新室内场景时，应优先复用这套模式：家具配置 + 可交互配置 + 编辑模式可视化调参 + localStorage 暂存。
+
 ### 4.4 `data`
 
 这是运行态真相目录，不是示例目录。

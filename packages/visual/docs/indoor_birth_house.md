@@ -135,6 +135,20 @@ G = 6 (草地)    . = 空
   - building: 精灵渲染 depth=col+row+0.5，覆盖在玩家上方
 ```
 
+## 室内交互
+
+室内家具交互统一配置在 `packages/visual/src/content/IndoorInteractables.ts`，空格键由 `WorldScene` 统一分发。
+
+当前观察者小屋 MVP：
+
+- 靠近书架按空格：第一次发现秘籍《吐纳入门》，写入 `GameStore.playerProgress.manuals/inventory`，并设置一次性 flag `birth_house_bookshelf_manual_found`。
+- 之后再次靠近书架按空格：显示已经翻过的提示，不重复获得秘籍。
+- 走到床正面交互区域按空格：直接休息，生命和内力恢复到上限，并在玩家头顶显示提示。
+- 玩家生命/内力/秘籍进度保存在 `localStorage` 的 `deepsolo_player_progress`。
+- 靠近可交互对象时，屏幕底部显示 `空格：...` 提示。
+- `F2` 编辑模式下，青色框/点表示可交互区域；拖中心点移动区域，拖四角调整触发范围。
+- 可交互区域编辑结果保存在 `localStorage` 的 `deepsolo_interactable_editor_layouts:birth_house`。
+
 ## 可用贴图目录
 
 ### 当前使用的贴图

@@ -39,6 +39,32 @@ export const EXTRA_DIALOGUE_SCRIPTS: Record<string, DialogueTree> = {
     },
   },
 
+  birth_house_bookshelf_found_manual: {
+    id: 'birth_house_bookshelf_found_manual',
+    firstNode: 'start',
+    nodes: {
+      start: {
+        id: 'start',
+        speaker: '藏卷书架',
+        portraitKey: '',
+        text: '你拨开一排旧卷，指尖忽然碰到一册薄薄的线装小书。\n封面上写着三个淡墨小字：《吐纳入门》。\n\n你获得了秘籍《吐纳入门》。',
+      },
+    },
+  },
+
+  birth_house_bookshelf_manual_repeat: {
+    id: 'birth_house_bookshelf_manual_repeat',
+    firstNode: 'start',
+    nodes: {
+      start: {
+        id: 'start',
+        speaker: '藏卷书架',
+        portraitKey: '',
+        text: '你又翻了翻书架。\n那本《吐纳入门》已经被你收好，剩下的多是前人留下的札记和观察笔记。',
+      },
+    },
+  },
+
   birth_house_bookshelf: {
     id: 'birth_house_bookshelf',
     firstNode: 'start',

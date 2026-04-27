@@ -2,9 +2,16 @@
 // GameStore.ts — 集中式游戏状态
 // ============================================================
 
-import { AgentState, type Strategy, type EventEntry } from '../types';
-import { INITIAL_STRATEGIES, STRATEGIES_URL, EVENTS_URL, POLL_INTERVAL, LS_KEY_STORY } from '../config';
+import { AgentState, type Strategy, type EventEntry, type PlayerProgress } from '../types';
+import { INITIAL_STRATEGIES, STRATEGIES_URL, EVENTS_URL, POLL_INTERVAL, LS_KEY_STORY, LS_KEY_PLAYER_PROGRESS } from '../config';
 import { EventBus } from './EventBus';
+
+const DEFAULT_PLAYER_PROGRESS: PlayerProgress = {
+  vitals: { hp: 72, maxHp: 100, mp: 18, maxMp: 50 },
+  inventory: [],
+  manuals: [],
+  flags: {},
+};
 
 export class GameStore {
   strategies: Strategy[] = [];
@@ -18,6 +25,8 @@ export class GameStore {
   completedStories: Set<string> = new Set();
   /** 新手教程是否完成 */
   tutorialCompleted = false;
+  /** 玩家生命/内力/秘籍等长期状态 */
+  playerProgress: PlayerProgress = structuredClone(DEFAULT_PLAYER_PROGRESS);
 
   private eventBus: EventBus;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -27,6 +36,7 @@ export class GameStore {
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
     this.initStoryState();
+    this.initPlayerProgress();
     // 同步加载 fallback 数据，确保 WorldScene.create 有数据可用
     this.strategies = INITIAL_STRATEGIES.map(s => {
       const state = this.deriveState(s.returnPct);
@@ -221,6 +231,34 @@ export class GameStore {
     this.eventBus.emit('player:moved', { x, y });
   }
 
+  hasPlayerFlag(flag: string): boolean {
+    return !!this.playerProgress.flags[flag];
+  }
+
+  setPlayerFlag(flag: string, value = true): void {
+    this.playerProgress.flags[flag] = value;
+    this.persistPlayerProgress();
+  }
+
+  addManual(manualId: string): boolean {
+    if (this.playerProgress.manuals.includes(manualId)) return false;
+    this.playerProgress.manuals.push(manualId);
+    this.playerProgress.inventory.push(manualId);
+    this.persistPlayerProgress();
+    return true;
+  }
+
+  restPlayer(hpRecover: 'full' | number, mpRecover: 'full' | number): void {
+    const vitals = this.playerProgress.vitals;
+    vitals.hp = hpRecover === 'full'
+      ? vitals.maxHp
+      : Math.min(vitals.maxHp, vitals.hp + hpRecover);
+    vitals.mp = mpRecover === 'full'
+      ? vitals.maxMp
+      : Math.min(vitals.maxMp, vitals.mp + mpRecover);
+    this.persistPlayerProgress();
+  }
+
   addEvent(agentName: string, text: string): void {
     const now = new Date();
     const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
@@ -240,6 +278,35 @@ export class GameStore {
         this.tutorialCompleted = data.tutorialCompleted ?? false;
       }
     } catch { /* ignore */ }
+  }
+
+  private initPlayerProgress(): void {
+    try {
+      const saved = localStorage.getItem(LS_KEY_PLAYER_PROGRESS);
+      if (!saved) return;
+      const data = JSON.parse(saved) as Partial<PlayerProgress>;
+      this.playerProgress = {
+        vitals: {
+          hp: this.safeNumber(data.vitals?.hp, DEFAULT_PLAYER_PROGRESS.vitals.hp),
+          maxHp: this.safeNumber(data.vitals?.maxHp, DEFAULT_PLAYER_PROGRESS.vitals.maxHp),
+          mp: this.safeNumber(data.vitals?.mp, DEFAULT_PLAYER_PROGRESS.vitals.mp),
+          maxMp: this.safeNumber(data.vitals?.maxMp, DEFAULT_PLAYER_PROGRESS.vitals.maxMp),
+        },
+        inventory: Array.isArray(data.inventory) ? data.inventory.filter((id): id is string => typeof id === 'string') : [],
+        manuals: Array.isArray(data.manuals) ? data.manuals.filter((id): id is string => typeof id === 'string') : [],
+        flags: data.flags && typeof data.flags === 'object' ? { ...data.flags } : {},
+      };
+    } catch { /* ignore */ }
+  }
+
+  persistPlayerProgress(): void {
+    localStorage.setItem(LS_KEY_PLAYER_PROGRESS, JSON.stringify(this.playerProgress));
+    this.eventBus.emit('player:progress-changed', this.playerProgress);
+    this.eventBus.emit('ui:refresh');
+  }
+
+  private safeNumber(value: unknown, fallback: number): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
   }
 
   /** 持久化剧情状态到 localStorage */

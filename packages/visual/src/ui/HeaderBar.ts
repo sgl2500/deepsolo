@@ -12,6 +12,8 @@ export class HeaderBar {
   private winEl!: HTMLElement;
   private loseEl!: HTMLElement;
   private tradesEl!: HTMLElement;
+  private hpEl!: HTMLElement;
+  private mpEl!: HTMLElement;
 
   constructor(container: HTMLElement, eventBus: EventBus, store: GameStore) {
     this.store = store;
@@ -30,6 +32,8 @@ export class HeaderBar {
       <span>盈利 <span class="v" id="s-win">0</span></span>
       <span>亏损 <span class="v" id="s-lose">0</span></span>
       <span>交易 <span class="v" id="s-trades">0</span></span>
+      <span>生命 <span class="v" id="p-hp">0/0</span></span>
+      <span>内力 <span class="v" id="p-mp">0/0</span></span>
     `;
     this.el.appendChild(stats);
 
@@ -44,6 +48,10 @@ export class HeaderBar {
     this.winEl = stats.querySelector('#s-win')!;
     this.loseEl = stats.querySelector('#s-lose')!;
     this.tradesEl = stats.querySelector('#s-trades')!;
+    this.hpEl = stats.querySelector('#p-hp')!;
+    this.mpEl = stats.querySelector('#p-mp')!;
+
+    eventBus.on('player:progress-changed', () => this.refresh());
   }
 
   refresh(): void {
@@ -52,6 +60,9 @@ export class HeaderBar {
     this.winEl.textContent = String(strategies.filter(s => s.returnPct > 0).length);
     this.loseEl.textContent = String(strategies.filter(s => s.returnPct <= 0).length);
     this.tradesEl.textContent = strategies.reduce((a, s) => a + s.totalTrades, 0).toLocaleString();
+    const vitals = this.store.playerProgress.vitals;
+    this.hpEl.textContent = `${vitals.hp}/${vitals.maxHp}`;
+    this.mpEl.textContent = `${vitals.mp}/${vitals.maxMp}`;
   }
 
   setVisible(visible: boolean): void {

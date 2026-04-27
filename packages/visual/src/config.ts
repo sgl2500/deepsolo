@@ -163,6 +163,12 @@ export const LS_KEY_STORY = 'deepsolo_story';
 /** 室内家具编辑器布局 localStorage key 前缀 */
 export const LS_KEY_FURNITURE_EDITOR_LAYOUTS = 'deepsolo_furniture_editor_layouts';
 
+/** 室内可交互区域编辑器 localStorage key 前缀 */
+export const LS_KEY_INTERACTABLE_EDITOR_LAYOUTS = 'deepsolo_interactable_editor_layouts';
+
+/** 玩家生命/内力/物品进度 localStorage key */
+export const LS_KEY_PLAYER_PROGRESS = 'deepsolo_player_progress';
+
 // --- Token 中心 ---
 /** Token 中心初始数据路径 */
 export const TOKEN_ACCOUNT_URL = './data/token_center/account.json';

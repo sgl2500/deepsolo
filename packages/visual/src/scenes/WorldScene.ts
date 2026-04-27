@@ -22,6 +22,7 @@ import { BUILDINGS } from '../data/BuildingData';
 import { getAvailableFighterIds } from '../data/BattleData';
 import { getNearbyIndoorInteractable } from '../content/IndoorInteractables';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
+import type { IndoorInteractableDef } from '../types';
 import type { ChatService, ChatMessage } from '../services/ChatService';
 
 let _eventBus: EventBus;
@@ -61,6 +62,8 @@ export class WorldScene extends Phaser.Scene {
   private currentConvId: string | null = null;
   /** Agent 聊天相关 */
   private chatAgentId: string | null = null;
+  /** 室内交互提示 */
+  private interactHintText: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super('WorldScene');
@@ -83,6 +86,13 @@ export class WorldScene extends Phaser.Scene {
     this.entitySystem = new EntitySystem(this, this.mapData);
     this.entitySystem.createPlayer(this.inputController);
     this.entitySystem.createAgents(this.charMeta, _store.strategies);
+    this.interactHintText = this.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT - 84, '', {
+      fontSize: '14px',
+      color: '#fef3c7',
+      backgroundColor: 'rgba(15,23,42,0.82)',
+      padding: { x: 10, y: 6 },
+      fontFamily: 'PingFang SC, Microsoft YaHei, monospace',
+    }).setOrigin(0.5).setDepth(20000).setScrollFactor(0).setVisible(false);
 
     this.minimapSystem = new MinimapSystem(this.mapData);
 
@@ -373,6 +383,7 @@ export class WorldScene extends Phaser.Scene {
 
     // 对话/聊天面板打开时：只处理关闭和对话推进
     if (this.convOpen) {
+      this.updateInteractHint(null);
       if (this.inputController.isCancelPressed()) {
         _eventBus.emit('conv:close');
       }
@@ -389,6 +400,7 @@ export class WorldScene extends Phaser.Scene {
 
     // 过渡状态：锁定玩家移动
     if (this.sceneManager.isPlayerLocked()) {
+      this.updateInteractHint(null);
       return;
     }
 
@@ -433,18 +445,18 @@ export class WorldScene extends Phaser.Scene {
     // 场景管理更新（检测建筑进出）
     this.sceneManager.update(time, delta, this.entitySystem.player);
 
+    const buildingId = this.sceneManager.getCurrentBuildingId();
+    const nearbyIndoorInteractable = this.sceneManager.isIndoor() && buildingId
+      ? getNearbyIndoorInteractable(buildingId, px, py, NPC_INTERACT_DIST)
+      : null;
+    this.updateInteractHint(nearbyIndoorInteractable);
+
     // 空格键交互检测
     if (this.inputController.isInteractPressed()) {
-      const buildingId = this.sceneManager.getCurrentBuildingId();
-
       // 室内可交互物件优先于 NPC，对后续场景复用同一套交互入口
-      if (this.sceneManager.isIndoor() && buildingId) {
-        const interactable = getNearbyIndoorInteractable(buildingId, px, py, NPC_INTERACT_DIST);
-        if (interactable) {
-          this.sceneManager.startDialogue();
-          this.dialogueSystem.startDialogue(interactable.dialogueId);
-          return;
-        }
+      if (nearbyIndoorInteractable) {
+        this.executeIndoorInteractable(nearbyIndoorInteractable);
+        return;
       }
 
       // 优先检测室内 NPC
@@ -489,6 +501,54 @@ export class WorldScene extends Phaser.Scene {
         : '';
       debugEl.textContent = `map:${px.toFixed(1)},${py.toFixed(1)}${localInfo}${sceneLabel}${exitInfo}`;
     }
+  }
+
+  private updateInteractHint(interactable: IndoorInteractableDef | null): void {
+    if (!this.interactHintText) return;
+    if (!interactable) {
+      this.interactHintText.setVisible(false);
+      return;
+    }
+
+    this.interactHintText
+      .setText(interactable.prompt ?? `空格：互动 ${interactable.name}`)
+      .setVisible(true);
+  }
+
+  private executeIndoorInteractable(interactable: IndoorInteractableDef): void {
+    const action = interactable.action ?? (
+      interactable.dialogueId ? { type: 'dialogue' as const, dialogueId: interactable.dialogueId } : null
+    );
+    if (!action) return;
+
+    if (action.type === 'dialogue') {
+      this.startIndoorDialogue(action.dialogueId);
+      return;
+    }
+
+    if (action.type === 'discover_manual') {
+      const found = _store.hasPlayerFlag(action.onceFlag);
+      if (!found) {
+        _store.addManual(action.manualId);
+        _store.setPlayerFlag(action.onceFlag, true);
+        this.entitySystem.showBubble('player', `获得秘籍《${action.manualName}》`);
+        this.startIndoorDialogue(action.firstDialogueId);
+      } else {
+        this.startIndoorDialogue(action.repeatDialogueId);
+      }
+      return;
+    }
+
+    if (action.type === 'rest') {
+      _store.restPlayer(action.hpRecover, action.mpRecover);
+      this.entitySystem.showBubble('player', action.message);
+      this.cameras.main.flash(180, 255, 244, 214, false);
+    }
+  }
+
+  private startIndoorDialogue(dialogueId: string): void {
+    this.sceneManager.startDialogue();
+    this.dialogueSystem.startDialogue(dialogueId);
   }
 
   /** 打开 Agent 聊天 (通过 Conversation) */
