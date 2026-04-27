@@ -131,6 +131,12 @@ DeepSolo 是一个“策略涌现世界”：
   - `metadata/`：提示词与生成元数据。
 - `observer_house_v2/` 仅作为上一轮尝试保留，不再作为当前运行时主资源来源。
 - `birth_house` 的玩法逻辑仍沿用现有室内地图坐标、移动和交互机制；只替换视觉层，不替换底层地图/碰撞数据。
+- 2026-04-25 新增独立场景编辑模块：`packages/visual/public/场景编辑模块/`。
+  - 目标是把室内场景生产从“整图试错”收束为“贴图包 + 分层场景 JSON”的流程。
+  - 当前不直接改 Phaser 运行时，只提供静态编辑器入口 `index.html`、起步贴图包 `tilepacks/starter/`、示例场景 `projects/observer_house_seed.scene.json`。
+  - 当前标准分层为：`floor`、`wall_back`、`decor`、`front_occluder`、`collision`。
+  - 后续观察者小屋、茶馆、客栈、书房都应优先产出场景 JSON 和贴图包，再接入运行时 loader。
+  - 新增 `scripts/scene_editor/process_tilepack_assets.py`，用于把页面生图的纯绿背景 raw 图处理成透明 PNG，并自动生成贴图包 `manifest.json`。
 - 同日新增第二代分层方案：
   - `packages/visual/public/assets/observer_house_v3/` 作为观察者小屋的三层资产目录。
   - 当前分层为：
@@ -1172,6 +1178,12 @@ python scripts/trigger_heaven.py
   - 用多格组合贴图重做了帷幔木榻、藏卷书架、长案、屏风、双联告示牌、火盆和木箱。
   - 压缩了室内切屋顶范围，避免屋顶遮挡主要家具视野。
   - 床、书架、长案、屋规告示的交互坐标与文案已同步到新的室内布局。
+
+### 2026-04-25
+
+- 新增 `packages/visual/public/场景编辑模块/`，作为观察者小屋和后续室内场景的独立瓦片/贴图分层编辑模块。
+- 明确新的室内生产流程：先维护贴图包，再在编辑器中按 `floor / wall_back / decor / front_occluder / collision` 分层摆放，最后导出场景 JSON。
+- 当前模块先不接入主 Phaser 运行时，避免继续扩大 `MapRenderer.ts` 的硬编码；下一步应实现 scene JSON loader。
 
 ---
 

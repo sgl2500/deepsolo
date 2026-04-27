@@ -7,6 +7,7 @@ import { MOVE_SPEED, MAP_BORDER, SCREEN_WIDTH, SCREEN_HEIGHT, TILE_HALF_W, TILE_
 import { Entity } from './Entity';
 import { clamp } from '../utils/MathUtils';
 import { getTile } from '../utils/IsoProjection';
+import { isBlockedByIndoorFurniture } from '../content/IndoorFurnitureCollision';
 import type { InputController } from '../systems/InputController';
 
 /** 方向 → player_walk 精灵图行号 (Row0=右上, Row1=右下, Row2=左上, Row3=左下) */
@@ -25,6 +26,7 @@ export class Player extends Entity {
   private indoorMode = false;
   private indoorCx = 0;
   private indoorCy = 0;
+  private indoorBuildingId: string | null = null;
 
   constructor(scene: Phaser.Scene, mapData: MapData, inputController: InputController) {
     super(scene, mapData, 'player', mapData.width / 2, mapData.height / 2);
@@ -125,6 +127,7 @@ export class Player extends Entity {
   /** 检查指定位置是否被墙壁阻挡（仅室内生效） */
   private isBlocked(x: number, y: number): boolean {
     if (!this.indoorMode) return false;  // 世界地图无碰撞
+    if (isBlockedByIndoorFurniture(this.indoorBuildingId, x, y)) return true;
     // 检查 surface 层
     const sv = getTile(this.mapData, 1, x, y);
     if (sv !== 0 && sv !== 307) return true;  // surface 有墙（门口 307 除外）
@@ -156,10 +159,11 @@ export class Player extends Entity {
   }
 
   /** 设置室内模式 */
-  setIndoorMode(indoor: boolean, cx: number, cy: number): void {
+  setIndoorMode(indoor: boolean, cx: number, cy: number, buildingId: string | null = null): void {
     this.indoorMode = indoor;
     this.indoorCx = cx;
     this.indoorCy = cy;
+    this.indoorBuildingId = indoor ? buildingId : null;
   }
 
   get isIndoor(): boolean { return this.indoorMode; }

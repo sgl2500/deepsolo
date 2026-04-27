@@ -9,8 +9,6 @@ import { EFT_FRAME_COUNTS } from '../data/BattleData';
 import { preloadAgentProfiles } from '../data/agents';
 
 const BIRTH_HOUSE_DECOR_ASSETS = [
-  { key: 'birth_house_room_shell_v5', file: 'room_shell_v5_tight.png' },
-  { key: 'birth_house_front_occluder', file: 'front_occluder.png' },
   { key: 'birth_house_decor_bookshelf', file: 'bookshelf.png' },
   { key: 'birth_house_decor_screen', file: 'screen.png' },
   { key: 'birth_house_decor_bed', file: 'bed.png' },
@@ -25,7 +23,7 @@ function collectSmapTileIds(): number[] {
   // 室内地图通用瓦片
   [307, 588, 589, 590, 836, 837, 838, 839, 840, 841, 843, 844, 845, 846, 847, 848, 849, 850, 851, 852, 853, 854, 855, 856, 857, 858, 859, 860, 861, 862, 864, 865, 866, 867, 868, 869, 2557].forEach(id => ids.add(id));
   // 出生场景瓦片（观察者小屋）
-  [6, 307, 622, 810, 817, 819, 833, 834, 837, 839, 846, 848].forEach(id => ids.add(id));
+  [6, 66, 307, 622, 810, 817, 819, 833, 834, 837, 839, 846, 848].forEach(id => ids.add(id));
   // 黑木崖瓦片（JYQXZ 场景 82，36 个）
   [1134, 1138, 1148, 1150, 1158, 1160, 1162, 1164, 1166, 1168, 1170, 1172, 1174, 1710, 1712, 1818, 1840, 1948, 1950, 1952, 1954, 2404, 2590, 2676, 2748, 2750, 2752, 2910, 2914, 4410, 4412, 4414, 4424, 4438, 4884, 7058].forEach(id => ids.add(id));
   return Array.from(ids).sort((a, b) => a - b);

@@ -11,6 +11,13 @@ import {
 import { getTile } from '../utils/IsoProjection';
 import { isFrameValid } from '../utils/MathUtils';
 import type { MapData, TileMeta } from '../types';
+import {
+  getIndoorFurnitureDefs,
+  toActualIndoorBounds,
+  toActualIndoorMapPosition,
+  toLocalIndoorMapPosition,
+  type IndoorFurnitureDef,
+} from '../content/IndoorFurnitureLayout';
 
 const BCY = BUFFER_HEIGHT / 2;
 const BCX = BUFFER_WIDTH / 2;
@@ -41,6 +48,13 @@ const CUSTOM_SMAP_OFFSETS: Record<number, { xoff: number; yoff: number }> = {
   9534: { xoff: 18, yoff: 24 },
 };
 
+type FurnitureEditorHandleKind = 'anchor' | 'depth' | 'nw' | 'ne' | 'se' | 'sw';
+
+type FurnitureEditorDrag = {
+  furniture: IndoorFurnitureDef;
+  kind: FurnitureEditorHandleKind;
+};
+
 type IndoorDecorDef = {
   textureKey: string;
   mapX: number;
@@ -54,13 +68,17 @@ type IndoorDecorDef = {
 
 type IndoorFixedVisualDef = {
   textureKey: string;
-  x: number;
-  y: number;
-  depth: number;
+  localX: number;
+  localY: number;
   scale?: number;
   alpha?: number;
   originX?: number;
   originY?: number;
+  pixelOffsetX?: number;
+  pixelOffsetY?: number;
+  depthLocalX?: number;
+  depthLocalY?: number;
+  depthBias?: number;
 };
 
 type IndoorFixedFloorTilesDef = {
@@ -71,9 +89,19 @@ type IndoorFixedFloorTilesDef = {
   colEnd: number;
 };
 
+type IndoorFixedWallTilesDef = {
+  rowStart: number;
+  rowEnd: number;
+  colStart: number;
+  colEnd: number;
+  doorColStart?: number;
+  doorColEnd?: number;
+};
+
 type IndoorFixedRoomDef = {
   skipTilemap: boolean;
   floorTiles?: IndoorFixedFloorTilesDef;
+  wallTiles?: IndoorFixedWallTilesDef;
   visuals: IndoorFixedVisualDef[];
 };
 
@@ -83,16 +111,22 @@ const INDOOR_DECOR_LAYOUTS: Record<string, IndoorDecorDef[]> = {
 const INDOOR_FIXED_ROOM_LAYOUTS: Record<string, IndoorFixedRoomDef> = {
   birth_house: {
     skipTilemap: true,
-    visuals: [
-      { textureKey: 'birth_house_room_shell_v5', x: 640, y: 625, scale: 0.45, depth: -110, originX: 0.5, originY: 1 },
-      { textureKey: 'birth_house_decor_bookshelf', x: 846, y: 300, scale: 0.54, depth: 22.1, originX: 0.5, originY: 1 },
-      { textureKey: 'birth_house_decor_screen', x: 930, y: 360, scale: 0.5, depth: 27.6, originX: 0.5, originY: 1 },
-      { textureKey: 'birth_house_decor_lantern', x: 968, y: 402, scale: 0.5, depth: 28.2, originX: 0.5, originY: 1 },
-      { textureKey: 'birth_house_decor_table', x: 640, y: 476, scale: 0.55, depth: 31.2, originX: 0.5, originY: 1 },
-      { textureKey: 'birth_house_decor_chest', x: 316, y: 452, scale: 0.5, depth: 23.7, originX: 0.5, originY: 1 },
-      { textureKey: 'birth_house_decor_bed', x: 360, y: 400, scale: 0.56, depth: 24.4, originX: 0.5, originY: 1 },
-      { textureKey: 'birth_house_front_occluder', x: 640, y: 660, scale: 0.28, depth: 37, originX: 0.5, originY: 1 },
-    ],
+    floorTiles: {
+      textureKeys: ['smap_66'],
+      rowStart: 3,
+      rowEnd: 22,
+      colStart: 3,
+      colEnd: 22,
+    },
+    wallTiles: {
+      rowStart: 3,
+      rowEnd: 22,
+      colStart: 3,
+      colEnd: 22,
+      doorColStart: 12,
+      doorColEnd: 13,
+    },
+    visuals: [],
   },
 };
 
@@ -127,6 +161,13 @@ export class MapRenderer {
   private roofGridPos: { col: number; row: number }[] = [];
   // 自定义室内装饰层（用于出生小屋样板）
   private indoorDecorSprites: Phaser.GameObjects.Image[] = [];
+  private indoorFurnitureSprites: Map<string, Phaser.GameObjects.Image> = new Map();
+  private indoorDebugGraphics: Phaser.GameObjects.Graphics | null = null;
+  private indoorDebugTexts: Phaser.GameObjects.Text[] = [];
+  private furnitureEditorActive = false;
+  private furnitureEditorSelectedId: string | null = null;
+  private furnitureEditorDrag: FurnitureEditorDrag | null = null;
+  private furnitureEditorHelpText: Phaser.GameObjects.Text | null = null;
   // 室内房间中心
   private indoorCx = 0;
   private indoorCy = 0;
@@ -149,6 +190,10 @@ export class MapRenderer {
     this.scrCanvas.width = SCREEN_WIDTH;
     this.scrCanvas.height = SCREEN_HEIGHT;
     this.scrCtx = this.scrCanvas.getContext('2d')!;
+
+    this.scene.input.on('pointerdown', this.onFurnitureEditorPointerDown, this);
+    this.scene.input.on('pointermove', this.onFurnitureEditorPointerMove, this);
+    this.scene.input.on('pointerup', this.onFurnitureEditorPointerUp, this);
   }
 
   init(mapData: MapData, tileMeta: TileMeta): void {
@@ -216,6 +261,7 @@ export class MapRenderer {
     // 创建墙壁精灵
     this.createWallSprites();
     this.createIndoorDecorSprites();
+    this.createIndoorDebugOverlay();
   }
 
   /** 确保当前室内地图依赖的 smap 贴图已加载 */
@@ -288,6 +334,8 @@ export class MapRenderer {
     this.indoorFloorCtx = null;
     this.currentIndoorBuildingId = null;
     this.destroyIndoorDecorSprites();
+    this.destroyIndoorDebugOverlay();
+    this.setFurnitureEditorActive(false);
 
     // 把容器中的子对象（玩家、NPC）移回场景，然后销毁容器
     if (this.indoorContainer) {
@@ -332,6 +380,33 @@ export class MapRenderer {
     if (this.indoorContainer) {
       this.indoorContainer.remove(obj);
     }
+  }
+
+  toggleFurnitureEditor(): void {
+    this.setFurnitureEditorActive(!this.furnitureEditorActive);
+  }
+
+  setFurnitureEditorActive(active: boolean): void {
+    this.furnitureEditorActive = active && this.isIndoor && !!this.currentIndoorBuildingId;
+    if (this.furnitureEditorActive && !this.furnitureEditorSelectedId) {
+      this.furnitureEditorSelectedId = getIndoorFurnitureDefs(this.currentIndoorBuildingId)[0]?.id ?? null;
+    }
+    if (!this.furnitureEditorActive) {
+      this.furnitureEditorDrag = null;
+    }
+    this.updateFurnitureEditorHelpText();
+  }
+
+  exportFurnitureEditorLayout(): string {
+    const layout = getIndoorFurnitureDefs(this.currentIndoorBuildingId).map((item) => ({
+      ...item,
+      collider: item.collider ? { ...item.collider } : undefined,
+    }));
+    const json = JSON.stringify(layout, null, 2);
+    navigator.clipboard?.writeText(json).catch(() => undefined);
+    console.log('[FurnitureEditor] Exported layout:', json);
+    this.showFurnitureEditorMessage('家具配置已导出到剪贴板和 console');
+    return json;
   }
 
   shouldRerender(playerX: number, playerY: number): boolean {
@@ -469,7 +544,11 @@ export class MapRenderer {
 
         const sx = TILE_HALF_W * s * ((col - cx) - (row - cy)) + scrCx;
         const sy = TILE_HALF_H * s * ((col - cx) + (row - cy)) + scrCy;
-        this.drawFixedTextureOnCtx(ctx, textureKey, sx, sy);
+        if (textureKey.startsWith('smap_')) {
+          this.drawSmapTileOnCtx(ctx, Number(textureKey.slice(5)), sx, sy, s);
+        } else {
+          this.drawFixedTextureOnCtx(ctx, textureKey, sx, sy);
+        }
       }
     }
   }
@@ -487,7 +566,11 @@ export class MapRenderer {
   /** 创建墙壁精灵（Layer 1 + Layer 2，位置固定，只创建一次） */
   private createWallSprites(): void {
     this.destroyWallSprites();
-    if (this.currentFixedRoomLayout) {
+    const fixedRoom = this.currentFixedRoomLayout;
+    if (fixedRoom) {
+      if (fixedRoom.wallTiles) {
+        this.createFixedRoomWallSprites(fixedRoom.wallTiles);
+      }
       return;
     }
 
@@ -578,6 +661,62 @@ export class MapRenderer {
     console.log(`[MapRenderer] Total sprites: ${this.wallSprites.length}, roof: ${this.roofSprites.length}`);
   }
 
+  private createFixedRoomWallSprites(wallTiles: IndoorFixedWallTilesDef): void {
+    const cx = this.indoorCx;
+    const cy = this.indoorCy;
+    const scrCx = SCREEN_WIDTH / 2;
+    const scrCy = SCREEN_HEIGHT / 2;
+    const s = INDOOR_SCALE;
+
+    const addWallTile = (tileId: number, col: number, row: number, depthBias = 0): void => {
+      const texKey = `smap_${tileId}`;
+      if (!this.scene.textures.exists(texKey)) return;
+
+      const sx = TILE_HALF_W * s * ((col - cx) - (row - cy)) + scrCx;
+      const sy = TILE_HALF_H * s * ((col - cx) + (row - cy)) + scrCy;
+      const off = this.smapOffsets.get(tileId);
+      const ox = off ? off.xoff * s : TILE_HALF_W * s;
+      const oy = off ? off.yoff * s : 17 * s;
+
+      const img = this.scene.add.image(sx - ox, sy - oy, texKey)
+        .setOrigin(0, 0)
+        .setScale(s)
+        .setDepth(col + row + depthBias);
+
+      this.indoorContainer!.add(img);
+      this.wallSprites.push(img);
+    };
+
+    // 0836-0848 是一组有方向的墙瓦片：0845/0847 是后墙角，0838 是后墙横段，0837 是侧墙，0846/0848 是前景角，0839 是前景横段。
+    // 0836/0840/0841/0843/0844 看起来是特殊朝向/破损端头，不适合混在连续边里。
+    for (let col = wallTiles.colStart; col <= wallTiles.colEnd; col++) {
+      const topTile = col === wallTiles.colStart
+        ? 845
+        : col === wallTiles.colEnd
+          ? 847
+          : 838;
+      addWallTile(topTile, col, wallTiles.rowStart);
+    }
+
+    for (let row = wallTiles.rowStart + 1; row < wallTiles.rowEnd; row++) {
+      addWallTile(837, wallTiles.colStart, row);
+      addWallTile(837, wallTiles.colEnd, row);
+    }
+
+    for (let col = wallTiles.colStart; col <= wallTiles.colEnd; col++) {
+      if (col >= (wallTiles.doorColStart ?? Infinity) && col <= (wallTiles.doorColEnd ?? -Infinity)) {
+        continue;
+      }
+
+      const bottomTile = col === wallTiles.colStart
+        ? 846
+        : col === wallTiles.colEnd
+          ? 848
+          : 839;
+      addWallTile(bottomTile, col, wallTiles.rowEnd, 0.5);
+    }
+  }
+
   /** 更新室内容器位置，让房间跟随玩家滚动 */
   updateIndoorCamera(playerCol: number, playerRow: number): void {
     if (!this.indoorContainer) return;
@@ -594,6 +733,8 @@ export class MapRenderer {
 
     // 按 depth 排序子对象（Phaser Container 默认按插入顺序渲染，不自动排序）
     this.indoorContainer.sort('depth');
+
+    this.updateIndoorDebugOverlay(playerCol, playerRow);
   }
 
   /** 根据玩家位置动态更新屋顶透明度 */
@@ -625,17 +766,38 @@ export class MapRenderer {
 
     const fixedRoom = this.currentFixedRoomLayout;
     if (fixedRoom) {
-      for (const visual of fixedRoom.visuals) {
+      for (const visual of [
+        ...fixedRoom.visuals,
+        ...getIndoorFurnitureDefs(this.currentIndoorBuildingId),
+      ]) {
         if (!this.scene.textures.exists(visual.textureKey)) continue;
+        if (!this.currentIndoorBuildingId) continue;
 
-        const img = this.scene.add.image(visual.x, visual.y, visual.textureKey)
+        const { mapX, mapY } = toActualIndoorMapPosition(
+          this.currentIndoorBuildingId,
+          visual.localX,
+          visual.localY,
+        );
+        const depthPosition = toActualIndoorMapPosition(
+          this.currentIndoorBuildingId,
+          visual.depthLocalX ?? visual.localX,
+          visual.depthLocalY ?? visual.localY,
+        );
+        const x = TILE_HALF_W * INDOOR_SCALE * ((mapX - this.indoorCx) - (mapY - this.indoorCy)) + SCREEN_WIDTH / 2 + (visual.pixelOffsetX ?? 0);
+        const y = TILE_HALF_H * INDOOR_SCALE * ((mapX - this.indoorCx) + (mapY - this.indoorCy)) + SCREEN_HEIGHT / 2 + (visual.pixelOffsetY ?? 0);
+
+        const img = this.scene.add.image(x, y, visual.textureKey)
           .setOrigin(visual.originX ?? 0.5, visual.originY ?? 1)
           .setScale(visual.scale ?? 1)
           .setAlpha(visual.alpha ?? 1)
-          .setDepth(visual.depth);
+          .setDepth(depthPosition.mapX + depthPosition.mapY + (visual.depthBias ?? 0));
 
         this.indoorContainer.add(img);
         this.indoorDecorSprites.push(img);
+        const maybeFurniture = visual as IndoorFurnitureDef;
+        if (typeof maybeFurniture.id === 'string') {
+          this.indoorFurnitureSprites.set(maybeFurniture.id, img);
+        }
       }
       return;
     }
@@ -668,6 +830,352 @@ export class MapRenderer {
   private destroyIndoorDecorSprites(): void {
     for (const sprite of this.indoorDecorSprites) sprite.destroy();
     this.indoorDecorSprites = [];
+    this.indoorFurnitureSprites.clear();
+  }
+
+  private createIndoorDebugOverlay(): void {
+    this.destroyIndoorDebugOverlay();
+    if (!this.indoorContainer || !this.currentIndoorBuildingId) return;
+
+    this.indoorDebugGraphics = this.scene.add.graphics().setDepth(10000);
+    this.indoorContainer.add(this.indoorDebugGraphics);
+
+    const fixedRoom = this.currentFixedRoomLayout;
+    const floorTiles = fixedRoom?.floorTiles;
+    if (!floorTiles) return;
+
+    for (let row = floorTiles.rowStart; row <= floorTiles.rowEnd; row++) {
+      for (let col = floorTiles.colStart; col <= floorTiles.colEnd; col++) {
+        if ((row + col) % 2 !== 0) continue;
+        const { x, y } = this.indoorMapToScreen(col, row);
+        const text = this.scene.add.text(x, y - 6, `${col},${row}`, {
+          fontSize: '8px',
+          color: '#fbbf24',
+          stroke: '#000000',
+          strokeThickness: 2,
+          fontFamily: 'monospace',
+        }).setOrigin(0.5).setDepth(10001);
+        this.indoorContainer.add(text);
+        this.indoorDebugTexts.push(text);
+      }
+    }
+  }
+
+  private updateIndoorDebugOverlay(playerCol: number, playerRow: number): void {
+    if (!this.indoorDebugGraphics || !this.currentIndoorBuildingId) return;
+
+    const g = this.indoorDebugGraphics;
+    g.clear();
+
+    const fixedRoom = this.currentFixedRoomLayout;
+    const floorTiles = fixedRoom?.floorTiles;
+    if (floorTiles) {
+      g.lineStyle(1, 0x60a5fa, 0.22);
+      for (let row = floorTiles.rowStart; row <= floorTiles.rowEnd; row++) {
+        for (let col = floorTiles.colStart; col <= floorTiles.colEnd; col++) {
+          this.strokeIndoorDiamond(g, col, row, 0x60a5fa, 0.22);
+        }
+      }
+    }
+
+    for (const furniture of getIndoorFurnitureDefs(this.currentIndoorBuildingId)) {
+      if (!furniture.collider) continue;
+
+      const bounds = toActualIndoorBounds(this.currentIndoorBuildingId, furniture.collider);
+      this.strokeIndoorRectBounds(g, bounds.minX, bounds.maxX, bounds.minY, bounds.maxY, 0xff5555, 0.85);
+
+      const anchor = toActualIndoorMapPosition(this.currentIndoorBuildingId, furniture.localX, furniture.localY);
+      const anchorScreen = this.indoorMapToScreen(anchor.mapX, anchor.mapY);
+      g.fillStyle(0xffdd55, 1);
+      g.fillCircle(anchorScreen.x, anchorScreen.y, 3);
+
+      const depthPoint = toActualIndoorMapPosition(
+        this.currentIndoorBuildingId,
+        furniture.depthLocalX ?? furniture.localX,
+        furniture.depthLocalY ?? furniture.localY,
+      );
+      const depthScreen = this.indoorMapToScreen(depthPoint.mapX, depthPoint.mapY);
+      g.fillStyle(0xff55ff, 1);
+      g.fillCircle(depthScreen.x, depthScreen.y, 3);
+    }
+
+    const playerScreen = this.indoorMapToScreen(playerCol, playerRow);
+    g.fillStyle(0x00ff66, 1);
+    g.fillCircle(playerScreen.x, playerScreen.y, 4);
+    g.lineStyle(1, 0x00ff66, 1);
+    g.strokeCircle(playerScreen.x, playerScreen.y, 8);
+  }
+
+  private destroyIndoorDebugOverlay(): void {
+    this.indoorDebugGraphics?.destroy();
+    this.indoorDebugGraphics = null;
+    for (const text of this.indoorDebugTexts) text.destroy();
+    this.indoorDebugTexts = [];
+  }
+
+  private onFurnitureEditorPointerDown(pointer: Phaser.Input.Pointer): void {
+    if (!this.furnitureEditorActive || !this.currentIndoorBuildingId || !this.indoorContainer) return;
+
+    const handle = this.findFurnitureEditorHandle(pointer.x, pointer.y);
+    if (!handle) return;
+
+    this.furnitureEditorSelectedId = handle.furniture.id;
+    this.furnitureEditorDrag = handle;
+    this.updateFurnitureEditorHelpText();
+  }
+
+  private onFurnitureEditorPointerMove(pointer: Phaser.Input.Pointer): void {
+    if (!this.furnitureEditorActive || !this.furnitureEditorDrag || !this.currentIndoorBuildingId) return;
+
+    const localPos = this.screenToIndoorLocal(pointer.x, pointer.y);
+    if (!localPos) return;
+
+    const { furniture, kind } = this.furnitureEditorDrag;
+    const nextX = this.roundEditorValue(localPos.localX);
+    const nextY = this.roundEditorValue(localPos.localY);
+
+    if (kind === 'anchor') {
+      const dx = nextX - furniture.localX;
+      const dy = nextY - furniture.localY;
+      furniture.localX = nextX;
+      furniture.localY = nextY;
+
+      if (furniture.collider) {
+        furniture.collider.minLocalX = this.roundEditorValue(furniture.collider.minLocalX + dx);
+        furniture.collider.maxLocalX = this.roundEditorValue(furniture.collider.maxLocalX + dx);
+        furniture.collider.minLocalY = this.roundEditorValue(furniture.collider.minLocalY + dy);
+        furniture.collider.maxLocalY = this.roundEditorValue(furniture.collider.maxLocalY + dy);
+      }
+      if (furniture.depthLocalX !== undefined) furniture.depthLocalX = this.roundEditorValue(furniture.depthLocalX + dx);
+      if (furniture.depthLocalY !== undefined) furniture.depthLocalY = this.roundEditorValue(furniture.depthLocalY + dy);
+    } else if (kind === 'depth') {
+      furniture.depthLocalX = nextX;
+      furniture.depthLocalY = nextY;
+    } else {
+      if (!furniture.collider) {
+        furniture.collider = {
+          minLocalX: furniture.localX - 0.5,
+          maxLocalX: furniture.localX + 0.5,
+          minLocalY: furniture.localY - 0.5,
+          maxLocalY: furniture.localY + 0.5,
+        };
+      }
+
+      if (kind === 'nw' || kind === 'sw') furniture.collider.minLocalX = nextX;
+      if (kind === 'ne' || kind === 'se') furniture.collider.maxLocalX = nextX;
+      if (kind === 'nw' || kind === 'ne') furniture.collider.minLocalY = nextY;
+      if (kind === 'sw' || kind === 'se') furniture.collider.maxLocalY = nextY;
+      this.normalizeFurnitureCollider(furniture);
+    }
+
+    this.updateFurnitureSprite(furniture);
+    this.updateFurnitureEditorHelpText();
+  }
+
+  private onFurnitureEditorPointerUp(): void {
+    this.furnitureEditorDrag = null;
+  }
+
+  private findFurnitureEditorHandle(screenX: number, screenY: number): FurnitureEditorDrag | null {
+    if (!this.currentIndoorBuildingId) return null;
+
+    const handles: Array<FurnitureEditorDrag & { x: number; y: number }> = [];
+    for (const furniture of getIndoorFurnitureDefs(this.currentIndoorBuildingId)) {
+      const anchor = toActualIndoorMapPosition(this.currentIndoorBuildingId, furniture.localX, furniture.localY);
+      const anchorScreen = this.indoorMapToScreenWithContainer(anchor.mapX, anchor.mapY);
+      handles.push({ furniture, kind: 'anchor', x: anchorScreen.x, y: anchorScreen.y });
+
+      const depth = toActualIndoorMapPosition(
+        this.currentIndoorBuildingId,
+        furniture.depthLocalX ?? furniture.localX,
+        furniture.depthLocalY ?? furniture.localY,
+      );
+      const depthScreen = this.indoorMapToScreenWithContainer(depth.mapX, depth.mapY);
+      handles.push({ furniture, kind: 'depth', x: depthScreen.x, y: depthScreen.y });
+
+      if (furniture.collider) {
+        const bounds = toActualIndoorBounds(this.currentIndoorBuildingId, furniture.collider);
+        const corners: Array<{ kind: FurnitureEditorHandleKind; x: number; y: number }> = [
+          { kind: 'nw', ...this.indoorMapToScreenWithContainer(bounds.minX, bounds.minY) },
+          { kind: 'ne', ...this.indoorMapToScreenWithContainer(bounds.maxX, bounds.minY) },
+          { kind: 'se', ...this.indoorMapToScreenWithContainer(bounds.maxX, bounds.maxY) },
+          { kind: 'sw', ...this.indoorMapToScreenWithContainer(bounds.minX, bounds.maxY) },
+        ];
+        for (const corner of corners) handles.push({ furniture, ...corner });
+      }
+    }
+
+    let best: (FurnitureEditorDrag & { x: number; y: number }) | null = null;
+    let bestDistance = Infinity;
+    for (const handle of handles) {
+      const distance = Math.hypot(handle.x - screenX, handle.y - screenY);
+      if (distance < bestDistance) {
+        best = handle;
+        bestDistance = distance;
+      }
+    }
+
+    if (!best || bestDistance > 16) return null;
+    return { furniture: best.furniture, kind: best.kind };
+  }
+
+  private updateFurnitureSprite(furniture: IndoorFurnitureDef): void {
+    if (!this.currentIndoorBuildingId) return;
+    const sprite = this.indoorFurnitureSprites.get(furniture.id);
+    if (!sprite) return;
+
+    const { mapX, mapY } = toActualIndoorMapPosition(
+      this.currentIndoorBuildingId,
+      furniture.localX,
+      furniture.localY,
+    );
+    const depthPosition = toActualIndoorMapPosition(
+      this.currentIndoorBuildingId,
+      furniture.depthLocalX ?? furniture.localX,
+      furniture.depthLocalY ?? furniture.localY,
+    );
+    const position = this.indoorMapToScreen(mapX, mapY);
+    sprite
+      .setPosition(
+        position.x + (furniture.pixelOffsetX ?? 0),
+        position.y + (furniture.pixelOffsetY ?? 0),
+      )
+      .setDepth(depthPosition.mapX + depthPosition.mapY + (furniture.depthBias ?? 0));
+  }
+
+  private updateFurnitureEditorHelpText(): void {
+    if (!this.furnitureEditorActive) {
+      this.furnitureEditorHelpText?.destroy();
+      this.furnitureEditorHelpText = null;
+      return;
+    }
+
+    if (!this.furnitureEditorHelpText) {
+      this.furnitureEditorHelpText = this.scene.add.text(12, 42, '', {
+        fontSize: '12px',
+        color: '#e5e7eb',
+        backgroundColor: 'rgba(17,24,39,0.88)',
+        padding: { x: 8, y: 6 },
+        fontFamily: 'monospace',
+      }).setDepth(20000).setScrollFactor(0);
+    }
+
+    const selected = getIndoorFurnitureDefs(this.currentIndoorBuildingId)
+      .find((item) => item.id === this.furnitureEditorSelectedId);
+    const selectedText = selected
+      ? [
+          `selected: ${selected.id}`,
+          `local: ${selected.localX.toFixed(1)}, ${selected.localY.toFixed(1)}`,
+          `depth: ${(selected.depthLocalX ?? selected.localX).toFixed(1)}, ${(selected.depthLocalY ?? selected.localY).toFixed(1)}`,
+          selected.collider
+            ? `collider: ${selected.collider.minLocalX.toFixed(1)},${selected.collider.minLocalY.toFixed(1)} -> ${selected.collider.maxLocalX.toFixed(1)},${selected.collider.maxLocalY.toFixed(1)}`
+            : 'collider: none',
+        ].join('\n')
+      : 'selected: none';
+
+    this.furnitureEditorHelpText.setText([
+      'Furniture Editor ON',
+      'drag yellow=anchor, purple=depth, red corners=collider',
+      'F2 toggle, F4 export JSON',
+      selectedText,
+    ].join('\n'));
+  }
+
+  private showFurnitureEditorMessage(message: string): void {
+    if (!this.furnitureEditorHelpText) return;
+    const previous = this.furnitureEditorHelpText.text;
+    this.furnitureEditorHelpText.setText(`${previous}\n${message}`);
+    this.scene.time.delayedCall(1400, () => this.updateFurnitureEditorHelpText());
+  }
+
+  private screenToIndoorLocal(screenX: number, screenY: number): { localX: number; localY: number } | null {
+    if (!this.indoorContainer || !this.currentIndoorBuildingId) return null;
+    const map = this.screenToIndoorMap(screenX - this.indoorContainer.x, screenY - this.indoorContainer.y);
+    return toLocalIndoorMapPosition(this.currentIndoorBuildingId, map.mapX, map.mapY);
+  }
+
+  private screenToIndoorMap(screenX: number, screenY: number): { mapX: number; mapY: number } {
+    const dx = (screenX - SCREEN_WIDTH / 2) / (TILE_HALF_W * INDOOR_SCALE);
+    const dy = (screenY - SCREEN_HEIGHT / 2) / (TILE_HALF_H * INDOOR_SCALE);
+    return {
+      mapX: this.indoorCx + (dx + dy) / 2,
+      mapY: this.indoorCy + (dy - dx) / 2,
+    };
+  }
+
+  private indoorMapToScreenWithContainer(col: number, row: number): { x: number; y: number } {
+    const point = this.indoorMapToScreen(col, row);
+    return {
+      x: point.x + (this.indoorContainer?.x ?? 0),
+      y: point.y + (this.indoorContainer?.y ?? 0),
+    };
+  }
+
+  private normalizeFurnitureCollider(furniture: IndoorFurnitureDef): void {
+    if (!furniture.collider) return;
+    const minX = Math.min(furniture.collider.minLocalX, furniture.collider.maxLocalX);
+    const maxX = Math.max(furniture.collider.minLocalX, furniture.collider.maxLocalX);
+    const minY = Math.min(furniture.collider.minLocalY, furniture.collider.maxLocalY);
+    const maxY = Math.max(furniture.collider.minLocalY, furniture.collider.maxLocalY);
+    furniture.collider.minLocalX = this.roundEditorValue(minX);
+    furniture.collider.maxLocalX = this.roundEditorValue(maxX);
+    furniture.collider.minLocalY = this.roundEditorValue(minY);
+    furniture.collider.maxLocalY = this.roundEditorValue(maxY);
+  }
+
+  private roundEditorValue(value: number): number {
+    return Math.round(value * 10) / 10;
+  }
+
+  private indoorMapToScreen(col: number, row: number): { x: number; y: number } {
+    const s = INDOOR_SCALE;
+    return {
+      x: TILE_HALF_W * s * ((col - this.indoorCx) - (row - this.indoorCy)) + SCREEN_WIDTH / 2,
+      y: TILE_HALF_H * s * ((col - this.indoorCx) + (row - this.indoorCy)) + SCREEN_HEIGHT / 2,
+    };
+  }
+
+  private strokeIndoorDiamond(
+    g: Phaser.GameObjects.Graphics,
+    col: number,
+    row: number,
+    color: number,
+    alpha: number,
+  ): void {
+    const center = this.indoorMapToScreen(col, row);
+    const hw = TILE_HALF_W * INDOOR_SCALE;
+    const hh = TILE_HALF_H * INDOOR_SCALE;
+    g.lineStyle(1, color, alpha);
+    g.beginPath();
+    g.moveTo(center.x, center.y - hh);
+    g.lineTo(center.x + hw, center.y);
+    g.lineTo(center.x, center.y + hh);
+    g.lineTo(center.x - hw, center.y);
+    g.closePath();
+    g.strokePath();
+  }
+
+  private strokeIndoorRectBounds(
+    g: Phaser.GameObjects.Graphics,
+    minX: number,
+    maxX: number,
+    minY: number,
+    maxY: number,
+    color: number,
+    alpha: number,
+  ): void {
+    const p1 = this.indoorMapToScreen(minX, minY);
+    const p2 = this.indoorMapToScreen(maxX, minY);
+    const p3 = this.indoorMapToScreen(maxX, maxY);
+    const p4 = this.indoorMapToScreen(minX, maxY);
+    g.lineStyle(2, color, alpha);
+    g.beginPath();
+    g.moveTo(p1.x, p1.y);
+    g.lineTo(p2.x, p2.y);
+    g.lineTo(p3.x, p3.y);
+    g.lineTo(p4.x, p4.y);
+    g.closePath();
+    g.strokePath();
   }
 
   // ============================================================

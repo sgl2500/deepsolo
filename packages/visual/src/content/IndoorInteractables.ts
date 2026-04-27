@@ -1,12 +1,18 @@
 import type { IndoorInteractableDef } from '../types';
+import { toActualIndoorMapPosition } from './IndoorFurnitureLayout';
+
+const bedPos = toActualIndoorMapPosition('birth_house', 3.6, 8.3);
+const bookshelfPos = toActualIndoorMapPosition('birth_house', 10, 1);
+const deskPos = toActualIndoorMapPosition('birth_house', 12.92, 12.92);
+const noticePos = toActualIndoorMapPosition('birth_house', 13.96, 5.49);
 
 export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
   {
     id: 'birth_house_bed',
     name: '帷幔木榻',
     buildingId: 'birth_house',
-    mapX: 10,
-    mapY: 18,
+    mapX: bedPos.mapX,
+    mapY: bedPos.mapY,
     interactRadius: 2.2,
     dialogueId: 'birth_house_bed',
   },
@@ -14,8 +20,8 @@ export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
     id: 'birth_house_bookshelf',
     name: '藏卷书架',
     buildingId: 'birth_house',
-    mapX: 14,
-    mapY: 8,
+    mapX: bookshelfPos.mapX,
+    mapY: bookshelfPos.mapY,
     interactRadius: 2.2,
     dialogueId: 'birth_house_bookshelf',
   },
@@ -23,8 +29,8 @@ export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
     id: 'birth_house_desk',
     name: '长案',
     buildingId: 'birth_house',
-    mapX: 16,
-    mapY: 16,
+    mapX: deskPos.mapX,
+    mapY: deskPos.mapY,
     interactRadius: 2.2,
     dialogueId: 'birth_house_desk',
   },
@@ -32,8 +38,8 @@ export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
     id: 'birth_house_notice',
     name: '屋规告示',
     buildingId: 'birth_house',
-    mapX: 17,
-    mapY: 9,
+    mapX: noticePos.mapX,
+    mapY: noticePos.mapY,
     interactRadius: 2.2,
     dialogueId: 'birth_house_notice',
   },

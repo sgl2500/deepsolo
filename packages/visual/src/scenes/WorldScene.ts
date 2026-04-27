@@ -118,6 +118,13 @@ export class WorldScene extends Phaser.Scene {
     // ── 初始进入出生小屋（屏幕直接黑屏，无过渡） ──
     this.sceneManager.startInstant('birth_house');
 
+    this.input.keyboard!.on('keydown-F2', () => {
+      this.mapRenderer.toggleFurnitureEditor();
+    });
+    this.input.keyboard!.on('keydown-F4', () => {
+      this.mapRenderer.exportFurnitureEditorLayout();
+    });
+
     // ── 统一对话事件 ──
 
     // conv:open → 进入对话状态
@@ -461,7 +468,10 @@ export class WorldScene extends Phaser.Scene {
           exitInfo = ` 出口距离:${Math.sqrt(dx*dx+dy*dy).toFixed(1)}`;
         }
       }
-      debugEl.textContent = `x:${px.toFixed(1)} y:${py.toFixed(1)}${sceneLabel}${exitInfo}`;
+      const localInfo = state === SceneState.Indoor
+        ? ` local:${(px - 3).toFixed(1)},${(py - 3).toFixed(1)}`
+        : '';
+      debugEl.textContent = `map:${px.toFixed(1)},${py.toFixed(1)}${localInfo}${sceneLabel}${exitInfo}`;
     }
   }
 

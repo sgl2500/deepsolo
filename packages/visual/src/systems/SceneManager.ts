@@ -237,7 +237,7 @@ export class SceneManager {
       player.setMapPosition(building.spawnX, building.spawnY);
     }
     player.switchMapData(indoorMap);
-    player.setIndoorMode(true, indoorMap.cx, indoorMap.cy);
+    player.setIndoorMode(true, indoorMap.cx, indoorMap.cy, building.id);
 
     this.mapRenderer.ensureIndoorAssets(indoorMap).then(() => {
       // 切换地图渲染

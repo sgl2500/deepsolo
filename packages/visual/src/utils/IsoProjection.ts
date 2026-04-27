@@ -19,9 +19,11 @@ export function toScreen(
 }
 
 /** 获取地图瓦片 ID */
-export function getTile(map: MapData, layer: 0 | 1, mx: number, my: number): number {
+export function getTile(map: MapData, layer: 0 | 1 | 2, mx: number, my: number): number {
   const ix = Math.round(mx);
   const iy = Math.round(my);
   if (ix < 0 || ix >= map.width || iy < 0 || iy >= map.height) return 0;
-  return layer === 0 ? map.earth[iy][ix] : map.surface[iy][ix];
+  if (layer === 0) return map.earth[iy][ix];
+  if (layer === 1) return map.surface[iy][ix];
+  return map.building?.[iy]?.[ix] ?? 0;
 }
