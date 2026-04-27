@@ -11,6 +11,7 @@ import { DetailPanel } from './DetailPanel';
 import { HeaderBar } from './HeaderBar';
 import { ConversationPanel } from './ConversationPanel';
 import { TokenCenterUI } from './TokenCenterUI';
+import { PlayerPanel } from './PlayerPanel';
 import type { ChatService } from '../services/ChatService';
 import './styles.css';
 
@@ -19,6 +20,7 @@ export class UIManager {
   private strategyList: StrategyListPanel;
   private eventLog: EventLogPanel;
   private detailPanel: DetailPanel;
+  private playerPanel: PlayerPanel;
   conversationPanel: ConversationPanel;
   tokenCenterUI: TokenCenterUI;
 
@@ -90,6 +92,7 @@ export class UIManager {
     this.detailPanel = new DetailPanel(detailContainer, eventBus, store);
     this.conversationPanel = new ConversationPanel(eventBus);
     this.tokenCenterUI = new TokenCenterUI(this.tokenPanel, eventBus, tokenStore);
+    this.playerPanel = new PlayerPanel(eventBus, store);
     this.headerBar.refresh();
 
     // Subscribe to refresh events

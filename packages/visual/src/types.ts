@@ -324,10 +324,45 @@ export interface PlayerVitals {
   maxMp: number;
 }
 
+export interface PlayerIdentity {
+  name: string;
+  title?: string;
+}
+
+export interface PlayerAttributes {
+  attack: number;
+  defense: number;
+  speed: number;
+  understanding: number;
+  fortune: number;
+}
+
+export interface PlayerInventoryStack {
+  itemId: string;
+  count: number;
+  acquiredAt?: number;
+}
+
+export interface PlayerManualProgress {
+  manualId: string;
+  learned: boolean;
+  progress: number;
+}
+
+export interface PlayerEquipment {
+  weapon?: string;
+  armor?: string;
+  accessory?: string;
+}
+
 export interface PlayerProgress {
+  version: number;
+  identity: PlayerIdentity;
   vitals: PlayerVitals;
-  inventory: string[];
-  manuals: string[];
+  attributes: PlayerAttributes;
+  inventory: PlayerInventoryStack[];
+  manuals: PlayerManualProgress[];
+  equipment: PlayerEquipment;
   flags: Record<string, boolean>;
 }
 

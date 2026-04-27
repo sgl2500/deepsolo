@@ -1277,3 +1277,38 @@ python scripts/trigger_heaven.py
 
 - `codex.md` 不只是介绍文档。
 - 它是后续迭代的操作基线。
+
+### 2026-04-27 玩家体系底座
+
+- 升级 `packages/visual/src/types.ts` 的 `PlayerProgress`：加入 `version`、玩家身份、基础属性、物品堆叠、秘籍进度、装备栏和 flags。
+- `packages/visual/src/core/GameStore.ts` 继续作为玩家长期状态入口，但新增了更明确的操作方法：`grantItem`、`consumeItem`、`discoverManual`、`learnManual`、`hasItem`、`hasManual`，并保留 `addManual` 兼容现有小屋书架交互。
+- 新增内容定义：
+  - `packages/visual/src/content/PlayerItems.ts`：物品定义表，当前包含 `manual_tuna_intro`。
+  - `packages/visual/src/content/PlayerManuals.ts`：秘籍定义表，当前包含《吐纳入门》。
+- 旧版 `deepsolo_player_progress` 存档兼容迁移：旧的 `inventory: string[]` 会转换为物品堆叠，旧的 `manuals: string[]` 会转换为已研读秘籍进度。
+- 新增 `packages/visual/src/ui/PlayerPanel.ts`：按 `I` 打开/关闭玩家面板，展示身份、生命/内力、攻击/防御/身法/悟性/福缘、装备栏、背包和秘籍。
+- `packages/visual/src/ui/HeaderBar.ts` 增加 `I 玩家面板` 操作提示。
+- 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。
+
+### 2026-04-27 玩家面板分层
+
+- `packages/visual/src/ui/PlayerPanel.ts` 改为左侧 Tab 分层：`个人属性`、`武功`、`物品`。
+- `个人属性` 页展示身份、生命/内力、基础属性和装备栏。
+- `武功` 页新增可学习武功列表：当前通过 `packages/visual/src/content/PlayerMartialArts.ts` 定义，已接入《吐纳入门》解锁的 `吐纳功`；获得秘籍后可在该页点击 `研读`，调用 `GameStore.learnManual` 生效。
+- `物品` 页展示背包物品和已获秘籍；物品图标使用 `packages/visual/public/assets/jy-assets/08_thing/0079.png`，运行时路径为 `assets/jy-assets/08_thing/0079.png`。
+- `packages/visual/src/content/PlayerItems.ts` 的物品定义新增 `iconPath` 字段，用于后续不同物品绑定不同贴图。
+- 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。
+
+### 2026-04-27 玩家物品/武功循环
+
+- 玩家物品页新增 `放弃` 操作：调用 `GameStore.abandonItem(itemId)`，直接移除背包中的该物品堆叠；如果放弃的是未研读秘籍，会同步移除未学习的秘籍进度。
+- 武功页新增 `遗忘` 操作：调用 `GameStore.forgetManual(manualId)`，移除已掌握武功记录，但不回滚已经获得的属性加成。
+- `GameStore.learnManual(manualId)` 改为需要背包中存在对应秘籍物品；研读成功后消耗秘籍物品，并再次应用秘籍属性加成，因此遗忘后重新获取、重新研读可以继续叠加属性。
+- 书架获取秘籍逻辑改为以当前玩家状态为准：只要背包已有对应秘籍，或当前已掌握/已记录该秘籍，就不会重复获得；遗忘且背包没有该秘籍后，可以再次从书架获得。
+- 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。
+
+### 2026-04-27 基础武功
+
+- `packages/visual/src/content/PlayerMartialArts.ts` 新增先天武功 `普通攻击`：不依赖秘籍、不占背包、不可遗忘，作为玩家默认掌握的基础战斗动作。
+- `packages/visual/src/ui/PlayerPanel.ts` 的武功页支持 `innate` 武功：显示为 `基础武功`，操作按钮为禁用态 `常驻`。
+- 验证：`cd packages/visual && npm run build` 已通过，仅保留 Vite 大 chunk 体积警告。

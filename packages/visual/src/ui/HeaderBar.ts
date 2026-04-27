@@ -39,7 +39,7 @@ export class HeaderBar {
 
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.textContent = 'WASD / 方向键移动 · 点击角色查看详情';
+    hint.textContent = 'WASD / 方向键移动 · I 玩家面板 · 点击角色查看详情';
     this.el.appendChild(hint);
 
     container.appendChild(this.el);

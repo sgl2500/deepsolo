@@ -527,9 +527,8 @@ export class WorldScene extends Phaser.Scene {
     }
 
     if (action.type === 'discover_manual') {
-      const found = _store.hasPlayerFlag(action.onceFlag);
-      if (!found) {
-        _store.addManual(action.manualId);
+      const added = _store.addManual(action.manualId);
+      if (added) {
         _store.setPlayerFlag(action.onceFlag, true);
         this.entitySystem.showBubble('player', `获得秘籍《${action.manualName}》`);
         this.startIndoorDialogue(action.firstDialogueId);
