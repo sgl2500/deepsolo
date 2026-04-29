@@ -18,6 +18,12 @@ const BIRTH_HOUSE_DECOR_ASSETS = [
 ] as const;
 
 const WORLD_BUILDING_ASSETS = [
+  { key: 'world_building_player_house', file: 'npc_1371.png' },
+  { key: 'world_building_heimu_cliff', file: 'npc_1407.png' },
+  { key: 'world_building_exchange', file: 'chase_up_sect.png' },
+  { key: 'world_building_teahouse', file: 'strategy_teahouse.png' },
+  { key: 'world_building_token_center', file: 'token_center.png' },
+  { key: 'world_building_news_center', file: 'news_center.png' },
   { key: 'world_building_a_share', file: 'ai_building_a_share.png' },
   { key: 'world_building_crypto', file: 'ai_building_crypto.png' },
   { key: 'world_building_us', file: 'ai_building_us.png' },

@@ -12,6 +12,7 @@ type WorldBuildingVisual = {
   originY: number;
   offsetY: number;
   labelY: number;
+  scale?: number;
 };
 
 const DEFAULT_WORLD_BUILDING_VISUAL: WorldBuildingVisual = {
@@ -22,12 +23,18 @@ const DEFAULT_WORLD_BUILDING_VISUAL: WorldBuildingVisual = {
 };
 
 const WORLD_BUILDING_VISUALS: Record<string, WorldBuildingVisual> = {
-  birth_house: { textureKey: 'world_building_a_share', originY: 0.88, offsetY: 0, labelY: -150 },
-  exchange: { textureKey: 'world_building_a_share', originY: 0.88, offsetY: 0, labelY: -150 },
-  teahouse: { textureKey: 'world_building_gold', originY: 0.9, offsetY: 0, labelY: -144 },
-  news: { textureKey: 'world_building_us', originY: 0.9, offsetY: 0, labelY: -158 },
-  token_center: { textureKey: 'world_building_crypto', originY: 0.88, offsetY: 0, labelY: -142 },
-  heimu_cliff: { textureKey: 'world_building_gold', originY: 0.9, offsetY: 0, labelY: -144 },
+  birth_house: {
+    textureKey: 'world_building_player_house',
+    originY: 0.9,
+    offsetY: 0,
+    labelY: -96,
+    scale: 2,
+  },
+  exchange: { textureKey: 'world_building_exchange', originY: 0.9, offsetY: 0, labelY: -130, scale: 0.45 },
+  teahouse: { textureKey: 'world_building_teahouse', originY: 0.9, offsetY: 0, labelY: -130 },
+  news: { textureKey: 'world_building_news_center', originY: 0.9, offsetY: 0, labelY: -170 },
+  token_center: { textureKey: 'world_building_token_center', originY: 0.9, offsetY: 0, labelY: -130 },
+  heimu_cliff: { textureKey: 'world_building_heimu_cliff', originY: 0.9, offsetY: 0, labelY: -150 },
 };
 
 function findBuilding(id: string): BuildingDef | undefined {
@@ -45,14 +52,9 @@ export function createBuildingMarkers(scene: Phaser.Scene, mapData: MapData): Ph
     const visual = WORLD_BUILDING_VISUALS[building.id] ?? DEFAULT_WORLD_BUILDING_VISUAL;
     const container = scene.add.container(0, 0);
 
-    const shadow = scene.add.graphics();
-    shadow.fillStyle(0x000000, 0.28);
-    shadow.fillEllipse(0, 10, 118, 34);
-    container.add(shadow);
-
     const buildingSprite = scene.add.image(0, visual.offsetY, visual.textureKey)
       .setOrigin(0.5, visual.originY)
-      .setScale(1);
+      .setScale(visual.scale ?? 1);
     buildingSprite.setData('baseY', visual.offsetY);
     container.add(buildingSprite);
 

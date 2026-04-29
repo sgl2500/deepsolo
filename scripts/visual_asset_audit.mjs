@@ -30,6 +30,10 @@ const requiredPaths = [
 ];
 
 const forbiddenPublicPaths = [
+  'packages/visual/public/asset_browser.html',
+  'packages/visual/public/tile_browser.html',
+  'packages/visual/public/scene_editor.html',
+  'packages/visual/public/assets/tools',
   'packages/visual/public/assets/observer_house_v1',
   'packages/visual/public/assets/observer_house_v2',
   'packages/visual/public/assets/observer_house_v3/raw',
@@ -109,6 +113,16 @@ function formatSize(bytes) {
 const findings = [];
 const warnings = [];
 
+const observerHouseRuntimeDir = path.join(publicAssetsRoot, 'rooms', 'observer_house');
+const allowedObserverHouseFiles = new Set([
+  'bed.png',
+  'bookshelf.png',
+  'chest.png',
+  'lantern.png',
+  'screen.png',
+  'table.png',
+]);
+
 for (const relPath of requiredPaths) {
   if (!exists(relPath)) findings.push(`缺少资产治理路径：${relPath}`);
 }
@@ -123,6 +137,13 @@ for (const relPath of requiredSourcePaths) {
 
 for (const dsStore of walk(publicRoot, file => path.basename(file) === '.DS_Store')) {
   warnings.push(`public 内存在系统文件：${rel(dsStore)}`);
+}
+
+for (const file of walk(observerHouseRuntimeDir, () => true)) {
+  const relative = path.relative(observerHouseRuntimeDir, file);
+  if (!allowedObserverHouseFiles.has(relative)) {
+    findings.push(`观察者小屋运行时目录只允许当前家具图：${rel(file)}`);
+  }
 }
 
 const looseStageDirs = walk(publicAssetsRoot, file => {

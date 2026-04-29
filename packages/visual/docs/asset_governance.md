@@ -26,9 +26,8 @@ deepsolo/packages/visual/
 - `maps/world/`：当前大地图运行数据，例如 `map_data.json`。
 - `maps/indoor/`：当前建筑会进入的室内地图 JSON。
 - `characters/`：当前运行时角色贴图，例如玩家行走图。
-- `rooms/observer_house/`：观察者小屋当前运行时贴图。
+- `rooms/observer_house/`：观察者小屋当前运行时家具贴图，仅保留 `bed/bookshelf/chest/lantern/screen/table`。
 - `world/buildings/`：大地图建筑当前运行时贴图。
-- `tools/scene_editor/`：浏览器工具页仍需读取的大地图/场景编辑数据。
 - `jy-runtime/`：从 JYQXZ 完整素材库中复制出的运行时子集。
 
 不应放在项目内的资源：
@@ -40,6 +39,8 @@ deepsolo/packages/visual/
 - 历史版本整包，例如 `observer_house_v1`、`observer_house_v2`。
 - 历史根目录旧图集/参考图，例如 `char_atlas2.png`、`char_reference.png`。
 - 未接入当前建筑的编号室内地图全集。
+- 浏览器开发工具页，例如 `asset_browser.html`、`tile_browser.html`、`scene_editor.html`。
+- 只被浏览器开发工具页使用的数据，例如 `assets/tools/scene_editor/`。
 
 ## 项目外素材库
 
