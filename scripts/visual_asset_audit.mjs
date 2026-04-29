@@ -11,7 +11,12 @@ const externalAssetLibraryRoot = '/Users/sunguanlong/Desktop/AIGC/assets-library
 const requiredPaths = [
   'packages/visual/docs/asset_governance.md',
   'packages/visual/public/assets',
-  'packages/visual/public/assets/observer_house_v3/runtime',
+  'packages/visual/public/assets/rooms/observer_house',
+  'packages/visual/public/assets/core/tile_atlas.png',
+  'packages/visual/public/assets/core/char_atlas.png',
+  'packages/visual/public/assets/maps/world/map_data.json',
+  'packages/visual/public/assets/maps/indoor/indoor_birth_house.json',
+  'packages/visual/public/assets/characters/player/player_walk1.png',
   'packages/visual/public/assets/jy-runtime',
   'packages/visual/public/assets/jy-runtime/10_smap/_info.json',
   'packages/visual/public/assets/jy-runtime/08_thing/0079.png',
@@ -20,8 +25,7 @@ const requiredPaths = [
   'packages/visual/public/assets/jy-runtime/14_head/2.png',
   'packages/visual/public/assets/jy-runtime/16_walk/2501.png',
   'packages/visual/public/assets/jy-runtime/17_npc_map/npc_1001.png',
-  'packages/visual/public/assets/ai-resource/runtime',
-  'packages/visual/public/assets/indoor_maps',
+  'packages/visual/public/assets/world/buildings',
   'packages/visual/public/data',
 ];
 
@@ -32,6 +36,14 @@ const forbiddenPublicPaths = [
   'packages/visual/public/assets/observer_house_v3/preview',
   'packages/visual/public/assets/observer_house_v3/metadata',
   'packages/visual/public/assets/observer_house_v3/cutouts',
+  'packages/visual/public/assets/observer_house_v3',
+  'packages/visual/public/assets/ai-resource',
+  'packages/visual/public/assets/indoor_maps',
+  'packages/visual/public/assets/char_atlas2.png',
+  'packages/visual/public/assets/char_atlas21.png',
+  'packages/visual/public/assets/char_reference.png',
+  'packages/visual/public/assets/char_single_ref.png',
+  'packages/visual/public/assets/discussion_shrine.png',
   'packages/visual/public/assets/jy-assets',
   'packages/visual/assets-source',
 ];
@@ -46,6 +58,9 @@ const requiredSourcePaths = [
   '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/cutouts',
   '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/jyqxz/full',
   '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/jyqxz/generated',
+  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/indoor_maps/full',
+  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/world_buildings/source',
+  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/legacy_root_assets',
 ];
 
 function exists(relPath) {

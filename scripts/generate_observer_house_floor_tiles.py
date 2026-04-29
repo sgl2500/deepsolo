@@ -10,8 +10,8 @@ from typing import Iterable
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSET_ROOT = ROOT / 'packages/visual/public/assets/observer_house_v3'
-RUNTIME_DIR = ASSET_ROOT / 'runtime'
+ASSET_ROOT = Path('/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3')
+RUNTIME_DIR = ROOT / 'packages/visual/public/assets/rooms/observer_house'
 PREVIEW_DIR = ASSET_ROOT / 'preview'
 METADATA_DIR = ASSET_ROOT / 'metadata'
 

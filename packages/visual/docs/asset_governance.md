@@ -13,16 +13,22 @@ deepsolo/packages/visual/
 /Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/
   observer_house/    观察者小屋历史版本、raw、preview、metadata、cutouts
   jyqxz/             JYQXZ 完整素材库和生成素材
+  indoor_maps/       未接入当前建筑的室内地图候选库
+  world_buildings/   大地图建筑原图
+  legacy_root_assets/ 历史根目录参考图和旧图集
 ```
 
 ## 项目内运行时素材
 
 允许放在 `public/assets` 的资源：
 
-- `map_data.json`、`tile_atlas.*`、`char_atlas.*` 等核心地图/角色资源。
-- `indoor_maps/`：当前建筑会进入的室内地图 JSON。
-- `observer_house_v3/runtime/`：观察者小屋当前运行时贴图。
-- `ai-resource/runtime/`：大地图建筑当前运行时贴图。
+- `core/`：核心图集和元数据，例如 `tile_atlas.*`、`char_atlas.*`、`tile_meta.json`。
+- `maps/world/`：当前大地图运行数据，例如 `map_data.json`。
+- `maps/indoor/`：当前建筑会进入的室内地图 JSON。
+- `characters/`：当前运行时角色贴图，例如玩家行走图。
+- `rooms/observer_house/`：观察者小屋当前运行时贴图。
+- `world/buildings/`：大地图建筑当前运行时贴图。
+- `tools/scene_editor/`：浏览器工具页仍需读取的大地图/场景编辑数据。
 - `jy-runtime/`：从 JYQXZ 完整素材库中复制出的运行时子集。
 
 不应放在项目内的资源：
@@ -32,6 +38,8 @@ deepsolo/packages/visual/
 - `preview/`：拼图预览、比对图、实验效果图。
 - `metadata/`：AI 生成响应、切图清单、实验参数。
 - 历史版本整包，例如 `observer_house_v1`、`observer_house_v2`。
+- 历史根目录旧图集/参考图，例如 `char_atlas2.png`、`char_reference.png`。
+- 未接入当前建筑的编号室内地图全集。
 
 ## 项目外素材库
 
@@ -47,6 +55,9 @@ deepsolo/packages/visual/
   observer_house/v3/cutouts/
   jyqxz/full/
   jyqxz/generated/
+  indoor_maps/full/
+  world_buildings/source/
+  legacy_root_assets/
 ```
 
 这些文件用于复盘、重新裁剪、重新生成和从完整素材库中挑选素材，但不再作为浏览器运行时路径。

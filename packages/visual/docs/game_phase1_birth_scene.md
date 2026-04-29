@@ -37,7 +37,7 @@
 - **场景 ID**: `birth_house`
 - **类型**: 室内场景（复用现有 smap 瓦片渲染系统）
 - **大小**: 9×11（原版房间实际尺寸）
-- **地图文件**: `public/assets/indoor_maps/indoor_birth_house.json`
+- **地图文件**: `public/assets/maps/indoor/indoor_birth_house.json`
 - **瓦片来源**: JYQXZ `smap_1142`（地板）、`smap_1504`（墙壁）、`smap_1514`（柱子）、`smap_2554`（家具）等
 
 ### 房间布局（从原版数据）
@@ -221,7 +221,7 @@ WorldScene.create():
 
 ### Step 1: 室内地图 ✅
 
-已完成：从 JYQXZ 场景 70 提取 9×11 房间 → `public/assets/indoor_maps/indoor_birth_house.json`
+已完成：从 JYQXZ 场景 70 提取 9×11 房间 → `public/assets/maps/indoor/indoor_birth_house.json`
 缺失瓦片已提取：`smap_1142`、`smap_1504`、`smap_1514`、`smap_1526`、`smap_1530`、`smap_2474`
 
 ### Step 2: BootScene 预加载
@@ -260,7 +260,7 @@ WorldScene.create():
 
 | 操作 | 文件 | 内容 |
 |------|------|------|
-| ✅ 新建 | `public/assets/indoor_maps/indoor_birth_house.json` | 9×11 室内地图（JYQXZ 场景 70） |
+| ✅ 新建 | `public/assets/maps/indoor/indoor_birth_house.json` | 9×11 室内地图（JYQXZ 场景 70） |
 | ✅ 新增 | `public/assets/jy-runtime/10_smap/1142.png` 等 | 缺失瓦片已提取 |
 | 修改 | `src/data/BuildingData.ts` | 新增 birth_house 建筑 |
 | 修改 | `src/data/SceneData.ts` | 新增 birth_house 场景坐标 |

@@ -7,7 +7,7 @@
 原始资源目录：
 
 ```txt
-packages/visual/public/assets/ai-resource/
+/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/world_buildings/source/
 ```
 
 当前使用的原图：
@@ -20,10 +20,10 @@ packages/visual/public/assets/ai-resource/
 为了方便 Phaser 加载、避免中文路径/透明背景问题，并避免浏览器把 1000+ 像素大图实时缩小导致发糊，已生成游戏内显示尺寸的运行时贴图：
 
 ```txt
-packages/visual/public/assets/ai-resource/runtime/ai_building_a_share.png
-packages/visual/public/assets/ai-resource/runtime/ai_building_crypto.png
-packages/visual/public/assets/ai-resource/runtime/ai_building_us.png
-packages/visual/public/assets/ai-resource/runtime/ai_building_gold.png
+packages/visual/public/assets/world/buildings/ai_building_a_share.png
+packages/visual/public/assets/world/buildings/ai_building_crypto.png
+packages/visual/public/assets/world/buildings/ai_building_us.png
+packages/visual/public/assets/world/buildings/ai_building_gold.png
 ```
 
 说明：`美股门派.png` 原图带棋盘格底，运行时版本已做边缘白/灰棋盘格透明处理；其他图也做了透明裁剪，原图不改动。

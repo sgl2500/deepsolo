@@ -541,6 +541,6 @@ Canvas 像素 (936+dx, 468+dy) + Image位置 (-296, -108) = 屏幕坐标 (640+dx
 
 | 文件 | 更新内容 |
 |------|----------|
-| `public/assets/indoor_maps/indoor_birth_house.json` | 地图数据（尺寸、坐标、各层数组） |
+| `public/assets/maps/indoor/indoor_birth_house.json` | 地图数据（尺寸、坐标、各层数组） |
 | `src/data/BuildingData.ts` | spawnX/Y, exitX/Y |
 | `src/data/NPCData.ts` | birth_house NPC 的 mapX/Y（如果有） |

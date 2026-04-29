@@ -169,7 +169,7 @@ AoE 特效采用波浪式扩散：按曼哈顿距离递增延迟播放每个格�
 | 精灵 | 来源 | 用途 | 帧命名 | 原始尺寸 | 显示缩放 |
 |------|------|------|--------|----------|----------|
 | Fight 精灵 | `assets/fight/` | 站立 + 攻击 | `fight000_{帧号}` | 23×50 px | `spriteScale = 2.0` → 视觉 46×100 px |
-| Chars 图集 | `assets/char_atlas` | 走路 | `player_d{方向}_f{帧}` | 75×195 px | `walkSpriteScale = 0.51` → 视觉 ~38×100 px |
+| Chars 图集 | `assets/core/char_atlas` | 走路 | `player_d{方向}_f{帧}` | 75×195 px | `walkSpriteScale = 0.51` → 视觉 ~38×100 px |
 
 ### 缩放匹配原理
 

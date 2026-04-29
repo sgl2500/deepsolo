@@ -1,7 +1,7 @@
 {
   "name": "observer_house_back_shell_v1",
-  "source": "packages/visual/public/assets/observer_house_v3/runtime/back_shell.png",
-  "runtime_dir": "packages/visual/public/assets/observer_house_v3/runtime/walls",
+  "source": "packages/visual/public/assets/rooms/observer_house/back_shell.png",
+  "runtime_dir": "packages/visual/public/assets/rooms/observer_house/walls",
   "preview_recompose": "/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/preview/wall_back_shell_recompose.png",
   "preview_sheet": "/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/preview/wall_back_shell_sheet.png",
   "manifest": "/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/metadata/wall_back_shell_modules.json",

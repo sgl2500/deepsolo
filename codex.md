@@ -122,7 +122,7 @@ DeepSolo 是一个“策略涌现世界”：
 补充（2026-04-24）：
 
 - 出生室内场景 `birth_house` 正在从旧 JYQXZ 室内瓦片拼接，切换为“自有可复用美术包 + 固定布局渲染”模式。
-- 当前观察者小屋的主资源目录已经迁移到 `packages/visual/public/assets/observer_house_v3/`。
+- 当前观察者小屋的主资源目录已经迁移到 `packages/visual/public/assets/rooms/observer_house/`。
 - 其中：
   - `runtime/`：前端直接加载的成品贴图。
   - `raw/`：原始生成结果。
@@ -138,7 +138,7 @@ DeepSolo 是一个“策略涌现世界”：
   - 后续观察者小屋、茶馆、客栈、书房都应优先产出场景 JSON 和贴图包，再接入运行时 loader。
   - 新增 `scripts/scene_editor/process_tilepack_assets.py`，用于把页面生图的纯绿背景 raw 图处理成透明 PNG，并自动生成贴图包 `manifest.json`。
 - 同日新增第二代分层方案：
-  - `packages/visual/public/assets/observer_house_v3/` 作为观察者小屋的三层资产目录。
+  - `packages/visual/public/assets/rooms/observer_house/` 作为观察者小屋的三层资产目录。
   - 当前分层为：
     - `floor_base`：地面层
     - `back_shell`：后墙 / 侧墙 / 柱梁母版
@@ -178,7 +178,7 @@ DeepSolo 是一个“策略涌现世界”：
     - 当前仍保留 `back_shell.png` 作为母版与参考，不再直接作为 `birth_house` 的唯一后墙运行时资源。
     - 新增后墙模块构建器：`scripts/build_wall_modules_from_shell.py`
     - 当前墙体 profile：`scripts/wall_profiles/observer_house_back_shell.json`
-    - 运行时输出目录：`packages/visual/public/assets/observer_house_v3/runtime/walls/`
+    - 运行时输出目录：`packages/visual/public/assets/rooms/observer_house/walls/`
     - 第一版模块拆分为：
       - `wall_left.png`
       - `wall_center.png`
@@ -209,8 +209,8 @@ DeepSolo 是一个“策略涌现世界”：
       - `wall_left_window` 的 v3 版本更适合作为“后墙中心转角核心”
       - 其余模块需和 v2 混用，不能机械地整批替换
   - 当前实际可用路线已切换为“AI 多轮出图 + 人工筛选 + 去绿底 + 紧裁剪”：
-    - 当前精选运行时模块目录：`packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1/`
-    - 当前紧裁剪版本：`packages/visual/public/assets/observer_house_v3/runtime/walls_modular_v1_tight/`
+    - 当前精选运行时模块目录：`packages/visual/public/assets/rooms/observer_house/walls_modular_v1/`
+    - 当前紧裁剪版本：`packages/visual/public/assets/rooms/observer_house/walls_modular_v1_tight/`
     - 当前精选清单：`/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/metadata/wall_modular_curated_v1.json`
     - 当前紧裁剪清单：`/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/metadata/wall_modular_curated_v1_tight.json`
     - 当前精选总览：`/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/preview/wall_modular_curated_v1_sheet.png`
@@ -237,7 +237,7 @@ DeepSolo 是一个“策略涌现世界”：
     - 当前布置策略：
       - 当前改为从原始 coherent `back_shell.png` 再细切 7 段模块，并按原母版坐标精确复原
       - 当前细切 profile：`scripts/wall_profiles/observer_house_back_shell_fine.json`
-      - 当前运行时目录：`packages/visual/public/assets/observer_house_v3/runtime/walls_fine/`
+      - 当前运行时目录：`packages/visual/public/assets/rooms/observer_house/walls_fine/`
       - 当前清单：`/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/metadata/wall_back_shell_fine_modules.json`
       - 当前预览：
         - `/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/preview/wall_back_shell_fine_sheet.png`
@@ -1507,8 +1507,8 @@ python scripts/trigger_heaven.py
 
 ### 2026-04-28 大地图建筑贴图替换
 
-- 用户要求将大地图建筑替换为 `packages/visual/public/assets/ai-resource` 下的贴图。
-- 新增运行时透明裁剪贴图目录：`packages/visual/public/assets/ai-resource/runtime/`。
+- 用户要求将大地图建筑替换为 `/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/world_buildings/source` 下的贴图。
+- 新增运行时透明裁剪贴图目录：`packages/visual/public/assets/world/buildings/`。
   - `ai_building_a_share.png`
   - `ai_building_crypto.png`
   - `ai_building_us.png`
@@ -1525,7 +1525,7 @@ python scripts/trigger_heaven.py
 
 - 用户反馈大地图建筑“漂浮在空中”且“分辨率不清晰”。
 - 原因：上一版直接把 1000+ 像素大图在 Phaser 中用 `scale=0.12-0.16` 实时缩小，线性采样导致发糊；同时建筑 `originY=1` 且 `offsetY` 为负值，等于把建筑底部悬在入口点上方。
-- 重新生成 `packages/visual/public/assets/ai-resource/runtime/` 运行时贴图为游戏内目标尺寸：
+- 重新生成 `packages/visual/public/assets/world/buildings/` 运行时贴图为游戏内目标尺寸：
   - A股门派：`230x219`
   - 数字币门派：`210x191`
   - 美股门派：`260x216`

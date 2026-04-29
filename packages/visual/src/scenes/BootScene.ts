@@ -88,23 +88,23 @@ export class BootScene extends Phaser.Scene {
     });
 
     // === 世界地图资源 ===
-    this.load.atlas('tiles', 'assets/tile_atlas.png', 'assets/tile_atlas.json');
-    this.load.json('map', 'assets/map_data.json');
-    this.load.json('tmeta', 'assets/tile_meta.json');
-    this.load.atlas('chars', 'assets/char_atlas.png?v=3', 'assets/char_atlas.json?v=3');
-    this.load.spritesheet('player_walk', 'assets/player_walk1.png', { frameWidth: 28, frameHeight: 45 });
-    this.load.json('charmeta', 'assets/char_meta.json?v=3');
-    this.load.spritesheet('lpc_e2', 'assets/char01-walk-4dir.png', { frameWidth: 64, frameHeight: 64 });
+    this.load.atlas('tiles', 'assets/core/tile_atlas.png', 'assets/core/tile_atlas.json');
+    this.load.json('map', 'assets/maps/world/map_data.json');
+    this.load.json('tmeta', 'assets/core/tile_meta.json');
+    this.load.atlas('chars', 'assets/core/char_atlas.png?v=3', 'assets/core/char_atlas.json?v=3');
+    this.load.spritesheet('player_walk', 'assets/characters/player/player_walk1.png', { frameWidth: 28, frameHeight: 45 });
+    this.load.json('charmeta', 'assets/core/char_meta.json?v=3');
+    this.load.spritesheet('lpc_e2', 'assets/characters/lpc/char01-walk-4dir.png', { frameWidth: 64, frameHeight: 64 });
 
     // === 室内地图数据 ===
     for (const b of BUILDINGS) {
-      this.load.json(b.indoorMapKey, `assets/indoor_maps/${b.indoorMapKey}.json?v=10`);
+      this.load.json(b.indoorMapKey, `assets/maps/indoor/${b.indoorMapKey}.json?v=10`);
     }
     for (const asset of BIRTH_HOUSE_DECOR_ASSETS) {
-      this.load.image(asset.key, `assets/observer_house_v3/runtime/${asset.file}?v=9`);
+      this.load.image(asset.key, `assets/rooms/observer_house/${asset.file}?v=9`);
     }
     for (const asset of WORLD_BUILDING_ASSETS) {
-      this.load.image(asset.key, `assets/ai-resource/runtime/${asset.file}?v=1`);
+      this.load.image(asset.key, `assets/world/buildings/${asset.file}?v=1`);
     }
 
     // === Smap 瓦片 (JYQXZ 室内场景) ===

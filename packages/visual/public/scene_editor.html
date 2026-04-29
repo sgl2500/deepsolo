@@ -1530,7 +1530,7 @@ let sceneDefinitions = [];
 
 async function loadSceneDefinitions() {
   try {
-    const resp = await fetch('assets/scene_definitions.json');
+    const resp = await fetch('assets/tools/scene_editor/scene_definitions.json');
     sceneDefinitions = await resp.json();
     renderSceneList();
   } catch (e) {
@@ -1561,7 +1561,7 @@ function renderSceneList(filter) {
 
 async function loadIndoorScene(sceneId) {
   try {
-    const resp = await fetch(`assets/indoor_maps/indoor_${sceneId}.json`);
+    const resp = await fetch(`assets/maps/indoor/indoor_${sceneId}.json`);
     const data = await resp.json();
     // Convert to multi format
     const defaultDir = data._defaultDir || '10_smap';
@@ -1612,7 +1612,7 @@ async function loadIndoorScene(sceneId) {
 async function loadWorldMap() {
   try {
     toast('正在加载世界地图...');
-    const resp = await fetch('assets/world_map_5layers.json');
+    const resp = await fetch('assets/tools/scene_editor/world_map_5layers.json');
     const data = await resp.json();
 
     const defaultDir = '01_mmap';

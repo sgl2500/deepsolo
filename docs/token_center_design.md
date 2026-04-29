@@ -164,7 +164,7 @@ export interface Transaction {
 |------|------|
 | `src/data/SceneData.ts` | 新增 `{ id: 'token_center', name: 'Token中心', x: 40, y: 85 }` |
 | `src/data/BuildingData.ts` | 新增 `makeSimpleIndoor('token_center', 40, 85)` |
-| `public/assets/indoor_maps/indoor_token_center.json` | 标准室内地图 (40×40) |
+| `public/assets/maps/indoor/indoor_token_center.json` | 标准室内地图 (40×40) |
 
 ### 7.2 室内地图
 
@@ -197,7 +197,7 @@ export interface Transaction {
 | `public/data/token_center/tokens.json` | 初始 Token 池（5 个 Token） |
 | `public/data/token_center/listings.json` | 初始空挂单 `[]` |
 | `public/data/token_center/transactions.json` | 初始空记录 `[]` |
-| `public/assets/indoor_maps/indoor_token_center.json` | 室内地图 |
+| `public/assets/maps/indoor/indoor_token_center.json` | 室内地图 |
 
 ### 修改文件
 
