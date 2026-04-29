@@ -87,6 +87,7 @@ export class WorldScene extends Phaser.Scene {
     this.entitySystem = new EntitySystem(this, this.mapData);
     this.entitySystem.createPlayer(this.inputController);
     this.entitySystem.createAgents(this.charMeta, _store.strategies);
+    this.entitySystem.setWorldAgentsVisible(false);
     this.interactHintText = this.add.text(SCREEN_WIDTH / 2, SCREEN_HEIGHT - 84, '', {
       fontSize: '14px',
       color: '#fef3c7',
@@ -276,6 +277,7 @@ export class WorldScene extends Phaser.Scene {
           this.entitySystem.addAgent(this.charMeta, s);
         }
       }
+      this.entitySystem.setWorldAgentsVisible(false);
     });
 
     // ── 天道消灭特效 ──
@@ -445,6 +447,22 @@ export class WorldScene extends Phaser.Scene {
 
     // B 键：大地图靠近 Agent 后发起玩家挑战
     if (this.inputController.isBattlePressed() && !this.battleSystem.isActive()) {
+      if (state === SceneState.Indoor) {
+        const challenger = this.entitySystem.getNearbyStrategyNPC(
+          this.entitySystem.player.mapX,
+          this.entitySystem.player.mapY,
+          NPC_INTERACT_DIST + 1.2,
+        );
+        if (!challenger) {
+          this.entitySystem.showBubble('player', '靠近一位门派策略 NPC 后，按 B 发起切磋');
+          return;
+        }
+        this.entitySystem.showBubble(challenger.strategy.id, '来切磋一场？');
+        this.sceneManager.startBattle();
+        this.battleSystem.startPlayerVsAgent(challenger.strategy.id, challenger.strategy.name);
+        return;
+      }
+
       if (state === SceneState.WorldMap) {
         const challenger = this.entitySystem.getNearbyAgent(
           this.entitySystem.player.mapX,
@@ -504,7 +522,15 @@ export class WorldScene extends Phaser.Scene {
         return;
       }
 
-      // 优先检测室内 NPC
+      // 室内策略 NPC：每个策略在所属门派内固定站位，复用 Agent 聊天上下文。
+      const strategyNpc = this.entitySystem.getNearbyStrategyNPC(px, py, WorldScene.AGENT_INTERACT_DIST);
+      if (strategyNpc) {
+        _store.selectStrategy(strategyNpc.strategy);
+        this.openAgentChat(strategyNpc.strategy);
+        return;
+      }
+
+      // 优先检测室内普通 NPC
       const npc = this.entitySystem.getNearbyNPC(px, py, NPC_INTERACT_DIST);
       if (npc) {
         this.sceneManager.startDialogue();

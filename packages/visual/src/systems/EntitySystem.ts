@@ -5,7 +5,9 @@
 import { Player } from '../entities/Player';
 import { Agent } from '../entities/Agent';
 import { NPC } from '../entities/NPC';
+import { StrategyNPC } from '../entities/StrategyNPC';
 import { NPC_DEFS } from '../data/NPCData';
+import { getStrategyNpcPlacements } from '../content/StrategyNpcPlacement';
 import type { BubbleHandle } from '../ui/BubbleFactory';
 import { BubbleFactory } from '../ui/BubbleFactory';
 import type { MapData, CharMeta, Strategy, BubbleConfig } from '../types';
@@ -15,6 +17,7 @@ export class EntitySystem {
   player!: Player;
   agents: Map<string, Agent> = new Map();
   npcs: Map<string, NPC> = new Map();
+  strategyNpcs: Map<string, StrategyNPC> = new Map();
   private bubbles: Map<string, BubbleHandle> = new Map();
 
   private scene: Phaser.Scene;
@@ -74,10 +77,27 @@ export class EntitySystem {
     });
   }
 
+  /** 为指定门派/建筑创建室内策略 NPC */
+  createStrategyNPCs(buildingId: string, strategies: Strategy[], indoorCx: number, indoorCy: number): void {
+    this.clearStrategyNPCs();
+    const placements = getStrategyNpcPlacements(buildingId, strategies);
+    for (const placement of placements) {
+      const npc = new StrategyNPC(this.scene, this.mapData, placement.strategy, placement.slot);
+      npc.setIndoorMode(true, indoorCx, indoorCy);
+      this.strategyNpcs.set(placement.strategy.id, npc);
+    }
+  }
+
   /** 清除所有 NPC */
   clearNPCs(): void {
     this.npcs.forEach(n => n.destroy());
     this.npcs.clear();
+  }
+
+  /** 清除所有室内策略 NPC */
+  clearStrategyNPCs(): void {
+    this.strategyNpcs.forEach(n => n.destroy());
+    this.strategyNpcs.clear();
   }
 
   /** 获取玩家附近的 NPC */
@@ -109,6 +129,22 @@ export class EntitySystem {
     return nearest;
   }
 
+  /** 获取玩家附近的室内策略 NPC */
+  getNearbyStrategyNPC(playerX: number, playerY: number, threshold: number): StrategyNPC | null {
+    let nearest: StrategyNPC | null = null;
+    let nearestDist = Infinity;
+    for (const npc of this.strategyNpcs.values()) {
+      const dx = npc.mapX - playerX;
+      const dy = npc.mapY - playerY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= threshold && dist < nearestDist) {
+        nearest = npc;
+        nearestDist = dist;
+      }
+    }
+    return nearest;
+  }
+
   /** 立即同步所有实体的屏幕位置（场景切换时调用，防止闪现） */
   syncEntityScreenPositions(playerX: number, playerY: number): void {
     if (this.player.isIndoor) {
@@ -125,6 +161,9 @@ export class EntitySystem {
     }
     // NPC 按相对玩家位置放置
     for (const npc of this.npcs.values()) {
+      npc.updateScreenPosition(playerX, playerY);
+    }
+    for (const npc of this.strategyNpcs.values()) {
       npc.updateScreenPosition(playerX, playerY);
     }
   }
@@ -149,6 +188,10 @@ export class EntitySystem {
     for (const npc of this.npcs.values()) {
       npc.update(time, delta, px, py);
     }
+
+    for (const npc of this.strategyNpcs.values()) {
+      npc.update(time, delta, px, py);
+    }
   }
 
   /** 为指定实体显示气泡 */
@@ -165,8 +208,9 @@ export class EntitySystem {
       parent = this.player.container;
     } else {
       const agent = this.agents.get(entityId);
-      if (!agent) return;
-      parent = agent.container;
+      const strategyNpc = this.strategyNpcs.get(entityId);
+      if (!agent && !strategyNpc) return;
+      parent = agent?.container ?? strategyNpc!.container;
     }
 
     const handle = BubbleFactory.create(this.scene, parent, text, config);
@@ -192,5 +236,6 @@ export class EntitySystem {
     this.player.destroy();
     this.agents.forEach(a => a.destroy());
     this.npcs.forEach(n => n.destroy());
+    this.strategyNpcs.forEach(n => n.destroy());
   }
 }

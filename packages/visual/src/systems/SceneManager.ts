@@ -252,9 +252,13 @@ export class SceneManager {
 
       // 创建室内 NPC（设置室内模式）
       this.entitySystem.createNPCs(building.id, indoorMap.cx, indoorMap.cy);
+      this.entitySystem.createStrategyNPCs(building.id, this.store.strategies, indoorMap.cx, indoorMap.cy);
 
       // 将 NPC 容器加入室内容器，使其跟随房间滚动
       for (const npc of this.entitySystem.npcs.values()) {
+        this.mapRenderer.addIndoorChild(npc.container);
+      }
+      for (const npc of this.entitySystem.strategyNpcs.values()) {
         this.mapRenderer.addIndoorChild(npc.container);
       }
 
@@ -313,6 +317,7 @@ export class SceneManager {
   private onExitMidpoint(building: typeof BUILDINGS[0]): void {
     // 清除室内 NPC
     this.entitySystem.clearNPCs();
+    this.entitySystem.clearStrategyNPCs();
 
     // 恢复到进入前的位置（不是硬编码 returnX/Y）
     const rx = this.savedPlayerX;
@@ -335,8 +340,8 @@ export class SceneManager {
     }
 
     // 恢复世界 Agent
-    this.entitySystem.setWorldAgentsVisible(true);
-    this.worldAgentsVisible = true;
+    this.entitySystem.setWorldAgentsVisible(false);
+    this.worldAgentsVisible = false;
 
     // 立即同步所有实体的屏幕位置
     this.entitySystem.syncEntityScreenPositions(rx, ry);
@@ -383,6 +388,8 @@ export class SceneManager {
     // 隐藏世界元素
     this.entitySystem.setWorldAgentsVisible(false);
     this.entitySystem.getPlayer().container.setVisible(false);
+    this.entitySystem.npcs.forEach(npc => npc.container.setVisible(false));
+    this.entitySystem.strategyNpcs.forEach(npc => npc.container.setVisible(false));
     this.mapRenderer.scrImage.setVisible(false);
     this.minimapSystem.setVisible(false);
     setBuildingMarkersVisible(this.buildingMarkers, false);
@@ -393,11 +400,15 @@ export class SceneManager {
   /** 结束战斗模式 */
   endBattle(): void {
     // 恢复世界元素
-    this.entitySystem.setWorldAgentsVisible(true);
+    this.entitySystem.setWorldAgentsVisible(false);
     this.entitySystem.getPlayer().container.setVisible(true);
-    this.mapRenderer.scrImage.setVisible(true);
-    this.minimapSystem.setVisible(true);
-    setBuildingMarkersVisible(this.buildingMarkers, true);
+    const returningToWorld = this.prevSceneState === SceneState.WorldMap;
+    const returningToIndoor = this.prevSceneState === SceneState.Indoor;
+    this.entitySystem.npcs.forEach(npc => npc.container.setVisible(returningToIndoor));
+    this.entitySystem.strategyNpcs.forEach(npc => npc.container.setVisible(returningToIndoor));
+    this.mapRenderer.scrImage.setVisible(returningToWorld);
+    this.minimapSystem.setVisible(returningToWorld);
+    setBuildingMarkersVisible(this.buildingMarkers, returningToWorld);
 
     this.state = this.prevSceneState;
     this.eventBus.emit('scene:state-changed', { state: this.state });
