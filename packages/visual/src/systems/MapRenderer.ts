@@ -220,7 +220,7 @@ export class MapRenderer {
 
       for (const tileId of uniqueMissing) {
         const padded = String(tileId).padStart(4, '0');
-        loader.image(`smap_${tileId}`, `assets/jy-assets/10_smap/${padded}.png`);
+        loader.image(`smap_${tileId}`, `assets/jy-runtime/10_smap/${padded}.png`);
       }
 
       loader.start();

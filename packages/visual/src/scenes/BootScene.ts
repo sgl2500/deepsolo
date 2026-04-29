@@ -43,7 +43,7 @@ function collectPortraitIds(): string[] {
     // dialogueId 用于查找对应的头像，这里先从硬编码列表中取
   });
   // 从对话脚本中收集头像 key（这里直接列出需要的）
-  return ['0', '1', '10'];
+  return ['0', '1', '2', '10'];
 }
 
 export class BootScene extends Phaser.Scene {
@@ -109,33 +109,33 @@ export class BootScene extends Phaser.Scene {
 
     // === Smap 瓦片 (JYQXZ 室内场景) ===
     // 加载 smap _info.json 用于瓦片偏移
-    this.load.json('smap_info', 'assets/jy-assets/10_smap/_info.json');
+    this.load.json('smap_info', 'assets/jy-runtime/10_smap/_info.json');
     // 逐个加载需要的 smap 瓦片图片
     const smapIds = collectSmapTileIds();
     for (const id of smapIds) {
       const padded = String(id).padStart(4, '0');
-      this.load.image(`smap_${id}`, `assets/jy-assets/10_smap/${padded}.png`);
+      this.load.image(`smap_${id}`, `assets/jy-runtime/10_smap/${padded}.png`);
     }
 
     // === NPC 头像 (JYQXZ 14_head) ===
     const portraitIds = collectPortraitIds();
     for (const id of portraitIds) {
-      this.load.image(`portrait_${id}`, `assets/jy-assets/14_head/${id}.png`);
+      this.load.image(`portrait_${id}`, `assets/jy-runtime/14_head/${id}.png`);
     }
 
     // === 战斗精灵 (JYQXZ 12_fight/Fight000) ===
     // 加载 Attack Type 0: 4 方向 × 12 帧 (frame 40-87)
     for (let i = 40; i <= 87; i++) {
       const padded = String(i).padStart(4, '0');
-      this.load.image(`fight000_${padded}`, `assets/jy-assets/12_fight/Fight000/${padded}.png`);
+      this.load.image(`fight000_${padded}`, `assets/jy-runtime/12_fight/Fight000/${padded}.png`);
     }
     // 加载 Fight000 的帧偏移数据
-    this.load.json('fight000_info', 'assets/jy-assets/12_fight/Fight000/_info.json');
+    this.load.json('fight000_info', 'assets/jy-runtime/12_fight/Fight000/_info.json');
 
     // === 战斗走路精灵 (JYQXZ 16_walk/2501-2528) ===
     // 4 方向 × 7 帧：右上 2501-2507，右下 2508-2514，左上 2515-2521，左下 2522-2528。
     for (let i = 2501; i <= 2528; i++) {
-      this.load.image(`battle_walk_${i}`, `assets/jy-assets/16_walk/${i}.png`);
+      this.load.image(`battle_walk_${i}`, `assets/jy-runtime/16_walk/${i}.png`);
     }
 
     // === 武功特效贴图 (JYQXZ 13_eft) ===
@@ -144,11 +144,11 @@ export class BootScene extends Phaser.Scene {
         const padded = String(i).padStart(4, '0');
         this.load.image(
           `eft_${eftId}_${padded}`,
-          `assets/jy-assets/13_eft/${eftId}/${padded}.png`,
+          `assets/jy-runtime/13_eft/${eftId}/${padded}.png`,
         );
       }
       // 加载每帧偏移数据（xoff/yoff 定义锚点位置）
-      this.load.json(`eft_${eftId}_info`, `assets/jy-assets/13_eft/${eftId}/_info.json`);
+      this.load.json(`eft_${eftId}_info`, `assets/jy-runtime/13_eft/${eftId}/_info.json`);
     }
 
     // === NPC 地图精灵 (JYQXZ 17_npc_map) ===
@@ -156,7 +156,7 @@ export class BootScene extends Phaser.Scene {
     for (const key of npcCharKeys) {
       // smap_ 前缀的 key 已在上面的 smap 瓦片加载中处理，跳过
       if (key.startsWith('smap_')) continue;
-      this.load.image(key, `assets/jy-assets/17_npc_map/${key}.png`);
+      this.load.image(key, `assets/jy-runtime/17_npc_map/${key}.png`);
     }
 
     this.load.on('loaderror', (f: any) => console.error('Load error:', f.key));

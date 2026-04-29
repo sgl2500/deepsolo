@@ -261,7 +261,7 @@ WorldScene.create():
 | 操作 | 文件 | 内容 |
 |------|------|------|
 | ✅ 新建 | `public/assets/indoor_maps/indoor_birth_house.json` | 9×11 室内地图（JYQXZ 场景 70） |
-| ✅ 新增 | `public/assets/jy-assets/10_smap/1142.png` 等 | 缺失瓦片已提取 |
+| ✅ 新增 | `public/assets/jy-runtime/10_smap/1142.png` 等 | 缺失瓦片已提取 |
 | 修改 | `src/data/BuildingData.ts` | 新增 birth_house 建筑 |
 | 修改 | `src/data/SceneData.ts` | 新增 birth_house 场景坐标 |
 | 修改 | `src/data/NPCData.ts` | 新增引导 NPC |

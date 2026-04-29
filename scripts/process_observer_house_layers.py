@@ -15,7 +15,7 @@ RAW_DIR = ASSET_ROOT / "raw"
 CUTOUT_DIR = ASSET_ROOT / "cutouts"
 RUNTIME_DIR = ASSET_ROOT / "runtime"
 PREVIEW_DIR = ASSET_ROOT / "preview"
-V2_RUNTIME_DIR = ROOT / "packages/visual/public/assets/observer_house_v2/runtime"
+V2_RUNTIME_DIR = ROOT / "/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v2/runtime"
 GREEN = (0, 255, 0)
 TOLERANCE = 70
 

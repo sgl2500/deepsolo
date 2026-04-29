@@ -1,9 +1,0 @@
-{
-  "runtime": {
-    "room_master": "/Users/sunguanlong/Desktop/AIGC/deepsolo/packages/visual/public/assets/observer_house_v3/runtime/room_master.png",
-    "floor_base": "/Users/sunguanlong/Desktop/AIGC/deepsolo/packages/visual/public/assets/observer_house_v3/runtime/floor_base.png",
-    "back_shell": "/Users/sunguanlong/Desktop/AIGC/deepsolo/packages/visual/public/assets/observer_house_v3/runtime/back_shell.png",
-    "front_occluder": "/Users/sunguanlong/Desktop/AIGC/deepsolo/packages/visual/public/assets/observer_house_v3/runtime/front_occluder.png"
-  },
-  "preview": "/Users/sunguanlong/Desktop/AIGC/deepsolo/packages/visual/public/assets/observer_house_v3/preview/observer_house_v3_mockup.png"
-}

@@ -10,6 +10,7 @@
     "build": "tsc && vite build",
     "check": "npm run typecheck && npm run test:unit && npm run build",
     "audit:governance": "node ../../scripts/visual_governance_audit.mjs",
+    "audit:assets": "node ../../scripts/visual_asset_audit.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

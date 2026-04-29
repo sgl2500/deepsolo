@@ -26,7 +26,7 @@ export interface WugongDef {
   power: number;
   hitRate: number;
   attackRange: number;
-  /** 对应 jy-assets/13_eft/{effectId} 特效贴图 */
+  /** 对应 jy-runtime/13_eft/{effectId} 特效贴图 */
   effectId: string;
   /** 范围攻击尺寸 (1=单体, 3=3x3 范围) */
   aoeSize?: number;

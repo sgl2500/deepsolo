@@ -183,4 +183,4 @@ palette = [(raw[i]*4, raw[i+1]*4, raw[i+2]*4) for i in range(0, 768, 3)]
 - 游戏源码：`/Users/sunguanlong/Desktop/AIGC/JYQXZ/jyqxz/Release/SCRIPT/jyconst.lua`（常量定义）
 - 游戏源码：`/Users/sunguanlong/Desktop/AIGC/JYQXZ/jyqxz/Release/SCRIPT/jymain.lua`（方向/行走逻辑）
 - C 渲染代码：`jy_mainmap.c`（地图绘制）、`jy_piccache.c`（RLE 解码）
-- 素材浏览：`assets/jy-assets/16_walk/`（行走精灵 PNG 预览）
+- 素材浏览：`assets/jy-runtime/16_walk/`（行走精灵 PNG 预览）

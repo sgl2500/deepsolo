@@ -84,7 +84,7 @@ export class ConversationPanel {
     if (conv.portraitKey) {
       const portraitEl = document.createElement('img');
       portraitEl.className = 'conv-portrait';
-      portraitEl.src = `assets/jy-assets/14_head/${conv.portraitKey}.png`;
+      portraitEl.src = `assets/jy-runtime/14_head/${conv.portraitKey}.png`;
       portraitEl.alt = conv.title;
       this.headerEl.insertBefore(portraitEl, titleEl);
     }
@@ -159,7 +159,7 @@ export class ConversationPanel {
       if (msg.portraitKey) {
         const img = document.createElement('img');
         img.className = 'conv-msg-portrait';
-        img.src = `assets/jy-assets/14_head/${msg.portraitKey}.png`;
+        img.src = `assets/jy-runtime/14_head/${msg.portraitKey}.png`;
         el.appendChild(img);
       }
       const body = document.createElement('div');

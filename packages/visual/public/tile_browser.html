@@ -161,7 +161,7 @@ let tileData = [];
 let selectedIds = new Set();
 
 async function init() {
-  const resp = await fetch('assets/jy-assets/10_smap/_info.json');
+  const resp = await fetch('assets/jy-runtime/10_smap/_info.json');
   const info = await resp.json();
 
   tileData = info.map(t => ({
@@ -170,7 +170,7 @@ async function init() {
     h: t.h,
     xoff: t.xoff,
     yoff: t.yoff,
-    url: `assets/jy-assets/10_smap/${String(t.idx).padStart(4, '0')}.png`
+    url: `assets/jy-runtime/10_smap/${String(t.idx).padStart(4, '0')}.png`
   }));
 
   document.getElementById('loading').classList.add('hidden');

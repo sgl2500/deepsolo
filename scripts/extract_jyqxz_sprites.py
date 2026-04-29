@@ -372,7 +372,7 @@ def extract_walk_sprites(source_data: str, output_base: str, palette: list[tuple
     """
     提取行走动画精灵。
     Walk 数据可能在 Allsin 中或其他位置。
-    当前 jy-assets/16_walk 已有 PNG，检查是否需要重新提取。
+    当前 jy-runtime/16_walk 已有 PNG，检查是否需要重新提取。
     """
     walk_output = os.path.join(output_base, '16_walk')
     os.makedirs(walk_output, exist_ok=True)
@@ -397,7 +397,7 @@ def main():
     parser = argparse.ArgumentParser(description='从 JYQXZ 原版游戏中提取所有素材')
     parser.add_argument('--source', default='../../JYQXZ/jyqxz/Release/DATA',
                         help='原版游戏 DATA 目录路径')
-    parser.add_argument('--output', default='../packages/visual/public/assets/jy-assets',
+    parser.add_argument('--output', default='../packages/visual/public/assets/jy-runtime',
                         help='输出目录')
     parser.add_argument('--categories', default=None,
                         help='只提取指定类别 (逗号分隔): smap,mmap,wmap,thing,kdef,allsin,alldef,warfld,ranger,talk,fight,eft,head,mhead')

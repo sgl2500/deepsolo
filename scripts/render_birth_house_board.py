@@ -8,7 +8,7 @@ from PIL import Image, ImageChops, ImageColor, ImageDraw, ImageFilter, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SMAP_DIR = ROOT / "packages/visual/public/assets/jy-assets/10_smap"
+SMAP_DIR = ROOT / "packages/visual/public/assets/jy-runtime/10_smap"
 MAP_PATH = ROOT / "packages/visual/public/assets/indoor_maps/indoor_birth_house.json"
 OUT_DIR = ROOT / "packages/visual/docs/previews"
 

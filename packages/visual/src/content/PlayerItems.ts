@@ -17,7 +17,7 @@ export const PLAYER_ITEMS: Record<string, PlayerItemDef> = {
     type: 'manual',
     description: '一本基础内功心法，记载着最朴素的吐纳调息法门。',
     stackable: false,
-    iconPath: 'assets/jy-assets/08_thing/0079.png',
+    iconPath: 'assets/jy-runtime/08_thing/0079.png',
   },
 };
 

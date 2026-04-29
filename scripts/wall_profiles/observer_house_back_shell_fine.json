@@ -2,9 +2,9 @@
   "name": "observer_house_back_shell_fine_v1",
   "source": "packages/visual/public/assets/observer_house_v3/runtime/back_shell.png",
   "runtime_dir": "packages/visual/public/assets/observer_house_v3/runtime/walls_fine",
-  "preview_recompose": "packages/visual/public/assets/observer_house_v3/preview/wall_back_shell_fine_recompose.png",
-  "preview_sheet": "packages/visual/public/assets/observer_house_v3/preview/wall_back_shell_fine_sheet.png",
-  "manifest": "packages/visual/public/assets/observer_house_v3/metadata/wall_back_shell_fine_modules.json",
+  "preview_recompose": "/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/preview/wall_back_shell_fine_recompose.png",
+  "preview_sheet": "/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/preview/wall_back_shell_fine_sheet.png",
+  "manifest": "/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/metadata/wall_back_shell_fine_modules.json",
   "modules": [
     { "name": "wall_far_left", "x0": 0, "x1": 250 },
     { "name": "wall_left_window", "x0": 250, "x1": 665 },

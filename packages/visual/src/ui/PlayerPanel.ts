@@ -12,7 +12,7 @@ import {
 
 type PlayerPanelTab = 'attributes' | 'martial' | 'items';
 
-const ITEM_FALLBACK_ICON = 'assets/jy-assets/08_thing/0079.png';
+const ITEM_FALLBACK_ICON = 'assets/jy-runtime/08_thing/0079.png';
 
 const ATTRIBUTE_LABELS = {
   attack: '攻击',

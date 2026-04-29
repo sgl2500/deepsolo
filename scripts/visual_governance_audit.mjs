@@ -15,6 +15,7 @@ const requiredDocs = [
   'packages/visual/docs/map_renderer_refactor_plan.md',
   'packages/visual/docs/world_map_editor.md',
   'packages/visual/docs/battle_system_tuning.md',
+  'packages/visual/docs/asset_governance.md',
 ];
 
 function walk(dir, predicate, out = []) {
@@ -41,7 +42,7 @@ for (const doc of requiredDocs) {
 
 const pkgPath = path.join(visualRoot, 'package.json');
 const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-for (const script of ['typecheck', 'test:unit', 'check', 'audit:governance', 'build']) {
+for (const script of ['typecheck', 'test:unit', 'check', 'audit:governance', 'audit:assets', 'build']) {
   if (!pkg.scripts?.[script]) findings.push(`packages/visual/package.json 缺少脚本：${script}`);
 }
 
