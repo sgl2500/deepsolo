@@ -238,8 +238,17 @@ export interface BuildingDef {
   /** 世界地图入口坐标 */
   entryX: number;
   entryY: number;
+  /** 世界地图建筑贴图锚点；不配置时兼容使用入口坐标 */
+  visualX?: number;
+  visualY?: number;
   /** 触发半径（地图格） */
   entryRadius: number;
+  /** 大地图建筑碰撞中心与半径；未配置或半径为 0 时不阻挡 */
+  collisionX?: number;
+  collisionY?: number;
+  collisionRadius?: number;
+  /** 大地图建筑不规则碰撞多边形；优先于圆形碰撞 */
+  collisionPolygon?: Array<{ x: number; y: number }>;
   /** 室内地图 Phaser cache key */
   indoorMapKey: string;
   /** 室内出生点（初始/游戏开始） */

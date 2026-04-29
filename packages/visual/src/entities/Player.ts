@@ -8,6 +8,7 @@ import { Entity } from './Entity';
 import { clamp } from '../utils/MathUtils';
 import { getTile } from '../utils/IsoProjection';
 import { isBlockedByIndoorFurniture } from '../content/IndoorFurnitureCollision';
+import { isBlockedByWorldBuildingCollision } from '../content/WorldBuildingCollision';
 import type { InputController } from '../systems/InputController';
 
 /** 方向 → player_walk 精灵图行号 (Row0=右上, Row1=右下, Row2=左上, Row3=左下) */
@@ -126,7 +127,7 @@ export class Player extends Entity {
 
   /** 检查指定位置是否被墙壁阻挡（仅室内生效） */
   private isBlocked(x: number, y: number): boolean {
-    if (!this.indoorMode) return false;  // 世界地图无碰撞
+    if (!this.indoorMode) return isBlockedByWorldBuildingCollision(x, y);
     if (isBlockedByIndoorFurniture(this.indoorBuildingId, x, y)) return true;
     // 检查 surface 层
     const sv = getTile(this.mapData, 1, x, y);

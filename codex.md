@@ -1504,3 +1504,127 @@ python scripts/trigger_heaven.py
   - 武功表现配置层。
   - Vite 大 chunk 警告处理方式。
 - 文档同步最新参数：`BATTLE_MOVE_STEP_DURATION = 260`、walk `frameIntervalMs = 120`、`chunkSizeWarningLimit = 1800`。
+
+### 2026-04-28 大地图建筑贴图替换
+
+- 用户要求将大地图建筑替换为 `packages/visual/public/assets/ai-resource` 下的贴图。
+- 新增运行时透明裁剪贴图目录：`packages/visual/public/assets/ai-resource/runtime/`。
+  - `ai_building_a_share.png`
+  - `ai_building_crypto.png`
+  - `ai_building_us.png`
+  - `ai_building_gold.png`
+- `美股门派.png` 原图带棋盘格底，运行时版本已做边缘白/灰棋盘格透明处理；原图保留不改。
+- `packages/visual/src/scenes/BootScene.ts` 新增 `WORLD_BUILDING_ASSETS` 预加载四张建筑贴图。
+- `packages/visual/src/systems/BuildingMarkers.ts` 将原来的文字 + 黄点入口标记替换为建筑贴图 + 阴影 + 名称 + 小入口光点。
+  - 当前映射：`exchange=A股门派`、`token_center=数字币门派`、`news=美股门派`、`teahouse=黄金门派`，`birth_house` 暂用 A 股门派，`heimu_cliff` 暂用黄金门派。
+  - 建筑容器深度改为 `entryY + 0.25`，让玩家接近时有基本前后层级关系。
+- 新增文档 `packages/visual/docs/world_building_assets.md`，记录资源、映射和调参入口。
+- 验证：`cd packages/visual && npm run build` 已通过，且无 Vite 大 chunk 警告。
+
+### 2026-04-28 大地图建筑落地与清晰度修正
+
+- 用户反馈大地图建筑“漂浮在空中”且“分辨率不清晰”。
+- 原因：上一版直接把 1000+ 像素大图在 Phaser 中用 `scale=0.12-0.16` 实时缩小，线性采样导致发糊；同时建筑 `originY=1` 且 `offsetY` 为负值，等于把建筑底部悬在入口点上方。
+- 重新生成 `packages/visual/public/assets/ai-resource/runtime/` 运行时贴图为游戏内目标尺寸：
+  - A股门派：`230x219`
+  - 数字币门派：`210x191`
+  - 美股门派：`260x216`
+  - 黄金门派：`250x198`
+- `packages/visual/src/systems/BuildingMarkers.ts` 修正：
+  - 移除每个建筑的 `scale` 配置，建筑显示 `scale=1`。
+  - 改为 `originY=0.88-0.9`，让门口/台阶压到入口点附近。
+  - `offsetY` 改为 `0`，避免负偏移造成漂浮。
+  - 删除建筑整体上下浮动 tween，只保留轻微缩放呼吸。
+- `packages/visual/docs/world_building_assets.md` 同步补充：要改显示大小优先重新生成 runtime 图，不建议 Phaser 大比例缩放。
+- 验证：`cd packages/visual && npm run build` 已通过，且无 Vite 大 chunk 警告。
+
+### 2026-04-28 大地图建筑晃动修正
+
+- 用户反馈大地图建筑在渲染层感觉晃动。
+- 原因：上一版保留了建筑本体 `scaleX/scaleY` 的轻微呼吸 tween，静态建筑会看起来抖动。
+- `packages/visual/src/systems/BuildingMarkers.ts` 已移除建筑本体 tween，建筑完全固定；仅入口小光点保留 alpha/scale 脉冲提示。
+- `packages/visual/docs/world_building_assets.md` 已同步说明建筑本体不做 tween。
+- 验证：`cd packages/visual && npm run build` 已通过，且无 Vite 大 chunk 警告。
+
+### 2026-04-28 大地图入口/碰撞编辑模式 MVP
+
+- 用户希望大地图也有编辑模式，可以增加入口及碰撞效果。
+- 新增 `packages/visual/src/systems/WorldMapEditor.ts`：
+  - `F3` 开关大地图编辑模式。
+  - 显示绿色入口圈/入口点、红色碰撞圈/碰撞点。
+  - 拖绿色点移动建筑入口；拖红色点移动碰撞中心。
+  - `[` / `]` 调入口半径，`-` / `=` 调碰撞半径，`Delete` 清除碰撞，`R` 恢复默认。
+  - 编辑结果保存到 `localStorage`：`deepsolo_world_map_editor_layouts`。
+- `packages/visual/src/types.ts` 的 `BuildingDef` 新增 `collisionX/collisionY/collisionRadius`。
+- `packages/visual/src/content/WorldBuildingCollision.ts` 新增大地图建筑碰撞检测；入口半径内会跳过碰撞，避免入口被挡住。
+- `packages/visual/src/entities/Player.ts` 在世界地图移动时接入 `isBlockedByWorldBuildingCollision()`。
+- `packages/visual/src/systems/BuildingMarkers.ts` 改为每帧按 `buildingId` 读取当前 `BUILDINGS` 坐标，编辑入口后建筑贴图即时移动。
+- `packages/visual/src/scenes/WorldScene.ts` 接入编辑器创建、快捷键和 update。
+- 新增文档 `packages/visual/docs/world_map_editor.md`，记录操作方式、代码入口、存储结构和碰撞规则。
+- 验证：`cd packages/visual && npm run build` 已通过，且无 Vite 大 chunk 警告。
+
+### 2026-04-28 大地图编辑器鼠标面板
+
+- 用户希望大地图编辑模式尽量都用鼠标操作。
+- `packages/visual/src/systems/WorldMapEditor.ts` 新增右侧鼠标操作面板：
+  - `入口 -` / `入口 +`：调整入口半径。
+  - `碰撞 -` / `碰撞 +`：调整碰撞半径。
+  - `清除碰撞`：清除当前建筑碰撞。
+  - `恢复默认`：清空本地保存并恢复代码默认。
+  - `关闭编辑模式`：退出编辑模式。
+- 拖拽绿色入口点、红色碰撞点、点击选择建筑仍然保留；快捷键也保留作为备用。
+- `packages/visual/docs/world_map_editor.md` 已同步鼠标面板说明。
+- 验证：`cd packages/visual && npm run build` 已通过，且无 Vite 大 chunk 警告。
+
+### 2026-04-28 大地图编辑器改为观察者小屋式交互
+
+- 用户明确希望大地图编辑方式类似室内观察者小屋，而不是右侧后台按钮面板。
+- `packages/visual/src/systems/WorldMapEditor.ts` 已改为纯场景内 WYSIWYG 操作：
+  - 取消右侧鼠标操作面板。
+  - 左下角中文操作说明支持点击或 `H` 收起/展开。
+  - 绿色圆点拖动入口中心，绿色方块拖动入口半径。
+  - 红色圆点拖动碰撞中心，红/橙色方块拖动碰撞半径。
+  - 无碰撞建筑会显示红色空心点，拖动即可新建碰撞。
+  - 右键红色碰撞手柄可清除碰撞，滚轮/快捷键仅保留为辅助微调。
+- `packages/visual/src/scenes/WorldScene.ts` 合并 `H/R/Delete` 绑定：大地图编辑器开启时优先操作大地图编辑器，否则继续操作室内家具编辑器。
+- `packages/visual/docs/world_map_editor.md` 已同步最新操作方式和代码入口。
+- 验证：`cd packages/visual && npm run build` 已通过，且无 Vite 大 chunk 警告。
+
+### 2026-04-28 大地图入口与建筑贴图坐标拆分
+
+- 用户反馈拖绿色点时整栋建筑一起移动，且红/橙碰撞点不可见。
+- 原因：上一版 `BuildingMarkers` 直接用 `entryX/entryY` 作为建筑贴图锚点，入口点和建筑本体耦合；同时旧版 localStorage 保存了 `collisionRadius=0`，会覆盖代码默认碰撞。
+- `packages/visual/src/types.ts` 的 `BuildingDef` 新增 `visualX/visualY`，表示建筑贴图本体锚点。
+- `packages/visual/src/data/BuildingData.ts` 为现有大地图建筑配置 `visualX/visualY` 和默认 `collisionX/collisionY/collisionRadius=2.8`。
+- `packages/visual/src/systems/BuildingMarkers.ts` 改为使用 `visualX/visualY` 渲染建筑；拖绿色入口点不再移动建筑贴图。
+- `packages/visual/src/systems/WorldMapEditor.ts` 存储版本升级到 v2：旧 v1 保存会保留入口调整，但不会用旧的 0 碰撞覆盖新默认碰撞，因此红/橙碰撞点会重新出现。
+- `packages/visual/docs/world_map_editor.md` 已补充建筑本体、入口、碰撞三套坐标的区别。
+- 验证：`cd packages/visual && npm run build` 已通过，且无 Vite 大 chunk 警告。
+
+### 2026-04-28 大地图建筑本体拖动恢复
+
+- 用户反馈拆分入口后建筑本体没法拖动。
+- `packages/visual/src/systems/WorldMapEditor.ts` 新增 `visual-center` 编辑手柄：
+  - 编辑模式显示黄色建筑锚点。
+  - 拖黄色点或直接拖建筑主体区域，会修改 `visualX/visualY`，移动整栋建筑贴图。
+  - 绿色点继续只移动入口，红/橙点继续只编辑碰撞。
+  - localStorage 保存版本升级到 v3，开始保存 `visualX/visualY`。
+- `packages/visual/src/systems/BuildingMarkers.ts` 中入口光点改为跟随真实 `entryX/entryY`，建筑容器本体继续跟随 `visualX/visualY`。
+- `packages/visual/docs/world_map_editor.md` 已同步黄色建筑锚点和拖建筑主体的说明。
+- 验证：`cd packages/visual && npm run build` 已通过。
+
+### 2026-04-28 大地图建筑碰撞升级为不规则多边形
+
+- 用户指出建筑碰撞不应该是圆形，应该是不规则多边形。
+- `packages/visual/src/types.ts` 的 `BuildingDef` 新增 `collisionPolygon?: Array<{x,y}>`。
+- `packages/visual/src/data/BuildingData.ts` 为现有建筑配置默认六边形碰撞轮廓，作为可拖拽初始形状。
+- `packages/visual/src/content/WorldBuildingCollision.ts` 改为优先使用 `collisionPolygon` 做点在多边形内检测；旧 `collisionRadius` 只作为无多边形时的兜底。
+- `packages/visual/src/systems/WorldMapEditor.ts`：
+  - 橙色多边形表示建筑真实碰撞区域。
+  - 拖橙色点调整顶点。
+  - `Shift+点击` 新增碰撞顶点。
+  - 右键/`Alt+点击` 橙色点删除顶点。
+  - 拖黄色建筑锚点移动建筑时，会同步平移碰撞多边形。
+  - localStorage 保存版本升级到 v4，保存 `collisionPolygon`。
+- `packages/visual/docs/world_map_editor.md` 已同步多边形碰撞操作说明。
+- 验证：`cd packages/visual && npm run build` 已通过。

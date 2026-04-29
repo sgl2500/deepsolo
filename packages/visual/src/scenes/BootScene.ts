@@ -17,6 +17,13 @@ const BIRTH_HOUSE_DECOR_ASSETS = [
   { key: 'birth_house_decor_table', file: 'table.png' },
 ] as const;
 
+const WORLD_BUILDING_ASSETS = [
+  { key: 'world_building_a_share', file: 'ai_building_a_share.png' },
+  { key: 'world_building_crypto', file: 'ai_building_crypto.png' },
+  { key: 'world_building_us', file: 'ai_building_us.png' },
+  { key: 'world_building_gold', file: 'ai_building_gold.png' },
+] as const;
+
 /** 收集所有室内地图需要的 smap 瓦片 ID */
 function collectSmapTileIds(): number[] {
   const ids = new Set<number>();
@@ -95,6 +102,9 @@ export class BootScene extends Phaser.Scene {
     }
     for (const asset of BIRTH_HOUSE_DECOR_ASSETS) {
       this.load.image(asset.key, `assets/observer_house_v3/runtime/${asset.file}?v=9`);
+    }
+    for (const asset of WORLD_BUILDING_ASSETS) {
+      this.load.image(asset.key, `assets/ai-resource/runtime/${asset.file}?v=1`);
     }
 
     // === Smap 瓦片 (JYQXZ 室内场景) ===

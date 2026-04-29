@@ -18,6 +18,7 @@ import { DialogueSystem } from '../systems/DialogueSystem';
 import { VFXSystem } from '../systems/VFXSystem';
 import { BattleSystem } from '../systems/BattleSystem';
 import { StorySystem } from '../systems/StorySystem';
+import { WorldMapEditor } from '../systems/WorldMapEditor';
 import { BUILDINGS } from '../data/BuildingData';
 import { getNearbyIndoorInteractable } from '../content/IndoorInteractables';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
@@ -49,6 +50,7 @@ export class WorldScene extends Phaser.Scene {
   private vfxSystem!: VFXSystem;
   private battleSystem!: BattleSystem;
   private storySystem!: StorySystem;
+  private worldMapEditor!: WorldMapEditor;
   private buildingMarkers!: Phaser.GameObjects.Container[];
 
   private mapData!: MapData;
@@ -114,6 +116,9 @@ export class WorldScene extends Phaser.Scene {
     // 剧情系统
     this.storySystem = new StorySystem(this, _eventBus, _store);
 
+    // 大地图入口/碰撞编辑器：先加载本地保存，再创建建筑贴图和场景管理器。
+    this.worldMapEditor = new WorldMapEditor(this);
+
     // 建筑入口标记（必须在 SceneManager 之前创建）
     this.buildingMarkers = createBuildingMarkers(this, this.mapData);
 
@@ -138,16 +143,47 @@ export class WorldScene extends Phaser.Scene {
       this.mapRenderer.removeLastFurnitureMaskPoint();
     });
     this.input.keyboard!.on('keydown-DELETE', () => {
+      if (this.worldMapEditor?.isActive()) {
+        this.worldMapEditor.clearSelectedCollision();
+        return;
+      }
       this.mapRenderer.removeLastFurnitureMaskPoint();
     });
     this.input.keyboard!.on('keydown-C', () => {
       this.mapRenderer.clearFurnitureMask();
     });
     this.input.keyboard!.on('keydown-R', () => {
+      if (this.worldMapEditor?.isActive()) {
+        this.worldMapEditor.resetSavedLayout();
+        return;
+      }
       this.mapRenderer.resetFurnitureEditorSavedLayout();
     });
     this.input.keyboard!.on('keydown-H', () => {
+      if (this.worldMapEditor?.isActive()) {
+        this.worldMapEditor.toggleGuide();
+        return;
+      }
       this.mapRenderer.toggleFurnitureEditorGuide();
+    });
+    this.input.keyboard!.on('keydown-F3', () => {
+      if (this.sceneManager?.isIndoor()) return;
+      this.worldMapEditor.toggle();
+    });
+    this.input.keyboard!.on('keydown-OPEN_BRACKET', () => {
+      this.worldMapEditor.adjustEntryRadius(-0.5);
+    });
+    this.input.keyboard!.on('keydown-CLOSED_BRACKET', () => {
+      this.worldMapEditor.adjustEntryRadius(0.5);
+    });
+    this.input.keyboard!.on('keydown-MINUS', () => {
+      this.worldMapEditor.adjustCollisionRadius(-0.5);
+    });
+    this.input.keyboard!.on('keydown-PLUS', () => {
+      this.worldMapEditor.adjustCollisionRadius(0.5);
+    });
+    this.input.keyboard!.on('keydown-EQUALS', () => {
+      this.worldMapEditor.adjustCollisionRadius(0.5);
     });
 
     // ── 统一对话事件 ──
@@ -374,6 +410,10 @@ export class WorldScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     const state = this.sceneManager.getState();
 
+    if (state !== SceneState.WorldMap && this.worldMapEditor?.isActive()) {
+      this.worldMapEditor.setActive(false);
+    }
+
     // ── 战斗状态 ──
     if (state === SceneState.Battle) {
       this.battleSystem.update(time, delta);
@@ -444,6 +484,7 @@ export class WorldScene extends Phaser.Scene {
     // 建筑标记位置更新（仅世界地图）
     if (state === SceneState.WorldMap) {
       updateBuildingMarkers(this.buildingMarkers, px, py);
+      this.worldMapEditor.update(px, py);
     }
 
     // 场景管理更新（检测建筑进出）
