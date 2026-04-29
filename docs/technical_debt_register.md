@@ -50,6 +50,12 @@ npm run build
 - 位置：`scripts/visual_governance_audit.mjs`
 - 结果：治理审计将 `UIManager.ts`、`WorldScene.ts` 和 `styles.css` 视为 `#debug-info` 的合法归属，不再把样式文件误报为分散引用。
 
+### `types.ts` 万能类型桶
+
+- 处理日期：2026-04-29
+- 位置：`packages/visual/src/types.ts`、`packages/visual/src/types/*`
+- 结果：`types.ts` 从约 638 行拆为兼容 barrel，领域类型拆入 `common.ts`、`strategy.ts`、`discussion.ts`、`world.ts`、`player.ts`、`dialogue.ts`、`token.ts`、`conversation.ts`、`battle.ts`、`story.ts`、`events.ts`。现有 `../types` 导入保持兼容。
+
 ## P2
 
 ### 大文件需要拆分

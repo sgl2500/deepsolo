@@ -24,6 +24,14 @@ npm run audit:governance # 治理巡检，输出风险提示
 | 室内渲染 | `src/systems/MapRenderer.ts` | 室内地图、家具、遮挡、编辑器 |
 | 战斗 | `src/systems/BattleSystem.ts`、`src/systems/BattleAnimator.ts` | 战斗状态、行动、动画、HUD |
 | 玩家数据 | `src/core/GameStore.ts`、`src/ui/PlayerPanel.ts` | 玩家属性、武功、物品、面板 |
+| 类型定义 | `src/types.ts`、`src/types/*` | `src/types.ts` 只做兼容出口，领域类型放入 `src/types/*` |
+
+## 类型边界
+
+- `src/types.ts` 是兼容 barrel，只负责 re-export。
+- 新增类型优先落到 `src/types/*` 对应领域文件，例如 `battle.ts`、`world.ts`、`player.ts`。
+- 新模块内部可以继续从 `../types` 导入，避免一次性大范围改 import。
+- 如果某个类型文件超过 300 行，应继续按子领域拆分。
 
 ## 编辑器模式约定
 

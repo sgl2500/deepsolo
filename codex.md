@@ -1806,3 +1806,23 @@ python scripts/trigger_heaven.py
 - `scripts/visual_governance_audit.mjs` 将 `test:unit` 纳入必须脚本检查。
 - `packages/visual/README.md`、`packages/visual/docs/visual_governance.md`、`docs/project_governance.md`、`docs/technical_debt_register.md` 已同步测试门禁说明。
 - 验证：`npm run check` 已通过，执行 `typecheck`、17 个 unit tests 和 Vite build；`npm run audit:governance` 显示“治理提醒：暂无”。
+
+### 2026-04-29 类型体系治理：拆分 types.ts
+
+- 用户询问项目结构后，按建议先治理 `packages/visual/src/types.ts`。
+- 保留 `packages/visual/src/types.ts` 作为兼容 barrel，继续支持现有 `import ... from '../types'`。
+- 新增 `packages/visual/src/types/` 领域类型文件：
+  - `common.ts`：方向、地图元数据、地图数据、气泡配置。
+  - `strategy.ts`：Agent 状态、策略、账户、状态标签/转换。
+  - `discussion.ts`：讨论话题、讨论小组、对话行。
+  - `world.ts`：场景状态、建筑、NPC、室内交互对象。
+  - `player.ts`：玩家属性、生命内力、物品、秘籍、武功进度。
+  - `dialogue.ts`：传统对话树。
+  - `token.ts`：Token 中心类型。
+  - `conversation.ts`：统一对话模型。
+  - `battle.ts`：战斗角色、武功、行动、结果。
+  - `story.ts`：剧情条件、动作、触发器、脚本。
+  - `events.ts`：EventBus 事件映射。
+- `types.ts` 从约 638 行降到 15 行；各领域类型文件均保持小文件。
+- `packages/visual/docs/visual_governance.md`、`docs/project_governance.md`、`docs/technical_debt_register.md` 已同步类型边界规则。
+- 验证：`npm run check` 和 `npm run audit:governance` 已通过，17 个 unit tests 通过，治理提醒为暂无。
