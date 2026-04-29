@@ -10,7 +10,7 @@ deepsolo/packages/visual/
     assets/          浏览器运行时会直接请求的最终素材
     data/            浏览器运行时读取的策略、NPC、Token 等数据
 
-/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/
+../assets-library/deepsolo/
   observer_house/    观察者小屋历史版本、raw、preview、metadata、cutouts
   jyqxz/             JYQXZ 完整素材库和生成素材
   indoor_maps/       未接入当前建筑的室内地图候选库
@@ -46,7 +46,7 @@ deepsolo/packages/visual/
 当前外部库：
 
 ```text
-/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/
+../assets-library/deepsolo/
   observer_house/v1/
   observer_house/v2/
   observer_house/v3/raw/

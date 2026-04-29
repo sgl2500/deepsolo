@@ -7,7 +7,7 @@
 原始资源目录：
 
 ```txt
-/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/world_buildings/source/
+../assets-library/deepsolo/world_buildings/source/
 ```
 
 当前使用的原图：

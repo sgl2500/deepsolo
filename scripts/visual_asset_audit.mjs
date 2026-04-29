@@ -6,7 +6,7 @@ const repoRoot = path.resolve(import.meta.dirname, '..');
 const visualRoot = path.join(repoRoot, 'packages', 'visual');
 const publicRoot = path.join(visualRoot, 'public');
 const publicAssetsRoot = path.join(publicRoot, 'assets');
-const externalAssetLibraryRoot = '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo';
+const externalAssetLibraryRoot = path.resolve(repoRoot, '..', 'assets-library', 'deepsolo');
 
 const requiredPaths = [
   'packages/visual/docs/asset_governance.md',
@@ -50,17 +50,17 @@ const forbiddenPublicPaths = [
 
 const requiredSourcePaths = [
   `${externalAssetLibraryRoot}/README.md`,
-  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v1',
-  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v2',
-  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/raw',
-  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/preview',
-  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/metadata',
-  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3/cutouts',
-  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/jyqxz/full',
-  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/jyqxz/generated',
-  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/indoor_maps/full',
-  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/world_buildings/source',
-  '/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/legacy_root_assets',
+  `${externalAssetLibraryRoot}/observer_house/v1`,
+  `${externalAssetLibraryRoot}/observer_house/v2`,
+  `${externalAssetLibraryRoot}/observer_house/v3/raw`,
+  `${externalAssetLibraryRoot}/observer_house/v3/preview`,
+  `${externalAssetLibraryRoot}/observer_house/v3/metadata`,
+  `${externalAssetLibraryRoot}/observer_house/v3/cutouts`,
+  `${externalAssetLibraryRoot}/jyqxz/full`,
+  `${externalAssetLibraryRoot}/jyqxz/generated`,
+  `${externalAssetLibraryRoot}/indoor_maps/full`,
+  `${externalAssetLibraryRoot}/world_buildings/source`,
+  `${externalAssetLibraryRoot}/legacy_root_assets`,
 ];
 
 function exists(relPath) {

@@ -10,12 +10,12 @@ from PIL import Image, ImageDraw, ImageOps
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ASSET_ROOT = Path("/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v3")
+ASSET_ROOT = ROOT.parent / "assets-library/deepsolo/observer_house/v3"
 RAW_DIR = ASSET_ROOT / "raw"
 CUTOUT_DIR = ASSET_ROOT / "cutouts"
 RUNTIME_DIR = ROOT / "packages/visual/public/assets/rooms/observer_house"
 PREVIEW_DIR = ASSET_ROOT / "preview"
-V2_RUNTIME_DIR = Path("/Users/sunguanlong/Desktop/AIGC/assets-library/deepsolo/observer_house/v2/runtime")
+V2_RUNTIME_DIR = ROOT.parent / "assets-library/deepsolo/observer_house/v2/runtime"
 GREEN = (0, 255, 0)
 TOLERANCE = 70
 
