@@ -5,14 +5,9 @@
 import {
   TILE_HALF_W, TILE_HALF_H,
   SCREEN_WIDTH, SCREEN_HEIGHT,
-  BUFFER_WIDTH, BUFFER_HEIGHT,
   INDOOR_SCALE,
-  LS_KEY_FURNITURE_EDITOR_LAYOUTS,
-  LS_KEY_INTERACTABLE_EDITOR_LAYOUTS,
 } from '../config';
-import { getTile } from '../utils/IsoProjection';
-import { isFrameValid } from '../utils/MathUtils';
-import type { IndoorInteractableDef, IndoorInteractableZone, MapData, TileMeta } from '../types';
+import type { IndoorInteractableDef, MapData, TileMeta } from '../types';
 import {
   getIndoorFurnitureDefs,
   toActualIndoorBounds,
@@ -21,36 +16,32 @@ import {
   type IndoorFurnitureDef,
 } from '../content/IndoorFurnitureLayout';
 import { getIndoorInteractables } from '../content/IndoorInteractables';
-
-const BCY = BUFFER_HEIGHT / 2;
-const BCX = BUFFER_WIDTH / 2;
-const CUSTOM_SMAP_OFFSETS: Record<number, { xoff: number; yoff: number }> = {
-  9501: { xoff: 20, yoff: 64 },
-  9502: { xoff: 24, yoff: 33 },
-  9503: { xoff: 12, yoff: 46 },
-  9510: { xoff: 18, yoff: 17 },
-  9511: { xoff: 18, yoff: 17 },
-  9512: { xoff: 18, yoff: 17 },
-  9513: { xoff: 18, yoff: 17 },
-  9514: { xoff: 18, yoff: 17 },
-  9515: { xoff: 18, yoff: 17 },
-  9520: { xoff: 18, yoff: 46 },
-  9521: { xoff: 18, yoff: 46 },
-  9522: { xoff: 18, yoff: 46 },
-  9523: { xoff: 18, yoff: 64 },
-  9524: { xoff: 18, yoff: 64 },
-  9525: { xoff: 18, yoff: 64 },
-  9526: { xoff: 18, yoff: 34 },
-  9527: { xoff: 18, yoff: 34 },
-  9528: { xoff: 18, yoff: 28 },
-  9529: { xoff: 18, yoff: 54 },
-  9530: { xoff: 18, yoff: 54 },
-  9531: { xoff: 18, yoff: 46 },
-  9532: { xoff: 18, yoff: 46 },
-  9533: { xoff: 18, yoff: 23 },
-  9534: { xoff: 18, yoff: 24 },
-};
-const FURNITURE_OCCLUDER_DEPTH_OFFSET = 8000;
+import { DebugLogger } from '../utils/DebugLogger';
+import {
+  IndoorCoordinateMapper,
+  normalizeFurnitureCollider,
+  normalizeInteractableZone,
+  roundEditorValue,
+  strokeIndoorDiamond,
+  strokeIndoorRectBounds,
+} from './map/IndoorCoordinateMapper';
+import { FurnitureOccluderRenderer } from './map/FurnitureOccluderRenderer';
+import { IndoorLayerRenderer, type IndoorFixedRoomDef } from './map/IndoorLayerRenderer';
+import { WorldMapCanvasRenderer } from './map/WorldMapCanvasRenderer';
+import {
+  applyFurnitureEditorSnapshot,
+  applyInteractableEditorSnapshot,
+  createFurnitureEditorSnapshot,
+  createInteractableEditorSnapshot,
+  getFurnitureEditorStorageKey,
+  getInteractableEditorStorageKey,
+  loadFurnitureEditorSnapshot,
+  loadInteractableEditorSnapshot,
+  saveFurnitureEditorSnapshot,
+  saveInteractableEditorSnapshot,
+  type FurnitureEditorSnapshotItem,
+  type InteractableEditorSnapshotItem,
+} from './map/IndoorEditorPersistence';
 
 type FurnitureEditorHandleKind = 'anchor' | 'depth' | 'nw' | 'ne' | 'se' | 'sw' | 'mask';
 
@@ -67,45 +58,6 @@ type InteractableEditorDrag = {
   kind: InteractableEditorHandleKind;
 };
 
-type FurnitureEditorSnapshotItem = {
-  id: string;
-  localX: number;
-  localY: number;
-  scale?: number;
-  alpha?: number;
-  originX?: number;
-  originY?: number;
-  pixelOffsetX?: number;
-  pixelOffsetY?: number;
-  depthLocalX?: number;
-  depthLocalY?: number;
-  depthBias?: number;
-  collider?: IndoorFurnitureDef['collider'];
-  occluderMask?: IndoorFurnitureDef['occluderMask'];
-};
-
-type FurnitureEditorStoragePayload = {
-  version: 1;
-  buildingId: string;
-  savedAt: number;
-  items: FurnitureEditorSnapshotItem[];
-};
-
-type InteractableEditorSnapshotItem = {
-  id: string;
-  mapX: number;
-  mapY: number;
-  interactRadius?: number;
-  interactionZone?: IndoorInteractableZone;
-};
-
-type InteractableEditorStoragePayload = {
-  version: 1;
-  buildingId: string;
-  savedAt: number;
-  items: InteractableEditorSnapshotItem[];
-};
-
 type IndoorDecorDef = {
   textureKey: string;
   mapX: number;
@@ -115,45 +67,6 @@ type IndoorDecorDef = {
   depthBias?: number;
   scale?: number;
   alpha?: number;
-};
-
-type IndoorFixedVisualDef = {
-  textureKey: string;
-  localX: number;
-  localY: number;
-  scale?: number;
-  alpha?: number;
-  originX?: number;
-  originY?: number;
-  pixelOffsetX?: number;
-  pixelOffsetY?: number;
-  depthLocalX?: number;
-  depthLocalY?: number;
-  depthBias?: number;
-};
-
-type IndoorFixedFloorTilesDef = {
-  textureKeys: string[];
-  rowStart: number;
-  rowEnd: number;
-  colStart: number;
-  colEnd: number;
-};
-
-type IndoorFixedWallTilesDef = {
-  rowStart: number;
-  rowEnd: number;
-  colStart: number;
-  colEnd: number;
-  doorColStart?: number;
-  doorColEnd?: number;
-};
-
-type IndoorFixedRoomDef = {
-  skipTilemap: boolean;
-  floorTiles?: IndoorFixedFloorTilesDef;
-  wallTiles?: IndoorFixedWallTilesDef;
-  visuals: IndoorFixedVisualDef[];
 };
 
 const INDOOR_DECOR_LAYOUTS: Record<string, IndoorDecorDef[]> = {
@@ -186,36 +99,17 @@ export class MapRenderer {
   private mapData!: MapData;
   private tileMeta!: TileMeta;
 
-  // 世界地图双缓冲
-  private bufCanvas: HTMLCanvasElement;
-  private bufCtx: CanvasRenderingContext2D;
-  private scrCanvas: HTMLCanvasElement;
-  private scrCtx: CanvasRenderingContext2D;
-  private scrTexture: Phaser.Textures.CanvasTexture | null = null;
-  private atlasImg: any = null;
-
-  private bufCx = 0;
-  private bufCy = 0;
-
-  scrImage!: Phaser.GameObjects.Image;
+  private worldMapRenderer: WorldMapCanvasRenderer;
+  private indoorLayerRenderer: IndoorLayerRenderer;
+  private furnitureOccluderRenderer: FurnitureOccluderRenderer;
 
   // 室内模式
   private isIndoor = false;
-  private smapOffsets: Map<number, { xoff: number; yoff: number }> = new Map();
   // 室内容器 — 包含所有室内精灵和 Canvas，整体跟随玩家滚动
   private indoorContainer: Phaser.GameObjects.Container | null = null;
-  // 室内墙壁 + 建筑（L1+L2）精灵
-  private wallSprites: Phaser.GameObjects.GameObject[] = [];
-  // 屋顶精灵（building 层），单独管理用于动态透明度
-  private roofSprites: Phaser.GameObjects.Image[] = [];
-  // 每个屋顶精灵对应的网格坐标
-  private roofGridPos: { col: number; row: number }[] = [];
   // 自定义室内装饰层（用于出生小屋样板）
   private indoorDecorSprites: Phaser.GameObjects.Image[] = [];
   private indoorFurnitureSprites: Map<string, Phaser.GameObjects.Image> = new Map();
-  private indoorFurnitureOccluderSprites: Map<string, Phaser.GameObjects.Image> = new Map();
-  private indoorFurnitureOccluderTextureKeys: Map<string, string> = new Map();
-  private indoorFurnitureOccluderTextureSerial = 0;
   private indoorDebugGraphics: Phaser.GameObjects.Graphics | null = null;
   private indoorDebugTexts: Phaser.GameObjects.Text[] = [];
   private furnitureEditorActive = false;
@@ -233,25 +127,19 @@ export class MapRenderer {
   // 室内房间中心
   private indoorCx = 0;
   private indoorCy = 0;
-  // 室内独立地板 Canvas（容纳完整菱形，不影响世界地图 scrCanvas）
-  private indoorFloorCanvas: HTMLCanvasElement | null = null;
-  private indoorFloorCtx: CanvasRenderingContext2D | null = null;
-  private indoorFloorImage: Phaser.GameObjects.Image | null = null;
   private indoorAssetLoadPromise: Promise<void> | null = null;
   private currentIndoorBuildingId: string | null = null;
+  private indoorCoordinateMapper: IndoorCoordinateMapper;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
-
-    this.bufCanvas = document.createElement('canvas');
-    this.bufCanvas.width = BUFFER_WIDTH;
-    this.bufCanvas.height = BUFFER_HEIGHT;
-    this.bufCtx = this.bufCanvas.getContext('2d')!;
-
-    this.scrCanvas = document.createElement('canvas');
-    this.scrCanvas.width = SCREEN_WIDTH;
-    this.scrCanvas.height = SCREEN_HEIGHT;
-    this.scrCtx = this.scrCanvas.getContext('2d')!;
+    this.indoorCoordinateMapper = new IndoorCoordinateMapper(
+      () => ({ cx: this.indoorCx, cy: this.indoorCy }),
+      () => this.indoorContainerOffset,
+    );
+    this.worldMapRenderer = new WorldMapCanvasRenderer(scene);
+    this.indoorLayerRenderer = new IndoorLayerRenderer(scene);
+    this.furnitureOccluderRenderer = new FurnitureOccluderRenderer(scene);
 
     this.scene.input.on('pointerdown', this.onFurnitureEditorPointerDown, this);
     this.scene.input.on('pointermove', this.onFurnitureEditorPointerMove, this);
@@ -263,16 +151,14 @@ export class MapRenderer {
     this.mapData = mapData;
     this.tileMeta = tileMeta;
 
-    const tex = this.scene.textures.addCanvas('scrCanvas', this.scrCanvas);
-    this.scrTexture = tex as Phaser.Textures.CanvasTexture;
-    this.scrImage = this.scene.add.image(0, 0, 'scrCanvas').setOrigin(0, 0).setDepth(0).setScrollFactor(0);
+    this.worldMapRenderer.init(mapData, tileMeta);
   }
 
   /** 切换到室内地图 */
   switchToIndoor(mapData: MapData, buildingId?: string): void {
     this.mapData = mapData;
     this.isIndoor = true;
-    this.atlasImg = null;
+    this.worldMapRenderer.resetAtlas();
     this.indoorCx = mapData.cx;
     this.indoorCy = mapData.cy;
     this.currentIndoorBuildingId = buildingId ?? null;
@@ -289,46 +175,7 @@ export class MapRenderer {
     // 隐藏世界地图 Canvas（室内用独立地板 Canvas）
     this.scrImage.setVisible(false);
 
-    // 计算能容纳完整菱形的独立 Canvas 尺寸
-    const s = INDOOR_SCALE;
-    const extent = Math.max(mapData.width, mapData.height) - 1;
-    const canvasW = extent * TILE_HALF_W * s * 2 + 36 * s;
-    const canvasH = extent * TILE_HALF_H * s * 2 + 18 * s;
-    this.indoorFloorCanvas = document.createElement('canvas');
-    this.indoorFloorCanvas.width = canvasW;
-    this.indoorFloorCanvas.height = canvasH;
-    this.indoorFloorCtx = this.indoorFloorCanvas.getContext('2d')!;
-
-    // 加载 smap 偏移
-    this.smapOffsets.clear();
-    const info = this.scene.cache.json.get('smap_info');
-    if (Array.isArray(info)) {
-      for (const t of info) {
-        this.smapOffsets.set(t.idx, { xoff: t.xoff, yoff: t.yoff });
-      }
-    }
-    for (const [tileId, offset] of Object.entries(CUSTOM_SMAP_OFFSETS)) {
-      this.smapOffsets.set(Number(tileId), offset);
-    }
-
-    // 渲染地板到独立 Canvas
-    this.renderIndoorFloor();
-
-    // 创建室内地板纹理和 Image，定位使菱形中心与墙壁精灵对齐
-    const texKey = '__indoorFloor';
-    if (this.scene.textures.exists(texKey)) {
-      this.scene.textures.remove(texKey);
-    }
-    this.scene.textures.addCanvas(texKey, this.indoorFloorCanvas);
-    const imgX = SCREEN_WIDTH / 2 - canvasW / 2;
-    const imgY = SCREEN_HEIGHT / 2 - canvasH / 2;
-    this.indoorFloorImage = this.scene.add.image(imgX, imgY, texKey)
-      .setOrigin(0, 0)
-      .setDepth(0);
-    this.indoorContainer.add(this.indoorFloorImage);
-
-    // 创建墙壁精灵
-    this.createWallSprites();
+    this.indoorLayerRenderer.create(mapData, this.indoorContainer, this.currentFixedRoomLayout);
     this.createIndoorDecorSprites();
   }
 
@@ -386,20 +233,9 @@ export class MapRenderer {
   switchToWorld(mapData: MapData, tileMeta: TileMeta): void {
     this.mapData = mapData;
     this.tileMeta = tileMeta;
+    this.worldMapRenderer.setMapData(mapData, tileMeta);
     this.isIndoor = false;
-    this.atlasImg = null;
-    this.destroyWallSprites();
-
-    // 清理室内地板 Canvas/纹理
-    if (this.indoorFloorImage) {
-      this.indoorFloorImage.destroy();
-      this.indoorFloorImage = null;
-    }
-    if (this.scene.textures.exists('__indoorFloor')) {
-      this.scene.textures.remove('__indoorFloor');
-    }
-    this.indoorFloorCanvas = null;
-    this.indoorFloorCtx = null;
+    this.indoorLayerRenderer.destroy();
     this.currentIndoorBuildingId = null;
     this.destroyIndoorDecorSprites();
     this.destroyIndoorDebugOverlay();
@@ -431,6 +267,10 @@ export class MapRenderer {
       : { x: 0, y: 0 };
   }
 
+  get scrImage(): Phaser.GameObjects.Image {
+    return this.worldMapRenderer.scrImage;
+  }
+
   private get currentFixedRoomLayout(): IndoorFixedRoomDef | null {
     if (!this.currentIndoorBuildingId) return null;
     return INDOOR_FIXED_ROOM_LAYOUTS[this.currentIndoorBuildingId] ?? null;
@@ -452,6 +292,10 @@ export class MapRenderer {
 
   toggleFurnitureEditor(): void {
     this.setFurnitureEditorActive(!this.furnitureEditorActive);
+  }
+
+  isFurnitureEditorActive(): boolean {
+    return this.furnitureEditorActive;
   }
 
   toggleFurnitureMaskEditor(): void {
@@ -497,16 +341,16 @@ export class MapRenderer {
   resetFurnitureEditorSavedLayout(): void {
     if (!this.furnitureEditorActive || !this.currentIndoorBuildingId) return;
 
-    localStorage.removeItem(this.getFurnitureEditorStorageKey(this.currentIndoorBuildingId));
-    localStorage.removeItem(this.getInteractableEditorStorageKey(this.currentIndoorBuildingId));
+    localStorage.removeItem(getFurnitureEditorStorageKey(this.currentIndoorBuildingId));
+    localStorage.removeItem(getInteractableEditorStorageKey(this.currentIndoorBuildingId));
     const defaults = this.furnitureEditorDefaultSnapshots.get(this.currentIndoorBuildingId);
     if (defaults) {
-      this.applyFurnitureEditorSnapshot(this.currentIndoorBuildingId, defaults);
+      applyFurnitureEditorSnapshot(this.currentIndoorBuildingId, defaults);
       this.refreshFurnitureEditorVisuals();
     }
     const interactableDefaults = this.interactableEditorDefaultSnapshots.get(this.currentIndoorBuildingId);
     if (interactableDefaults) {
-      this.applyInteractableEditorSnapshot(this.currentIndoorBuildingId, interactableDefaults);
+      applyInteractableEditorSnapshot(this.currentIndoorBuildingId, interactableDefaults);
     }
     this.showFurnitureEditorMessage('已清空本地保存，并恢复代码默认家具参数');
   }
@@ -537,317 +381,23 @@ export class MapRenderer {
     }));
     const json = JSON.stringify(layout, null, 2);
     navigator.clipboard?.writeText(json).catch(() => undefined);
-    console.log('[FurnitureEditor] Exported layout:', json);
-    this.showFurnitureEditorMessage('家具配置已导出到剪贴板和 console');
+    DebugLogger.userInfo('FurnitureEditor', 'Exported layout', json);
+    this.showFurnitureEditorMessage('家具配置已复制到剪贴板，详情见 console.info');
     return json;
   }
 
   shouldRerender(playerX: number, playerY: number): boolean {
-    if (this.isIndoor) return false;
-    const ddx = playerX - this.bufCx;
-    const ddy = playerY - this.bufCy;
-    const pxOff = Math.abs(ddx * TILE_HALF_W) + Math.abs(ddy * TILE_HALF_W);
-    const pyOff = Math.abs(ddx * TILE_HALF_H) + Math.abs(ddy * TILE_HALF_H);
-    return pxOff > (BUFFER_WIDTH / 2 - SCREEN_WIDTH / 2) - 50
-      || pyOff > (BUFFER_HEIGHT / 2 - SCREEN_HEIGHT / 2) - 30;
+    return !this.isIndoor && this.worldMapRenderer.shouldRerender(playerX, playerY);
   }
 
   renderBuffer(playerX: number, playerY: number): void {
     if (this.isIndoor) return;
-
-    const ctx = this.bufCtx;
-    ctx.clearRect(0, 0, BUFFER_WIDTH, BUFFER_HEIGHT);
-    ctx.fillStyle = '#0a0e1a';
-    ctx.fillRect(0, 0, BUFFER_WIDTH, BUFFER_HEIGHT);
-
-    this.bufCx = playerX;
-    this.bufCy = playerY;
-
-    const px = Math.floor(playerX);
-    const py = Math.floor(playerY);
-    const istart = Math.floor((0 - BCX) / (2 * TILE_HALF_W)) - 2;
-    const iend = Math.floor((BUFFER_WIDTH - BCX) / (2 * TILE_HALF_W)) + 2;
-    const jstart = Math.floor((0 - BCY) / (2 * TILE_HALF_H)) - 2;
-    const jend = Math.floor((BUFFER_HEIGHT - BCY) / (2 * TILE_HALF_H)) + 2;
-    const jrange = 2 * jend - 2 * jstart + 6;
-
-    if (!this.atlasImg) {
-      this.atlasImg = this.scene.textures.get('tiles').getSourceImage();
-    }
-
-    for (let j = 0; j <= jrange; j++) {
-      for (let i = istart; i <= iend; i++) {
-        const i1 = i + Math.floor(j / 2) + jstart;
-        const j1 = -i + Math.floor(j / 2) + (j % 2) + jstart;
-        const sx = TILE_HALF_W * (i1 - j1) + BCX;
-        const sy = TILE_HALF_H * (i1 + j1) + BCY;
-        const mx = px + i1;
-        const my = py + j1;
-
-        const ev = getTile(this.mapData, 0, mx, my);
-        if (ev > 0) this.drawWorldTile(ctx, ev >> 1, sx, sy);
-        const sv = getTile(this.mapData, 1, mx, my);
-        if (sv > 0) this.drawWorldTile(ctx, sv >> 1, sx, sy);
-      }
-    }
+    this.worldMapRenderer.renderBuffer(playerX, playerY);
   }
 
   blitToScreen(playerX: number, playerY: number): void {
     if (this.isIndoor) return;
-
-    const offX = TILE_HALF_W * ((playerX - playerY) - (this.bufCx - this.bufCy));
-    const offY = TILE_HALF_H * ((playerX + playerY) - (this.bufCx + this.bufCy));
-    const srcX = BCX - SCREEN_WIDTH / 2 + offX;
-    const srcY = BCY - SCREEN_HEIGHT / 2 + offY;
-    this.scrCtx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-    this.scrCtx.drawImage(this.bufCanvas, srcX, srcY, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-    this.scrTexture!.update();
-  }
-
-  // ============================================================
-  // 室内渲染
-  // ============================================================
-
-  /** 渲染地板到室内独立 Canvas（静态背景） */
-  private renderIndoorFloor(): void {
-    const canvas = this.indoorFloorCanvas!;
-    const ctx = this.indoorFloorCtx!;
-    const fixedRoom = this.currentFixedRoomLayout;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (fixedRoom?.floorTiles) {
-      this.renderFixedRoomFloorTiles(ctx, canvas, fixedRoom.floorTiles);
-      return;
-    }
-
-    if (fixedRoom?.skipTilemap) {
-      return;
-    }
-
-    const map = this.mapData;
-    const cx = this.indoorCx;
-    const cy = this.indoorCy;
-    const scrCx = canvas.width / 2;
-    const scrCy = canvas.height / 2;
-    const s = INDOOR_SCALE;
-
-    const pos = (col: number, row: number) => ({
-      sx: TILE_HALF_W * s * ((col - cx) - (row - cy)) + scrCx,
-      sy: TILE_HALF_H * s * ((col - cx) + (row - cy)) + scrCy,
-    });
-
-    // Layer 0 — earth (floor)
-    for (let row = 0; row < map.height; row++) {
-      for (let col = 0; col < map.width; col++) {
-        const ev = map.earth[row][col];
-        if (ev === 0) continue;
-        const { sx, sy } = pos(col, row);
-        this.drawSmapTileOnCtx(ctx, ev, sx, sy, s);
-      }
-    }
-
-    // Layer 1 — surface (walls) 也画到 Canvas 上，消除墙壁和地板间的缝隙
-    for (let row = 0; row < map.height; row++) {
-      for (let col = 0; col < map.width; col++) {
-        const sv = map.surface[row][col];
-        if (sv === 0) continue;
-        const { sx, sy } = pos(col, row);
-        this.drawSmapTileOnCtx(ctx, sv, sx, sy, s);
-      }
-    }
-  }
-
-  private renderFixedRoomFloorTiles(
-    ctx: CanvasRenderingContext2D,
-    canvas: HTMLCanvasElement,
-    floorTiles: IndoorFixedFloorTilesDef,
-  ): void {
-    const cx = this.indoorCx;
-    const cy = this.indoorCy;
-    const scrCx = canvas.width / 2;
-    const scrCy = canvas.height / 2;
-    const s = INDOOR_SCALE;
-
-    for (let row = floorTiles.rowStart; row <= floorTiles.rowEnd; row++) {
-      for (let col = floorTiles.colStart; col <= floorTiles.colEnd; col++) {
-        const variantIndex = this.pickFixedFloorTileVariant(row, col, floorTiles.textureKeys.length);
-        const textureKey = floorTiles.textureKeys[variantIndex];
-        if (!this.scene.textures.exists(textureKey)) continue;
-
-        const sx = TILE_HALF_W * s * ((col - cx) - (row - cy)) + scrCx;
-        const sy = TILE_HALF_H * s * ((col - cx) + (row - cy)) + scrCy;
-        if (textureKey.startsWith('smap_')) {
-          this.drawSmapTileOnCtx(ctx, Number(textureKey.slice(5)), sx, sy, s);
-        } else {
-          this.drawFixedTextureOnCtx(ctx, textureKey, sx, sy);
-        }
-      }
-    }
-  }
-
-  private pickFixedFloorTileVariant(row: number, col: number, variantCount: number): number {
-    if (variantCount <= 1) return 0;
-
-    const seed = (row * 17 + col * 31) % 16;
-    if (seed === 13 && variantCount > 2) return 2;
-    if ((seed === 1 || seed === 9) && variantCount > 1) return 1;
-    if (seed === 0 || seed === 5) return 0;
-    return Math.min(variantCount - 1, 3);
-  }
-
-  /** 创建墙壁精灵（Layer 1 + Layer 2，位置固定，只创建一次） */
-  private createWallSprites(): void {
-    this.destroyWallSprites();
-    const fixedRoom = this.currentFixedRoomLayout;
-    if (fixedRoom) {
-      if (fixedRoom.wallTiles) {
-        this.createFixedRoomWallSprites(fixedRoom.wallTiles);
-      }
-      return;
-    }
-
-    const map = this.mapData;
-    const cx = this.indoorCx;
-    const cy = this.indoorCy;
-    const scrCx = SCREEN_WIDTH / 2;
-    const scrCy = SCREEN_HEIGHT / 2;
-    const s = INDOOR_SCALE;
-
-    const building = map.building;
-    const heightMap = map.surfaceHeight;
-
-    // 从 surface 层计算统一的屋顶高度（取最大 yoff，确保覆盖最高墙体）
-    let roofYoff = 0;
-    for (let r = 0; r < map.height; r++) {
-      for (let c = 0; c < map.width; c++) {
-        const sId = map.surface[r][c];
-        if (sId !== 0) {
-          const sOff = this.smapOffsets.get(sId);
-          if (sOff && sOff.yoff > roofYoff) roofYoff = sOff.yoff;
-        }
-      }
-    }
-    // 多下移 20px 让屋顶与墙顶重叠，消除视觉间隙（缩放后也要乘 scale）
-    const roofOverlap = 20 * s;
-    const roofOffset = roofYoff * s - roofOverlap;
-    console.log(`[MapRenderer] roofYoff=${roofYoff}, roofOffset=${roofOffset}, scale=${s}`);
-
-    for (let row = 0; row < map.height; row++) {
-      for (let col = 0; col < map.width; col++) {
-        const sx = TILE_HALF_W * s * ((col - cx) - (row - cy)) + scrCx;
-        const sy = TILE_HALF_H * s * ((col - cx) + (row - cy)) + scrCy;
-        const d4 = heightMap ? (heightMap[row]?.[col] ?? 0) : 0;
-
-        // 先查询 building 层该位置是否有瓦片（用于判断 surface 是否需要跳过）
-        const bId = building ? (building[row]?.[col] ?? 0) : 0;
-
-        // Layer 1 — surface (walls, furniture)
-        const tileId = map.surface[row][col];
-        // 如果同一位置 building 层也有相同瓦片（前景墙），跳过 surface 精灵
-        // building 层会用 depth +0.5 渲染在玩家上面
-        if (tileId !== 0 && !(bId !== 0 && tileId === bId)) {
-          const texKey = `smap_${tileId}`;
-          if (this.scene.textures.exists(texKey)) {
-            const off = this.smapOffsets.get(tileId);
-            const ox = off ? off.xoff * s : TILE_HALF_W * s;
-            const oy = off ? off.yoff * s : 17 * s;
-
-            const img = this.scene.add.image(sx - ox, sy - oy - d4 * s, texKey)
-              .setOrigin(0, 0)
-              .setScale(s)
-              .setDepth(col + row);
-            this.indoorContainer!.add(img);
-            this.wallSprites.push(img);
-          }
-        }
-
-        // Layer 2 — building (屋顶 或 前景墙遮挡)
-        // yoff > 30 → 前景墙（如底边墙角），不应用 roofOffset，不参与透明度
-        // yoff ≤ 30 → 屋顶，应用 roofOffset，参与动态透明度
-        if (bId !== 0) {
-          const texKey = `smap_${bId}`;
-          if (this.scene.textures.exists(texKey)) {
-            const off = this.smapOffsets.get(bId);
-            const ox = off ? off.xoff * s : TILE_HALF_W * s;
-            const oy = off ? off.yoff * s : 17 * s;
-            const isWallOverlay = off ? off.yoff > 30 : false;
-            const yOffset = isWallOverlay ? 0 : roofOffset;
-
-            const img = this.scene.add.image(sx - ox, sy - oy - d4 * s - yOffset, texKey)
-              .setOrigin(0, 0)
-              .setScale(s)
-              .setDepth(col + row + 0.5)
-              .setAlpha(1.0);
-
-            this.indoorContainer!.add(img);
-            this.wallSprites.push(img);
-            if (!isWallOverlay) {
-              this.roofSprites.push(img);
-              this.roofGridPos.push({ col, row });
-            }
-          }
-        }
-      }
-    }
-
-    console.log(`[MapRenderer] Total sprites: ${this.wallSprites.length}, roof: ${this.roofSprites.length}`);
-  }
-
-  private createFixedRoomWallSprites(wallTiles: IndoorFixedWallTilesDef): void {
-    const cx = this.indoorCx;
-    const cy = this.indoorCy;
-    const scrCx = SCREEN_WIDTH / 2;
-    const scrCy = SCREEN_HEIGHT / 2;
-    const s = INDOOR_SCALE;
-
-    const addWallTile = (tileId: number, col: number, row: number, depthBias = 0): void => {
-      const texKey = `smap_${tileId}`;
-      if (!this.scene.textures.exists(texKey)) return;
-
-      const sx = TILE_HALF_W * s * ((col - cx) - (row - cy)) + scrCx;
-      const sy = TILE_HALF_H * s * ((col - cx) + (row - cy)) + scrCy;
-      const off = this.smapOffsets.get(tileId);
-      const ox = off ? off.xoff * s : TILE_HALF_W * s;
-      const oy = off ? off.yoff * s : 17 * s;
-
-      const img = this.scene.add.image(sx - ox, sy - oy, texKey)
-        .setOrigin(0, 0)
-        .setScale(s)
-        .setDepth(col + row + depthBias);
-
-      this.indoorContainer!.add(img);
-      this.wallSprites.push(img);
-    };
-
-    // 0836-0848 是一组有方向的墙瓦片：0845/0847 是后墙角，0838 是后墙横段，0837 是侧墙，0846/0848 是前景角，0839 是前景横段。
-    // 0836/0840/0841/0843/0844 看起来是特殊朝向/破损端头，不适合混在连续边里。
-    for (let col = wallTiles.colStart; col <= wallTiles.colEnd; col++) {
-      const topTile = col === wallTiles.colStart
-        ? 845
-        : col === wallTiles.colEnd
-          ? 847
-          : 838;
-      addWallTile(topTile, col, wallTiles.rowStart);
-    }
-
-    for (let row = wallTiles.rowStart + 1; row < wallTiles.rowEnd; row++) {
-      addWallTile(837, wallTiles.colStart, row);
-      addWallTile(837, wallTiles.colEnd, row);
-    }
-
-    for (let col = wallTiles.colStart; col <= wallTiles.colEnd; col++) {
-      if (col >= (wallTiles.doorColStart ?? Infinity) && col <= (wallTiles.doorColEnd ?? -Infinity)) {
-        continue;
-      }
-
-      const bottomTile = col === wallTiles.colStart
-        ? 846
-        : col === wallTiles.colEnd
-          ? 848
-          : 839;
-      addWallTile(bottomTile, col, wallTiles.rowEnd, 0.5);
-    }
+    this.worldMapRenderer.blitToScreen(playerX, playerY);
   }
 
   /** 更新室内容器位置，让房间跟随玩家滚动 */
@@ -857,14 +407,10 @@ export class MapRenderer {
     const cx = this.indoorCx;
     const cy = this.indoorCy;
 
-    // 玩家偏离房间中心的像素偏移
     const dx = TILE_HALF_W * s * ((playerCol - cx) - (playerRow - cy));
     const dy = TILE_HALF_H * s * ((playerCol - cx) + (playerRow - cy));
 
-    // 容器反向移动，使玩家始终在屏幕中心
     this.indoorContainer.setPosition(-dx, -dy);
-
-    // 按 depth 排序子对象（Phaser Container 默认按插入顺序渲染，不自动排序）
     this.indoorContainer.sort('depth');
 
     if (this.furnitureEditorActive) {
@@ -874,25 +420,7 @@ export class MapRenderer {
 
   /** 根据玩家位置动态更新屋顶透明度 */
   updateRoofVisibility(playerCol: number, playerRow: number): void {
-    const REVEAL_RADIUS = 4;
-    const MIN_ALPHA = 0.15;
-
-    for (let i = 0; i < this.roofSprites.length; i++) {
-      const { col, row } = this.roofGridPos[i];
-      const dist = Math.max(Math.abs(col - playerCol), Math.abs(row - playerRow));
-      let alpha = 1.0;
-      if (dist <= REVEAL_RADIUS) {
-        alpha = MIN_ALPHA + (1 - MIN_ALPHA) * (dist / REVEAL_RADIUS);
-      }
-      this.roofSprites[i].setAlpha(alpha);
-    }
-  }
-
-  private destroyWallSprites(): void {
-    for (const s of this.wallSprites) s.destroy();
-    this.wallSprites = [];
-    this.roofSprites = [];
-    this.roofGridPos = [];
+    this.indoorLayerRenderer.updateRoofVisibility(playerCol, playerRow);
   }
 
   private createIndoorDecorSprites(): void {
@@ -971,17 +499,7 @@ export class MapRenderer {
   }
 
   private destroyIndoorFurnitureOccluders(): void {
-    for (const sprite of this.indoorFurnitureOccluderSprites.values()) {
-      sprite.destroy();
-    }
-    this.indoorFurnitureOccluderSprites.clear();
-
-    for (const textureKey of this.indoorFurnitureOccluderTextureKeys.values()) {
-      if (this.scene.textures.exists(textureKey)) {
-        this.scene.textures.remove(textureKey);
-      }
-    }
-    this.indoorFurnitureOccluderTextureKeys.clear();
+    this.furnitureOccluderRenderer.destroyAll();
   }
 
   private createIndoorDebugOverlay(): void {
@@ -998,7 +516,7 @@ export class MapRenderer {
     for (let row = floorTiles.rowStart; row <= floorTiles.rowEnd; row++) {
       for (let col = floorTiles.colStart; col <= floorTiles.colEnd; col++) {
         if ((row + col) % 2 !== 0) continue;
-        const { x, y } = this.indoorMapToScreen(col, row);
+        const { x, y } = this.indoorCoordinateMapper.mapToScreen(col, row);
         const text = this.scene.add.text(x, y - 6, `${col},${row}`, {
           fontSize: '8px',
           color: '#fbbf24',
@@ -1024,7 +542,7 @@ export class MapRenderer {
       g.lineStyle(1, 0x60a5fa, 0.22);
       for (let row = floorTiles.rowStart; row <= floorTiles.rowEnd; row++) {
         for (let col = floorTiles.colStart; col <= floorTiles.colEnd; col++) {
-          this.strokeIndoorDiamond(g, col, row, 0x60a5fa, 0.22);
+          strokeIndoorDiamond(g, this.indoorCoordinateMapper, col, row, 0x60a5fa, 0.22);
         }
       }
     }
@@ -1034,17 +552,17 @@ export class MapRenderer {
 
       if (furniture.collider) {
         const bounds = toActualIndoorBounds(this.currentIndoorBuildingId, furniture.collider);
-        this.strokeIndoorRectBounds(g, bounds.minX, bounds.maxX, bounds.minY, bounds.maxY, 0xff5555, 0.85);
+        strokeIndoorRectBounds(g, this.indoorCoordinateMapper, bounds.minX, bounds.maxX, bounds.minY, bounds.maxY, 0xff5555, 0.85);
       }
 
       const anchor = toActualIndoorMapPosition(this.currentIndoorBuildingId, furniture.localX, furniture.localY);
-      const anchorScreen = this.indoorMapToScreen(anchor.mapX, anchor.mapY);
+      const anchorScreen = this.indoorCoordinateMapper.mapToScreen(anchor.mapX, anchor.mapY);
       const depthPoint = toActualIndoorMapPosition(
         this.currentIndoorBuildingId,
         furniture.depthLocalX ?? furniture.localX,
         furniture.depthLocalY ?? furniture.localY,
       );
-      const depthScreen = this.indoorMapToScreen(depthPoint.mapX, depthPoint.mapY);
+      const depthScreen = this.indoorCoordinateMapper.mapToScreen(depthPoint.mapX, depthPoint.mapY);
 
       const selected = furniture.id === this.furnitureEditorSelectedId;
       g.lineStyle(selected ? 3 : 2, 0xffdd55, 1);
@@ -1062,7 +580,7 @@ export class MapRenderer {
       this.strokeInteractableEditor(g, interactable);
     }
 
-    const playerScreen = this.indoorMapToScreen(playerCol, playerRow);
+    const playerScreen = this.indoorCoordinateMapper.mapToScreen(playerCol, playerRow);
     g.fillStyle(0x00ff66, 1);
     g.fillCircle(playerScreen.x, playerScreen.y, 4);
     g.lineStyle(1, 0x00ff66, 1);
@@ -1135,12 +653,11 @@ export class MapRenderer {
   private onFurnitureEditorPointerMove(pointer: Phaser.Input.Pointer): void {
     if (!this.furnitureEditorActive || (!this.furnitureEditorDrag && !this.interactableEditorDrag) || !this.currentIndoorBuildingId) return;
 
-    const localPos = this.screenToIndoorLocal(pointer.x, pointer.y);
-    if (!localPos) return;
+    const localPos = this.indoorCoordinateMapper.screenToLocal(this.currentIndoorBuildingId, pointer.x, pointer.y);
 
     if (this.interactableEditorDrag) {
-      const nextX = this.roundEditorValue(localPos.localX);
-      const nextY = this.roundEditorValue(localPos.localY);
+      const nextX = roundEditorValue(localPos.localX);
+      const nextY = roundEditorValue(localPos.localY);
       this.updateInteractableEditorDrag(this.interactableEditorDrag, nextX, nextY);
       this.updateFurnitureEditorHelpText();
       return;
@@ -1160,8 +677,8 @@ export class MapRenderer {
       return;
     }
 
-    const nextX = this.roundEditorValue(localPos.localX);
-    const nextY = this.roundEditorValue(localPos.localY);
+    const nextX = roundEditorValue(localPos.localX);
+    const nextY = roundEditorValue(localPos.localY);
 
     if (kind === 'anchor') {
       const dx = nextX - furniture.localX;
@@ -1170,13 +687,13 @@ export class MapRenderer {
       furniture.localY = nextY;
 
       if (furniture.collider) {
-        furniture.collider.minLocalX = this.roundEditorValue(furniture.collider.minLocalX + dx);
-        furniture.collider.maxLocalX = this.roundEditorValue(furniture.collider.maxLocalX + dx);
-        furniture.collider.minLocalY = this.roundEditorValue(furniture.collider.minLocalY + dy);
-        furniture.collider.maxLocalY = this.roundEditorValue(furniture.collider.maxLocalY + dy);
+        furniture.collider.minLocalX = roundEditorValue(furniture.collider.minLocalX + dx);
+        furniture.collider.maxLocalX = roundEditorValue(furniture.collider.maxLocalX + dx);
+        furniture.collider.minLocalY = roundEditorValue(furniture.collider.minLocalY + dy);
+        furniture.collider.maxLocalY = roundEditorValue(furniture.collider.maxLocalY + dy);
       }
-      if (furniture.depthLocalX !== undefined) furniture.depthLocalX = this.roundEditorValue(furniture.depthLocalX + dx);
-      if (furniture.depthLocalY !== undefined) furniture.depthLocalY = this.roundEditorValue(furniture.depthLocalY + dy);
+      if (furniture.depthLocalX !== undefined) furniture.depthLocalX = roundEditorValue(furniture.depthLocalX + dx);
+      if (furniture.depthLocalY !== undefined) furniture.depthLocalY = roundEditorValue(furniture.depthLocalY + dy);
     } else if (kind === 'depth') {
       furniture.depthLocalX = nextX;
       furniture.depthLocalY = nextY;
@@ -1194,7 +711,7 @@ export class MapRenderer {
       if (kind === 'ne' || kind === 'se') furniture.collider.maxLocalX = nextX;
       if (kind === 'nw' || kind === 'ne') furniture.collider.minLocalY = nextY;
       if (kind === 'sw' || kind === 'se') furniture.collider.maxLocalY = nextY;
-      this.normalizeFurnitureCollider(furniture);
+      normalizeFurnitureCollider(furniture);
     }
 
     this.updateFurnitureSprite(furniture);
@@ -1219,13 +736,13 @@ export class MapRenderer {
       const dx = nextX - current.localX;
       const dy = nextY - current.localY;
       const actual = toActualIndoorMapPosition(interactable.buildingId, nextX, nextY);
-      interactable.mapX = this.roundEditorValue(actual.mapX);
-      interactable.mapY = this.roundEditorValue(actual.mapY);
+      interactable.mapX = roundEditorValue(actual.mapX);
+      interactable.mapY = roundEditorValue(actual.mapY);
       if (interactable.interactionZone?.type === 'rect') {
-        interactable.interactionZone.minLocalX = this.roundEditorValue(interactable.interactionZone.minLocalX + dx);
-        interactable.interactionZone.maxLocalX = this.roundEditorValue(interactable.interactionZone.maxLocalX + dx);
-        interactable.interactionZone.minLocalY = this.roundEditorValue(interactable.interactionZone.minLocalY + dy);
-        interactable.interactionZone.maxLocalY = this.roundEditorValue(interactable.interactionZone.maxLocalY + dy);
+        interactable.interactionZone.minLocalX = roundEditorValue(interactable.interactionZone.minLocalX + dx);
+        interactable.interactionZone.maxLocalX = roundEditorValue(interactable.interactionZone.maxLocalX + dx);
+        interactable.interactionZone.minLocalY = roundEditorValue(interactable.interactionZone.minLocalY + dy);
+        interactable.interactionZone.maxLocalY = roundEditorValue(interactable.interactionZone.maxLocalY + dy);
       }
       return;
     }
@@ -1245,11 +762,11 @@ export class MapRenderer {
     if (kind === 'interaction-ne' || kind === 'interaction-se') interactable.interactionZone.maxLocalX = nextX;
     if (kind === 'interaction-nw' || kind === 'interaction-ne') interactable.interactionZone.minLocalY = nextY;
     if (kind === 'interaction-sw' || kind === 'interaction-se') interactable.interactionZone.maxLocalY = nextY;
-    this.normalizeInteractableZone(interactable);
+    normalizeInteractableZone(interactable);
     const center = this.getInteractableLocalCenter(interactable);
     const actual = toActualIndoorMapPosition(interactable.buildingId, center.localX, center.localY);
-    interactable.mapX = this.roundEditorValue(actual.mapX);
-    interactable.mapY = this.roundEditorValue(actual.mapY);
+    interactable.mapX = roundEditorValue(actual.mapX);
+    interactable.mapY = roundEditorValue(actual.mapY);
   }
 
   private findFurnitureEditorHandle(screenX: number, screenY: number, preferDepth = false): FurnitureEditorDrag | null {
@@ -1258,7 +775,7 @@ export class MapRenderer {
     const handles: Array<FurnitureEditorDrag & { x: number; y: number }> = [];
     for (const furniture of getIndoorFurnitureDefs(this.currentIndoorBuildingId)) {
       const anchor = toActualIndoorMapPosition(this.currentIndoorBuildingId, furniture.localX, furniture.localY);
-      const anchorScreen = this.indoorMapToScreenWithContainer(anchor.mapX, anchor.mapY);
+      const anchorScreen = this.indoorCoordinateMapper.mapToScreenWithContainer(anchor.mapX, anchor.mapY);
       handles.push({ furniture, kind: 'anchor', x: anchorScreen.x, y: anchorScreen.y });
 
       const depth = toActualIndoorMapPosition(
@@ -1266,16 +783,16 @@ export class MapRenderer {
         furniture.depthLocalX ?? furniture.localX,
         furniture.depthLocalY ?? furniture.localY,
       );
-      const depthScreen = this.indoorMapToScreenWithContainer(depth.mapX, depth.mapY);
+      const depthScreen = this.indoorCoordinateMapper.mapToScreenWithContainer(depth.mapX, depth.mapY);
       handles.push({ furniture, kind: 'depth', x: depthScreen.x, y: depthScreen.y });
 
       if (furniture.collider) {
         const bounds = toActualIndoorBounds(this.currentIndoorBuildingId, furniture.collider);
         const corners: Array<{ kind: FurnitureEditorHandleKind; x: number; y: number }> = [
-          { kind: 'nw', ...this.indoorMapToScreenWithContainer(bounds.minX, bounds.minY) },
-          { kind: 'ne', ...this.indoorMapToScreenWithContainer(bounds.maxX, bounds.minY) },
-          { kind: 'se', ...this.indoorMapToScreenWithContainer(bounds.maxX, bounds.maxY) },
-          { kind: 'sw', ...this.indoorMapToScreenWithContainer(bounds.minX, bounds.maxY) },
+          { kind: 'nw', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.minX, bounds.minY) },
+          { kind: 'ne', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.maxX, bounds.minY) },
+          { kind: 'se', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.maxX, bounds.maxY) },
+          { kind: 'sw', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.minX, bounds.maxY) },
         ];
         for (const corner of corners) handles.push({ furniture, ...corner });
       }
@@ -1305,17 +822,17 @@ export class MapRenderer {
     for (const interactable of getIndoorInteractables(this.currentIndoorBuildingId)) {
       if (interactable.interactionZone?.type === 'rect') {
         const bounds = toActualIndoorBounds(interactable.buildingId, interactable.interactionZone);
-        const center = this.indoorMapToScreenWithContainer((bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2);
+        const center = this.indoorCoordinateMapper.mapToScreenWithContainer((bounds.minX + bounds.maxX) / 2, (bounds.minY + bounds.maxY) / 2);
         handles.push({ interactable, kind: 'interaction-center', x: center.x, y: center.y });
         const corners: Array<{ kind: InteractableEditorHandleKind; x: number; y: number }> = [
-          { kind: 'interaction-nw', ...this.indoorMapToScreenWithContainer(bounds.minX, bounds.minY) },
-          { kind: 'interaction-ne', ...this.indoorMapToScreenWithContainer(bounds.maxX, bounds.minY) },
-          { kind: 'interaction-se', ...this.indoorMapToScreenWithContainer(bounds.maxX, bounds.maxY) },
-          { kind: 'interaction-sw', ...this.indoorMapToScreenWithContainer(bounds.minX, bounds.maxY) },
+          { kind: 'interaction-nw', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.minX, bounds.minY) },
+          { kind: 'interaction-ne', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.maxX, bounds.minY) },
+          { kind: 'interaction-se', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.maxX, bounds.maxY) },
+          { kind: 'interaction-sw', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.minX, bounds.maxY) },
         ];
         for (const corner of corners) handles.push({ interactable, ...corner });
       } else {
-        const center = this.indoorMapToScreenWithContainer(interactable.mapX, interactable.mapY);
+        const center = this.indoorCoordinateMapper.mapToScreenWithContainer(interactable.mapX, interactable.mapY);
         handles.push({ interactable, kind: 'interaction-center', x: center.x, y: center.y });
       }
     }
@@ -1336,19 +853,13 @@ export class MapRenderer {
 
   private captureFurnitureEditorDefaults(buildingId: string): void {
     if (this.furnitureEditorDefaultSnapshots.has(buildingId)) return;
-    this.furnitureEditorDefaultSnapshots.set(buildingId, this.createFurnitureEditorSnapshot(buildingId));
+    this.furnitureEditorDefaultSnapshots.set(buildingId, createFurnitureEditorSnapshot(buildingId));
   }
 
   private restoreFurnitureEditorLayoutFromStorage(buildingId: string): void {
-    const raw = localStorage.getItem(this.getFurnitureEditorStorageKey(buildingId));
-    if (!raw) return;
-
     try {
-      const payload = JSON.parse(raw) as Partial<FurnitureEditorStoragePayload>;
-      if (payload.version !== 1 || payload.buildingId !== buildingId || !Array.isArray(payload.items)) {
-        return;
-      }
-      this.applyFurnitureEditorSnapshot(buildingId, payload.items);
+      const items = loadFurnitureEditorSnapshot(buildingId);
+      if (items) applyFurnitureEditorSnapshot(buildingId, items);
     } catch (error) {
       console.warn('[FurnitureEditor] Failed to restore saved layout:', error);
     }
@@ -1357,65 +868,15 @@ export class MapRenderer {
   private saveFurnitureEditorLayoutToStorage(): void {
     if (!this.currentIndoorBuildingId) return;
 
-    const payload: FurnitureEditorStoragePayload = {
-      version: 1,
-      buildingId: this.currentIndoorBuildingId,
-      savedAt: Date.now(),
-      items: this.createFurnitureEditorSnapshot(this.currentIndoorBuildingId),
-    };
-
     try {
-      localStorage.setItem(
-        this.getFurnitureEditorStorageKey(this.currentIndoorBuildingId),
-        JSON.stringify(payload),
+      saveFurnitureEditorSnapshot(
+        this.currentIndoorBuildingId,
+        createFurnitureEditorSnapshot(this.currentIndoorBuildingId),
       );
       this.updateFurnitureEditorHelpText();
     } catch (error) {
       console.warn('[FurnitureEditor] Failed to save layout:', error);
       this.showFurnitureEditorMessage('本地自动保存失败，请检查浏览器存储权限');
-    }
-  }
-
-  private createFurnitureEditorSnapshot(buildingId: string): FurnitureEditorSnapshotItem[] {
-    return getIndoorFurnitureDefs(buildingId).map((item) => ({
-      id: item.id,
-      localX: item.localX,
-      localY: item.localY,
-      scale: item.scale,
-      alpha: item.alpha,
-      originX: item.originX,
-      originY: item.originY,
-      pixelOffsetX: item.pixelOffsetX,
-      pixelOffsetY: item.pixelOffsetY,
-      depthLocalX: item.depthLocalX,
-      depthLocalY: item.depthLocalY,
-      depthBias: item.depthBias,
-      collider: item.collider ? { ...item.collider } : undefined,
-      occluderMask: item.occluderMask?.map((point) => ({ ...point })),
-    }));
-  }
-
-  private applyFurnitureEditorSnapshot(buildingId: string, items: FurnitureEditorSnapshotItem[]): void {
-    const furnitureById = new Map(getIndoorFurnitureDefs(buildingId).map((item) => [item.id, item]));
-    for (const saved of items) {
-      const target = furnitureById.get(saved.id);
-      if (!target || !Number.isFinite(saved.localX) || !Number.isFinite(saved.localY)) continue;
-
-      target.localX = saved.localX;
-      target.localY = saved.localY;
-      target.scale = this.optionalNumber(saved.scale);
-      target.alpha = this.optionalNumber(saved.alpha);
-      target.originX = this.optionalNumber(saved.originX);
-      target.originY = this.optionalNumber(saved.originY);
-      target.pixelOffsetX = this.optionalNumber(saved.pixelOffsetX);
-      target.pixelOffsetY = this.optionalNumber(saved.pixelOffsetY);
-      target.depthLocalX = this.optionalNumber(saved.depthLocalX);
-      target.depthLocalY = this.optionalNumber(saved.depthLocalY);
-      target.depthBias = this.optionalNumber(saved.depthBias);
-      target.collider = saved.collider ? { ...saved.collider } : undefined;
-      target.occluderMask = Array.isArray(saved.occluderMask)
-        ? saved.occluderMask.map((point) => ({ ...point }))
-        : undefined;
     }
   }
 
@@ -1429,23 +890,15 @@ export class MapRenderer {
     this.updateIndoorDebugOverlay(0, 0);
   }
 
-  private getFurnitureEditorStorageKey(buildingId: string): string {
-    return `${LS_KEY_FURNITURE_EDITOR_LAYOUTS}:${buildingId}`;
-  }
-
   private captureInteractableEditorDefaults(buildingId: string): void {
     if (this.interactableEditorDefaultSnapshots.has(buildingId)) return;
-    this.interactableEditorDefaultSnapshots.set(buildingId, this.createInteractableEditorSnapshot(buildingId));
+    this.interactableEditorDefaultSnapshots.set(buildingId, createInteractableEditorSnapshot(buildingId));
   }
 
   private restoreInteractableEditorLayoutFromStorage(buildingId: string): void {
-    const raw = localStorage.getItem(this.getInteractableEditorStorageKey(buildingId));
-    if (!raw) return;
-
     try {
-      const payload = JSON.parse(raw) as Partial<InteractableEditorStoragePayload>;
-      if (payload.version !== 1 || payload.buildingId !== buildingId || !Array.isArray(payload.items)) return;
-      this.applyInteractableEditorSnapshot(buildingId, payload.items);
+      const items = loadInteractableEditorSnapshot(buildingId);
+      if (items) applyInteractableEditorSnapshot(buildingId, items);
     } catch (error) {
       console.warn('[InteractableEditor] Failed to restore saved layout:', error);
     }
@@ -1454,53 +907,16 @@ export class MapRenderer {
   private saveInteractableEditorLayoutToStorage(): void {
     if (!this.currentIndoorBuildingId) return;
 
-    const payload: InteractableEditorStoragePayload = {
-      version: 1,
-      buildingId: this.currentIndoorBuildingId,
-      savedAt: Date.now(),
-      items: this.createInteractableEditorSnapshot(this.currentIndoorBuildingId),
-    };
-
     try {
-      localStorage.setItem(
-        this.getInteractableEditorStorageKey(this.currentIndoorBuildingId),
-        JSON.stringify(payload),
+      saveInteractableEditorSnapshot(
+        this.currentIndoorBuildingId,
+        createInteractableEditorSnapshot(this.currentIndoorBuildingId),
       );
       this.updateFurnitureEditorHelpText();
     } catch (error) {
       console.warn('[InteractableEditor] Failed to save layout:', error);
       this.showFurnitureEditorMessage('交互区域自动保存失败，请检查浏览器存储权限');
     }
-  }
-
-  private createInteractableEditorSnapshot(buildingId: string): InteractableEditorSnapshotItem[] {
-    return getIndoorInteractables(buildingId).map((item) => ({
-      id: item.id,
-      mapX: item.mapX,
-      mapY: item.mapY,
-      interactRadius: item.interactRadius,
-      interactionZone: item.interactionZone ? { ...item.interactionZone } : undefined,
-    }));
-  }
-
-  private applyInteractableEditorSnapshot(buildingId: string, items: InteractableEditorSnapshotItem[]): void {
-    const interactableById = new Map(getIndoorInteractables(buildingId).map((item) => [item.id, item]));
-    for (const saved of items) {
-      const target = interactableById.get(saved.id);
-      if (!target || !Number.isFinite(saved.mapX) || !Number.isFinite(saved.mapY)) continue;
-      target.mapX = saved.mapX;
-      target.mapY = saved.mapY;
-      target.interactRadius = this.optionalNumber(saved.interactRadius);
-      target.interactionZone = saved.interactionZone ? { ...saved.interactionZone } : undefined;
-    }
-  }
-
-  private getInteractableEditorStorageKey(buildingId: string): string {
-    return `${LS_KEY_INTERACTABLE_EDITOR_LAYOUTS}:${buildingId}`;
-  }
-
-  private optionalNumber(value: unknown): number | undefined {
-    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
   }
 
   private isShiftPointer(pointer: Phaser.Input.Pointer): boolean {
@@ -1656,10 +1072,10 @@ export class MapRenderer {
 
     if (interactable.interactionZone?.type === 'rect') {
       const bounds = toActualIndoorBounds(interactable.buildingId, interactable.interactionZone);
-      const p1 = this.indoorMapToScreen(bounds.minX, bounds.minY);
-      const p2 = this.indoorMapToScreen(bounds.maxX, bounds.minY);
-      const p3 = this.indoorMapToScreen(bounds.maxX, bounds.maxY);
-      const p4 = this.indoorMapToScreen(bounds.minX, bounds.maxY);
+      const p1 = this.indoorCoordinateMapper.mapToScreen(bounds.minX, bounds.minY);
+      const p2 = this.indoorCoordinateMapper.mapToScreen(bounds.maxX, bounds.minY);
+      const p3 = this.indoorCoordinateMapper.mapToScreen(bounds.maxX, bounds.maxY);
+      const p4 = this.indoorCoordinateMapper.mapToScreen(bounds.minX, bounds.maxY);
       g.fillStyle(color, selected ? 0.16 : 0.08);
       g.beginPath();
       g.moveTo(p1.x, p1.y);
@@ -1685,124 +1101,26 @@ export class MapRenderer {
         g.strokeCircle(point.x, point.y, selected ? 5 : 4);
       }
     } else {
-      const center = this.indoorMapToScreen(interactable.mapX, interactable.mapY);
+      const center = this.indoorCoordinateMapper.mapToScreen(interactable.mapX, interactable.mapY);
       g.lineStyle(2, color, selected ? 1 : 0.65);
       g.strokeCircle(center.x, center.y, (interactable.interactRadius ?? 1) * TILE_HALF_W * INDOOR_SCALE);
     }
 
     const center = this.getInteractableLocalCenter(interactable);
     const actual = toActualIndoorMapPosition(interactable.buildingId, center.localX, center.localY);
-    const centerScreen = this.indoorMapToScreen(actual.mapX, actual.mapY);
+    const centerScreen = this.indoorCoordinateMapper.mapToScreen(actual.mapX, actual.mapY);
     g.fillStyle(0x67e8f9, 1);
     g.fillCircle(centerScreen.x, centerScreen.y, selected ? 5 : 4);
   }
 
   private updateFurnitureOccluderSprite(furniture: IndoorFurnitureDef, rebuildTexture = false): void {
-    if (!this.indoorContainer) return;
-
-    if ((furniture.occluderMask?.length ?? 0) < 3) {
-      this.destroyFurnitureOccluder(furniture.id);
-      return;
-    }
-
-    let sprite = this.indoorFurnitureOccluderSprites.get(furniture.id) ?? null;
-    if (rebuildTexture || !sprite) {
-      const previousTextureKey = this.indoorFurnitureOccluderTextureKeys.get(furniture.id);
-      const textureKey = this.createFurnitureOccluderTexture(furniture);
-      if (!textureKey) {
-        this.destroyFurnitureOccluder(furniture.id);
-        return;
-      }
-
-      sprite?.destroy();
-      if (previousTextureKey && previousTextureKey !== textureKey && this.scene.textures.exists(previousTextureKey)) {
-        this.scene.textures.remove(previousTextureKey);
-      }
-      sprite = this.scene.add.image(0, 0, textureKey);
-      this.indoorContainer.add(sprite);
-      this.indoorFurnitureOccluderSprites.set(furniture.id, sprite);
-    }
-
-    this.syncFurnitureOccluderSprite(furniture);
-    this.indoorContainer.sort('depth');
-  }
-
-  private createFurnitureOccluderTexture(furniture: IndoorFurnitureDef): string | null {
-    const sourceTexture = this.scene.textures.get(furniture.textureKey);
-    const sourceImage = sourceTexture?.getSourceImage();
-    if (!sourceImage) return null;
-
-    let imgSource: CanvasImageSource;
-    if (
-      sourceImage instanceof HTMLImageElement ||
-      sourceImage instanceof HTMLCanvasElement ||
-      sourceImage instanceof HTMLVideoElement
-    ) {
-      imgSource = sourceImage;
-    } else {
-      return null;
-    }
-
-    const width = imgSource.width as number;
-    const height = imgSource.height as number;
-    if (width <= 0 || height <= 0) return null;
-    if (imgSource instanceof HTMLImageElement && !imgSource.complete) return null;
-
-    const textureKey = `__furnitureOccluder_${furniture.id}_${++this.indoorFurnitureOccluderTextureSerial}`;
-    const canvasTexture = this.scene.textures.createCanvas(textureKey, width, height);
-    if (!canvasTexture) return null;
-
-    const ctx = canvasTexture.getContext();
-    ctx.clearRect(0, 0, width, height);
-    ctx.save();
-    ctx.beginPath();
-    const [first, ...rest] = furniture.occluderMask ?? [];
-    ctx.moveTo(first.px, first.py);
-    for (const point of rest) {
-      ctx.lineTo(point.px, point.py);
-    }
-    ctx.closePath();
-    ctx.clip();
-    ctx.drawImage(imgSource, 0, 0, width, height);
-    ctx.restore();
-    canvasTexture.refresh();
-
-    this.indoorFurnitureOccluderTextureKeys.set(furniture.id, textureKey);
-    return textureKey;
-  }
-
-  private syncFurnitureOccluderSprite(furniture: IndoorFurnitureDef): void {
-    const baseSprite = this.indoorFurnitureSprites.get(furniture.id);
-    const occluderSprite = this.indoorFurnitureOccluderSprites.get(furniture.id);
-    if (!baseSprite || !occluderSprite || !this.currentIndoorBuildingId) return;
-
-    occluderSprite
-      .setPosition(baseSprite.x, baseSprite.y)
-      .setOrigin(baseSprite.originX, baseSprite.originY)
-      .setScale(baseSprite.scaleX, baseSprite.scaleY)
-      .setAlpha(baseSprite.alpha)
-      .setDepth(this.getFurnitureOccluderDepth(furniture));
-  }
-
-  private getFurnitureOccluderDepth(furniture: IndoorFurnitureDef): number {
-    if (!this.currentIndoorBuildingId) return FURNITURE_OCCLUDER_DEPTH_OFFSET;
-    const depthPosition = toActualIndoorMapPosition(
+    this.furnitureOccluderRenderer.update(
+      furniture,
+      this.indoorFurnitureSprites.get(furniture.id) ?? null,
+      this.indoorContainer,
       this.currentIndoorBuildingId,
-      furniture.depthLocalX ?? furniture.localX,
-      furniture.depthLocalY ?? furniture.localY,
+      rebuildTexture,
     );
-    return depthPosition.mapX + depthPosition.mapY + (furniture.depthBias ?? 0) + FURNITURE_OCCLUDER_DEPTH_OFFSET;
-  }
-
-  private destroyFurnitureOccluder(furnitureId: string): void {
-    this.indoorFurnitureOccluderSprites.get(furnitureId)?.destroy();
-    this.indoorFurnitureOccluderSprites.delete(furnitureId);
-
-    const textureKey = this.indoorFurnitureOccluderTextureKeys.get(furnitureId);
-    if (textureKey && this.scene.textures.exists(textureKey)) {
-      this.scene.textures.remove(textureKey);
-    }
-    this.indoorFurnitureOccluderTextureKeys.delete(furnitureId);
   }
 
   private updateFurnitureSprite(furniture: IndoorFurnitureDef): void {
@@ -1820,14 +1138,14 @@ export class MapRenderer {
       furniture.depthLocalX ?? furniture.localX,
       furniture.depthLocalY ?? furniture.localY,
     );
-    const position = this.indoorMapToScreen(mapX, mapY);
+    const position = this.indoorCoordinateMapper.mapToScreen(mapX, mapY);
     sprite
       .setPosition(
         position.x + (furniture.pixelOffsetX ?? 0),
         position.y + (furniture.pixelOffsetY ?? 0),
       )
       .setDepth(depthPosition.mapX + depthPosition.mapY + (furniture.depthBias ?? 0));
-    this.syncFurnitureOccluderSprite(furniture);
+    this.furnitureOccluderRenderer.sync(furniture, sprite, this.currentIndoorBuildingId);
     this.indoorContainer?.sort('depth');
   }
 
@@ -1950,53 +1268,6 @@ export class MapRenderer {
     this.scene.time.delayedCall(1400, () => this.updateFurnitureEditorHelpText());
   }
 
-  private screenToIndoorLocal(screenX: number, screenY: number): { localX: number; localY: number } | null {
-    if (!this.indoorContainer || !this.currentIndoorBuildingId) return null;
-    const map = this.screenToIndoorMap(screenX - this.indoorContainer.x, screenY - this.indoorContainer.y);
-    return toLocalIndoorMapPosition(this.currentIndoorBuildingId, map.mapX, map.mapY);
-  }
-
-  private screenToIndoorMap(screenX: number, screenY: number): { mapX: number; mapY: number } {
-    const dx = (screenX - SCREEN_WIDTH / 2) / (TILE_HALF_W * INDOOR_SCALE);
-    const dy = (screenY - SCREEN_HEIGHT / 2) / (TILE_HALF_H * INDOOR_SCALE);
-    return {
-      mapX: this.indoorCx + (dx + dy) / 2,
-      mapY: this.indoorCy + (dy - dx) / 2,
-    };
-  }
-
-  private indoorMapToScreenWithContainer(col: number, row: number): { x: number; y: number } {
-    const point = this.indoorMapToScreen(col, row);
-    return {
-      x: point.x + (this.indoorContainer?.x ?? 0),
-      y: point.y + (this.indoorContainer?.y ?? 0),
-    };
-  }
-
-  private normalizeFurnitureCollider(furniture: IndoorFurnitureDef): void {
-    if (!furniture.collider) return;
-    const minX = Math.min(furniture.collider.minLocalX, furniture.collider.maxLocalX);
-    const maxX = Math.max(furniture.collider.minLocalX, furniture.collider.maxLocalX);
-    const minY = Math.min(furniture.collider.minLocalY, furniture.collider.maxLocalY);
-    const maxY = Math.max(furniture.collider.minLocalY, furniture.collider.maxLocalY);
-    furniture.collider.minLocalX = this.roundEditorValue(minX);
-    furniture.collider.maxLocalX = this.roundEditorValue(maxX);
-    furniture.collider.minLocalY = this.roundEditorValue(minY);
-    furniture.collider.maxLocalY = this.roundEditorValue(maxY);
-  }
-
-  private normalizeInteractableZone(interactable: IndoorInteractableDef): void {
-    if (!interactable.interactionZone) return;
-    const minX = Math.min(interactable.interactionZone.minLocalX, interactable.interactionZone.maxLocalX);
-    const maxX = Math.max(interactable.interactionZone.minLocalX, interactable.interactionZone.maxLocalX);
-    const minY = Math.min(interactable.interactionZone.minLocalY, interactable.interactionZone.maxLocalY);
-    const maxY = Math.max(interactable.interactionZone.minLocalY, interactable.interactionZone.maxLocalY);
-    interactable.interactionZone.minLocalX = this.roundEditorValue(minX);
-    interactable.interactionZone.maxLocalX = this.roundEditorValue(maxX);
-    interactable.interactionZone.minLocalY = this.roundEditorValue(minY);
-    interactable.interactionZone.maxLocalY = this.roundEditorValue(maxY);
-  }
-
   private getInteractableLocalCenter(interactable: IndoorInteractableDef): { localX: number; localY: number } {
     if (interactable.interactionZone?.type === 'rect') {
       return {
@@ -2007,134 +1278,4 @@ export class MapRenderer {
     return toLocalIndoorMapPosition(interactable.buildingId, interactable.mapX, interactable.mapY);
   }
 
-  private roundEditorValue(value: number): number {
-    return Math.round(value * 10) / 10;
-  }
-
-  private indoorMapToScreen(col: number, row: number): { x: number; y: number } {
-    const s = INDOOR_SCALE;
-    return {
-      x: TILE_HALF_W * s * ((col - this.indoorCx) - (row - this.indoorCy)) + SCREEN_WIDTH / 2,
-      y: TILE_HALF_H * s * ((col - this.indoorCx) + (row - this.indoorCy)) + SCREEN_HEIGHT / 2,
-    };
-  }
-
-  private strokeIndoorDiamond(
-    g: Phaser.GameObjects.Graphics,
-    col: number,
-    row: number,
-    color: number,
-    alpha: number,
-  ): void {
-    const center = this.indoorMapToScreen(col, row);
-    const hw = TILE_HALF_W * INDOOR_SCALE;
-    const hh = TILE_HALF_H * INDOOR_SCALE;
-    g.lineStyle(1, color, alpha);
-    g.beginPath();
-    g.moveTo(center.x, center.y - hh);
-    g.lineTo(center.x + hw, center.y);
-    g.lineTo(center.x, center.y + hh);
-    g.lineTo(center.x - hw, center.y);
-    g.closePath();
-    g.strokePath();
-  }
-
-  private strokeIndoorRectBounds(
-    g: Phaser.GameObjects.Graphics,
-    minX: number,
-    maxX: number,
-    minY: number,
-    maxY: number,
-    color: number,
-    alpha: number,
-  ): void {
-    const p1 = this.indoorMapToScreen(minX, minY);
-    const p2 = this.indoorMapToScreen(maxX, minY);
-    const p3 = this.indoorMapToScreen(maxX, maxY);
-    const p4 = this.indoorMapToScreen(minX, maxY);
-    g.lineStyle(2, color, alpha);
-    g.beginPath();
-    g.moveTo(p1.x, p1.y);
-    g.lineTo(p2.x, p2.y);
-    g.lineTo(p3.x, p3.y);
-    g.lineTo(p4.x, p4.y);
-    g.closePath();
-    g.strokePath();
-  }
-
-  // ============================================================
-  // 瓦片绘制
-  // ============================================================
-
-  private drawWorldTile(ctx: CanvasRenderingContext2D, grpIdx: number, sx: number, sy: number): void {
-    const frame = this.scene.textures.getFrame('tiles', 'tile_' + grpIdx);
-    if (!isFrameValid(frame)) return;
-    const meta = this.tileMeta[String(grpIdx)];
-    const ox = meta ? meta.xoff : TILE_HALF_W;
-    const oy = meta ? meta.yoff : 17;
-    ctx.drawImage(
-      this.atlasImg!,
-      frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight,
-      sx - ox, sy - oy, frame.cutWidth, frame.cutHeight,
-    );
-  }
-
-  private drawSmapTileOnCtx(ctx: CanvasRenderingContext2D, tileId: number, sx: number, sy: number, scale: number = 1): void {
-    const texKey = `smap_${tileId}`;
-    if (!this.scene.textures.exists(texKey)) return;
-
-    const texture = this.scene.textures.get(texKey);
-    const rawSource = texture.getSourceImage();
-
-    let imgSource: CanvasImageSource;
-    if (rawSource instanceof HTMLImageElement || rawSource instanceof HTMLCanvasElement) {
-      imgSource = rawSource;
-    } else if (rawSource instanceof HTMLVideoElement) {
-      imgSource = rawSource;
-    } else {
-      return;
-    }
-
-    if (imgSource.width === 0 || imgSource.height === 0) return;
-    if (imgSource instanceof HTMLImageElement && !imgSource.complete) return;
-
-    const off = this.smapOffsets.get(tileId);
-    const ox = (off ? off.xoff : TILE_HALF_W) * scale;
-    const oy = (off ? off.yoff : 17) * scale;
-    const sw = (imgSource.width as number) * scale;
-    const sh = (imgSource.height as number) * scale;
-
-    ctx.drawImage(
-      imgSource,
-      0, 0, imgSource.width as number, imgSource.height as number,
-      sx - ox, sy - oy, sw, sh,
-    );
-  }
-
-  private drawFixedTextureOnCtx(ctx: CanvasRenderingContext2D, textureKey: string, sx: number, sy: number): void {
-    if (!this.scene.textures.exists(textureKey)) return;
-
-    const texture = this.scene.textures.get(textureKey);
-    const rawSource = texture.getSourceImage();
-
-    let imgSource: CanvasImageSource;
-    if (rawSource instanceof HTMLImageElement || rawSource instanceof HTMLCanvasElement) {
-      imgSource = rawSource;
-    } else if (rawSource instanceof HTMLVideoElement) {
-      imgSource = rawSource;
-    } else {
-      return;
-    }
-
-    if (imgSource.width === 0 || imgSource.height === 0) return;
-    if (imgSource instanceof HTMLImageElement && !imgSource.complete) return;
-
-    const sw = imgSource.width as number;
-    const sh = imgSource.height as number;
-    ctx.drawImage(
-      imgSource,
-      0, 0, sw, sh,
-      sx - sw / 2, sy - sh / 2, sw, sh,
-    );
-  }
 }

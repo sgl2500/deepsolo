@@ -1628,3 +1628,181 @@ python scripts/trigger_heaven.py
   - localStorage 保存版本升级到 v4，保存 `collisionPolygon`。
 - `packages/visual/docs/world_map_editor.md` 已同步多边形碰撞操作说明。
 - 验证：`cd packages/visual && npm run build` 已通过。
+
+### 2026-04-29 项目治理基线
+
+- 用户要求将项目按正规化方式治理。
+- 新增根目录治理文档：
+  - `docs/project_governance.md`：质量门禁、变更分类、编辑器数据生命周期、文档规则、代码治理规则和发布检查清单。
+  - `docs/technical_debt_register.md`：当前 P1/P2 技术债清单，包括 debug 坐标、错误出口距离、大文件拆分、localStorage 固化、测试缺失等。
+- 新增 Visual 包治理文档：`packages/visual/docs/visual_governance.md`，记录模块边界、编辑器模式约定、大地图建筑数据约定和回归场景。
+- 新增治理巡检脚本：`scripts/visual_governance_audit.mjs`，检查必要治理文档、package scripts、大文件、console.log 和 debug 风险。
+- `packages/visual/package.json` 新增脚本：
+  - `typecheck`：`tsc --noEmit`
+  - `check`：`npm run build`
+  - `audit:governance`：运行治理巡检脚本
+- `README.md` 和 `packages/visual/README.md` 已补充治理入口和常用命令。
+
+### 2026-04-29 治理 P1：普通模式隐藏 debug 坐标
+
+- 按治理清单开始处理 P1 问题。
+- `packages/visual/src/systems/MapRenderer.ts` 新增 `isFurnitureEditorActive()`，用于外部判断室内家具编辑器是否开启。
+- `packages/visual/src/scenes/WorldScene.ts` 调整 `#debug-info`：
+  - 只有大地图编辑器 `F3` 开启，或室内家具编辑器 `F2` 开启时才显示坐标。
+  - 普通玩家模式会清空并隐藏 debug 文本。
+  - 室内出口距离改为使用 `sceneManager.getCurrentBuildingId()` 找当前建筑，修掉 `BUILDINGS.find(b => true)`。
+- `docs/technical_debt_register.md` 已把这两项从 P1 移到“已处理”。
+
+### 2026-04-29 治理 P1：收紧大地图多边形新增顶点
+
+- 继续处理治理清单 P1。
+- `packages/visual/src/systems/WorldMapEditor.ts` 调整大地图碰撞多边形编辑：
+  - 新增 `collisionInsertScreenThreshold = 18`。
+  - `Shift+点击` 只有距离当前多边形边线 18px 内才会插入新顶点。
+  - 插点时按屏幕空间找最近边，再插入到对应边后面，避免点远处导致轮廓跳变。
+  - 如果当前建筑碰撞多边形已被清空，则 `Shift+点击` 会先恢复默认多边形，而不是随意插一个孤立点。
+- `packages/visual/docs/world_map_editor.md` 和 `docs/technical_debt_register.md` 已同步。
+- 验证：`npm run typecheck` 已通过。
+
+### 2026-04-29 治理：大文件规范化与拆分文档
+
+- 用户要求继续治理，并将大文件规范化、形成文档。
+- 新增 `docs/large_file_governance.md`：定义大文件行数等级、拆分原则、例外规则、标准拆分流程和交付要求。
+- 新增 `packages/visual/docs/battle_system_refactor_plan.md`：为 `BattleSystem.ts` 做职责盘点和四阶段拆分计划（规则、AI/输入、HUD/棋盘、动画调度）。
+- 新增 `packages/visual/docs/map_renderer_refactor_plan.md`：为 `MapRenderer.ts` 做职责盘点和五阶段拆分计划（坐标工具、世界渲染、室内图层、家具遮挡、编辑器）。
+- `docs/project_governance.md` 增加大文件治理入口。
+- `packages/visual/docs/visual_governance.md` 和 `packages/visual/README.md` 增加大文件治理文档链接。
+- `docs/technical_debt_register.md` 中大文件技术债已关联专项拆分计划。
+- `scripts/visual_governance_audit.mjs` 将大文件提醒指向 `docs/large_file_governance.md`，并把三个大文件治理文档列为必须文档。
+
+### 2026-04-29 大文件拆分第一刀：BattleRules
+
+- 按大文件治理计划开始拆 `BattleSystem.ts`。
+- 新增 `packages/visual/src/systems/battle/BattleRules.ts`，迁移战斗纯规则/弱依赖规则：
+  - `manhattanDist`
+  - `isInAttackRange`
+  - `calcAttackRange`
+  - `calcMoveRange`
+  - `calcMovePath`
+  - `calcBattleDamage`
+  - `checkBattleEnd`
+  - `uniqueSkills`
+  - `getEnemy`
+  - `getSkillAreaSize`
+- `BattleSystem.ts` 改为调用 `BattleRules`，保留主类对玩家武功倍率、状态机、动画和 HUD 的协调职责。
+- `BattleSystem.ts` 行数从约 2456 降到约 2314，仍超过高风险阈值，后续继续拆 AI/输入、HUD/棋盘、动画调度。
+- `packages/visual/docs/battle_system_refactor_plan.md` 和 `docs/technical_debt_register.md` 已同步阶段 1 状态。
+- 验证：`npm run typecheck` 已通过。
+
+### 2026-04-29 大文件拆分第二刀：BattleAI 与 BattleInputController
+
+- 继续按大文件治理计划拆 `BattleSystem.ts`。
+- 新增 `packages/visual/src/systems/battle/BattleAI.ts`：
+  - 将原 `aiDecide` 迁移为 `decideBattleAI(person, persons)`。
+  - 复用 `BattleRules` 中的 `getEnemy`、`manhattanDist`、`calcMoveRange`。
+- 新增 `packages/visual/src/systems/battle/BattleInputController.ts`：
+  - 统一初始化战斗键盘按键。
+  - 提供 `consumeToggleAuto()` 和 `consumeInput()`，替代主类中的 `battleKeys/initBattleKeys/getBattleInput`。
+- `BattleSystem.ts` 继续保留手动阶段流转和 UI/动画协调，行数降至约 2239。
+- `packages/visual/docs/battle_system_refactor_plan.md` 和 `docs/technical_debt_register.md` 已同步阶段 2 状态。
+- 验证：`npm run typecheck` 已通过。
+
+### 2026-04-29 大文件拆分第三刀：BattleBoardRenderer
+
+- 继续按大文件治理计划拆 `BattleSystem.ts`。
+- 新增 `packages/visual/src/systems/battle/BattleBoardRenderer.ts`：
+  - 负责战斗棋盘背景、标题、地砖和网格绘制。
+  - 负责 `arenaToScreen` 和 `getBoardCenter` 坐标换算。
+  - 负责手动模式光标显示、隐藏、位置更新。
+  - 负责移动范围和攻击范围覆盖层绘制与清理。
+- `BattleSystem.ts` 改为通过 `boardRenderer` 调用棋盘/光标/范围渲染能力，主类继续保留战斗状态机、人物环、HUD、菜单、日志和动画调度。
+- 本次有意不迁移目标环/当前行动环/HUD，避免一次性改动过大；后续可继续拆 `BattleHUDRenderer`。
+- `BattleSystem.ts` 行数降至约 1984，仍处于大文件技术债范围，但已从高风险区间明显下降。
+- `packages/visual/docs/battle_system_refactor_plan.md` 和 `docs/technical_debt_register.md` 已同步阶段 3 状态。
+- 验证：`npm run typecheck`、`npm run check`、`npm run audit:governance` 已通过；构建仅保留 Vite 大 chunk 提示。
+
+### 2026-04-29 大文件拆分第四刀：BattleHUDRenderer
+
+- 继续按大文件治理计划拆 `BattleSystem.ts`。
+- 新增 `packages/visual/src/systems/battle/BattleHUDRenderer.ts`：
+  - 负责战斗 HUD 框架、双方状态卡、生命/内力条和回合标签。
+  - 负责行动菜单、武功菜单、提示文字。
+  - 负责战斗记录滚动和战斗结束遮罩。
+- `BattleSystem.ts` 改为通过 `hudRenderer` 调用 HUD、菜单、日志和结束画面能力，主类继续保留战斗状态机、手动阶段流转、人物环、动画调度和持久化写回。
+- 本次不改 UI 视觉、不改战斗数值、不改输入行为，仅做职责迁移。
+- `BattleSystem.ts` 行数降至约 1411，已退出大文件治理告警；`MapRenderer.ts` 仍是当前主要大文件技术债。
+- `packages/visual/docs/battle_system_refactor_plan.md` 和 `docs/technical_debt_register.md` 已同步阶段 3 完成状态。
+- 验证：`npm run check`、`npm run audit:governance` 已通过；构建仅保留 Vite 大 chunk 提示。
+
+### 2026-04-29 MapRenderer 拆分第一批：坐标、世界 canvas、编辑器持久化
+
+- 按 `packages/visual/docs/map_renderer_refactor_plan.md` 开始拆 `MapRenderer.ts`。
+- 新增 `packages/visual/src/systems/map/IndoorCoordinateMapper.ts`：
+  - 迁移室内 `map <-> screen` 坐标换算。
+  - 迁移编辑器 local 坐标换算、数值取整、矩形归一化。
+  - 迁移室内调试菱形/矩形描边工具。
+- 新增 `packages/visual/src/systems/map/WorldMapCanvasRenderer.ts`：
+  - 迁移世界地图双缓冲 canvas 初始化与缓存。
+  - 迁移 `shouldRerender`、`renderBuffer`、`blitToScreen` 和世界地图 atlas tile 绘制。
+  - `MapRenderer.ts` 保留同名公开 API 和 `scrImage` getter，兼容 `WorldScene` / `SceneManager`。
+- 新增 `packages/visual/src/systems/map/IndoorEditorPersistence.ts`：
+  - 迁移家具编辑器/交互区域编辑器的 localStorage key、快照创建、快照应用、读取和保存。
+- `MapRenderer.ts` 行数从约 2145 降至约 1844，仍在大文件技术债范围；下一批优先拆家具遮挡或室内图层。
+- `packages/visual/docs/map_renderer_refactor_plan.md` 和 `docs/technical_debt_register.md` 已同步。
+- 验证：`npm run check`、`npm run audit:governance` 已通过；治理审计仍提示 `MapRenderer.ts` 大文件、`console.log` 和 debug-info 分散。
+
+### 2026-04-29 MapRenderer 拆分第二批：家具遮挡层
+
+- 继续拆 `MapRenderer.ts` 的家具遮挡职责。
+- 新增 `packages/visual/src/systems/map/FurnitureOccluderRenderer.ts`：
+  - 管理局部 mask 遮挡 sprite 和临时 canvas texture。
+  - 负责根据 `occluderMask` 创建家具遮挡贴图。
+  - 负责遮挡 sprite 与家具 base sprite 的位置、origin、scale、alpha 和 depth 同步。
+  - 负责单个家具遮挡层销毁和全部遮挡层清理。
+- `MapRenderer.ts` 改为通过 `FurnitureOccluderRenderer` 更新/同步家具遮挡，保留家具 base sprite 创建、拖拽编辑、调试点绘制。
+- `MapRenderer.ts` 行数从约 1844 降至约 1734，仍处于大文件技术债范围；下一批可继续拆室内图层或家具 base sprite 渲染。
+- `packages/visual/docs/map_renderer_refactor_plan.md` 和 `docs/technical_debt_register.md` 已同步。
+- 验证：`npm run check`、`npm run audit:governance` 已通过；治理审计仍提示 `MapRenderer.ts` 大文件、`console.log` 和 debug-info 分散。
+
+### 2026-04-29 MapRenderer 拆分第三批：室内图层渲染
+
+- 继续拆 `MapRenderer.ts` 的室内图层职责。
+- 新增 `packages/visual/src/systems/map/IndoorLayerRenderer.ts`：
+  - 管理室内地板 canvas、`__indoorFloor` 纹理和地板 image 生命周期。
+  - 迁移固定房间地板、普通室内 earth/surface 地板绘制。
+  - 迁移普通室内墙/屋顶 sprite 创建、固定房间围墙创建。
+  - 迁移屋顶透明度更新、墙/屋顶/地板清理。
+  - 迁移室内 smap 偏移表、`drawSmapTileOnCtx`、`drawFixedTextureOnCtx`。
+- `MapRenderer.ts` 保留 `switchToIndoor`、`switchToWorld`、`updateIndoorCamera` 和 `updateRoofVisibility` 公开入口，其中室内图层创建/销毁/屋顶透明委托给 `IndoorLayerRenderer`。
+- `MapRenderer.ts` 行数从约 1734 降至约 1280，已退出大文件治理告警；治理审计当前不再提示大文件。
+- `packages/visual/docs/map_renderer_refactor_plan.md` 和 `docs/technical_debt_register.md` 已同步。
+- 验证：`npm run check`、`npm run audit:governance` 已通过；治理审计仅剩 `console.log` 和 debug-info 分散提示。
+
+### 2026-04-29 治理清理：DebugLogger 与 audit 零提醒
+
+- 用户要求继续朝项目健硕方向治理。
+- 新增 `packages/visual/src/utils/DebugLogger.ts`：
+  - `DebugLogger.info(scope, message, ...args)` 默认不输出。
+  - 浏览器控制台执行 `localStorage.setItem('deepsolo:debugLogs', '1')` 并刷新后开启调试输出。
+  - `DebugLogger.userInfo(...)` 用于用户主动操作反馈，例如家具配置导出。
+- `packages/visual/src/services/ChatService.ts`：WebSocket 已连接/关闭日志改为 `DebugLogger.info`，普通体验版不再输出连接调试日志。
+- `packages/visual/src/systems/MapRenderer.ts`：家具编辑器导出日志改为 `DebugLogger.userInfo`，文案从 `console` 调整为 `console.info`。
+- `scripts/visual_governance_audit.mjs`：将 `styles.css` 纳入 `#debug-info` 合法归属，避免样式文件被误报为 debug-info 分散引用。
+- `docs/technical_debt_register.md` 和 `packages/visual/docs/visual_governance.md` 已同步调试输出规则。
+- 验证：`npm run check`、`npm run audit:governance` 已通过；治理审计当前显示“治理提醒：暂无”。
+
+### 2026-04-29 健硕化：Visual 单元测试底座
+
+- 用户要求继续朝项目健硕方向推进。
+- 新增 `scripts/run_visual_unit_tests.mjs`：使用 `packages/visual` 已有的 `esbuild` 将 TypeScript 测试打包到系统临时目录并用 Node 运行，不额外引入测试框架或网络依赖。
+- `packages/visual/package.json` 新增：
+  - `test:unit`：运行 Visual 单元测试。
+  - `check`：升级为 `typecheck + test:unit + build`。
+- 新增 `packages/visual/tests/unit/` 首批测试：
+  - `battle_rules.test.ts`：覆盖攻击范围、移动范围、绕障路径、确定性伤害、未命中、胜负判定、武功去重。
+  - `indoor_coordinate_mapper.test.ts`：覆盖室内坐标换算、容器偏移、local 坐标、编辑器取整、碰撞/交互矩形归一化。
+  - `indoor_editor_persistence.test.ts`：覆盖家具/交互区域快照应用、localStorage 保存和读取。
+  - 当前共 17 个单元测试。
+- `scripts/visual_governance_audit.mjs` 将 `test:unit` 纳入必须脚本检查。
+- `packages/visual/README.md`、`packages/visual/docs/visual_governance.md`、`docs/project_governance.md`、`docs/technical_debt_register.md` 已同步测试门禁说明。
+- 验证：`npm run check` 已通过，执行 `typecheck`、17 个 unit tests 和 Vite build；`npm run audit:governance` 显示“治理提醒：暂无”。

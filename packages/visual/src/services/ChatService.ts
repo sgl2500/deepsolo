@@ -2,6 +2,8 @@
 // ChatService.ts — WebSocket 聊天客户端
 // ============================================================
 
+import { DebugLogger } from '../utils/DebugLogger';
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
@@ -37,7 +39,7 @@ export class ChatService {
     }
 
     this.ws.onopen = () => {
-      console.log('[ChatService] 已连接');
+      DebugLogger.info('ChatService', '已连接');
     };
 
     this.ws.onmessage = (event) => {
@@ -50,7 +52,7 @@ export class ChatService {
     };
 
     this.ws.onclose = () => {
-      console.log('[ChatService] 连接关闭');
+      DebugLogger.info('ChatService', '连接关闭');
       // 5秒后自动重连
       this.reconnectTimer = setTimeout(() => this.connect(), 5000);
     };

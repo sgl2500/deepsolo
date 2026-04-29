@@ -116,6 +116,23 @@ npm install
 npm run dev
 ```
 
+## 项目治理
+
+当前项目已经建立轻量治理入口：
+
+- `docs/project_governance.md`：项目治理规范、质量门禁、文档规则和发布检查清单。
+- `docs/technical_debt_register.md`：已知技术债、优先级和建议处理顺序。
+- `packages/visual/docs/visual_governance.md`：Visual 包模块边界、编辑器约定和回归场景。
+- `codex.md`：连续迭代记录，包含关键调参结论和验证结果。
+
+前端可视化包交付前建议执行：
+
+```bash
+cd packages/visual
+npm run check        # typecheck + unit tests + build
+npm run audit:governance
+```
+
 ### 手动触发
 
 ```bash

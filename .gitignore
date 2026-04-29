@@ -57,3 +57,6 @@ htmlcov/
 
 # Tool output
 graphify-out/
+
+# Local test/build scratch
+.tmp/

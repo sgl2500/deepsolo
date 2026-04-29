@@ -531,10 +531,18 @@ export class WorldScene extends Phaser.Scene {
 
     const debugEl = document.getElementById('debug-info');
     if (debugEl) {
+      const debugVisible = this.worldMapEditor.isActive() || this.mapRenderer.isFurnitureEditorActive();
+      debugEl.style.display = debugVisible ? 'block' : 'none';
+      if (!debugVisible) {
+        debugEl.textContent = '';
+        return;
+      }
+
       const sceneLabel = state === SceneState.Indoor ? ' [室内]' : '';
       let exitInfo = '';
       if (state === SceneState.Indoor && this.sceneManager.isIndoor()) {
-        const building = BUILDINGS.find(b => true);
+        const currentBuildingId = this.sceneManager.getCurrentBuildingId();
+        const building = BUILDINGS.find(b => b.id === currentBuildingId);
         if (building) {
           const dx = px - building.exitX;
           const dy = py - building.exitY;

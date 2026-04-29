@@ -45,6 +45,7 @@ export class WorldMapEditor {
   private guideCollapsed = false;
   private lastPlayerX = 0;
   private lastPlayerY = 0;
+  private readonly collisionInsertScreenThreshold = 18;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -204,9 +205,17 @@ export class WorldMapEditor {
 
     if (this.isShiftPointer(pointer)) {
       const building = this.selectedBuilding;
-      const mapPos = building ? this.screenToMap(pointer.x, pointer.y, this.lastPlayerX, this.lastPlayerY) : null;
-      if (building && mapPos) {
-        const index = this.insertCollisionPolygonPoint(building, mapPos);
+      if (building && (building.collisionPolygon?.length ?? 0) < 3) {
+        building.collisionPolygon = this.createDefaultCollisionPolygon(building);
+        this.syncCircleFromPolygon(building);
+        this.saveLayoutToStorage();
+        this.updateHelpText();
+        return;
+      }
+
+      const candidate = building ? this.findCollisionPolygonInsertCandidate(building, pointer.x, pointer.y) : null;
+      if (building && candidate) {
+        const index = this.insertCollisionPolygonPoint(building, candidate.mapPos, candidate.edgeIndex);
         this.drag = { buildingId: building.id, kind: 'collision-point', pointIndex: index };
         this.saveLayoutToStorage();
         this.updateHelpText();
@@ -542,17 +551,22 @@ export class WorldMapEditor {
     if (building.collisionY !== undefined) building.collisionY = this.round(building.collisionY + dy);
   }
 
-  private insertCollisionPolygonPoint(building: BuildingDef, point: { x: number; y: number }): number {
+  private insertCollisionPolygonPoint(building: BuildingDef, point: { x: number; y: number }, insertAfterIndex?: number): number {
     const polygon = building.collisionPolygon ?? this.createDefaultCollisionPolygon(building) ?? [];
     building.collisionPolygon = polygon;
-    let insertAt = polygon.length;
-    let bestDist = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < polygon.length; i++) {
-      const next = polygon[(i + 1) % polygon.length];
-      const dist = this.distanceToSegment(point, polygon[i], next);
-      if (dist < bestDist) {
-        bestDist = dist;
-        insertAt = i + 1;
+    let insertAt = insertAfterIndex === undefined
+      ? polygon.length
+      : Math.min(Math.max(insertAfterIndex + 1, 0), polygon.length);
+
+    if (insertAfterIndex === undefined) {
+      let bestDist = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < polygon.length; i++) {
+        const next = polygon[(i + 1) % polygon.length];
+        const dist = this.distanceToSegment(point, polygon[i], next);
+        if (dist < bestDist) {
+          bestDist = dist;
+          insertAt = i + 1;
+        }
       }
     }
     polygon.splice(insertAt, 0, {
@@ -561,6 +575,38 @@ export class WorldMapEditor {
     });
     this.syncCircleFromPolygon(building);
     return insertAt;
+  }
+
+  private findCollisionPolygonInsertCandidate(
+    building: BuildingDef,
+    screenX: number,
+    screenY: number,
+  ): { edgeIndex: number; mapPos: { x: number; y: number } } | null {
+    const polygon = building.collisionPolygon ?? [];
+    if (polygon.length < 3) return null;
+
+    let bestEdgeIndex = -1;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < polygon.length; i++) {
+      const a = toScreen(polygon[i].x, polygon[i].y, this.lastPlayerX, this.lastPlayerY);
+      const b = toScreen(
+        polygon[(i + 1) % polygon.length].x,
+        polygon[(i + 1) % polygon.length].y,
+        this.lastPlayerX,
+        this.lastPlayerY,
+      );
+      const distance = this.distanceToScreenSegment(screenX, screenY, a.x, a.y, b.x, b.y);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestEdgeIndex = i;
+      }
+    }
+
+    if (bestDistance > this.collisionInsertScreenThreshold || bestEdgeIndex < 0) return null;
+    return {
+      edgeIndex: bestEdgeIndex,
+      mapPos: this.screenToMap(screenX, screenY, this.lastPlayerX, this.lastPlayerY),
+    };
   }
 
   private deleteCollisionPolygonPoint(building: BuildingDef, index: number | undefined): void {
@@ -614,6 +660,15 @@ export class WorldMapEditor {
     return Phaser.Math.Distance.Between(point.x, point.y, a.x + t * dx, a.y + t * dy);
   }
 
+  private distanceToScreenSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const lengthSq = dx * dx + dy * dy;
+    if (!lengthSq) return Phaser.Math.Distance.Between(px, py, ax, ay);
+    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq));
+    return Phaser.Math.Distance.Between(px, py, ax + t * dx, ay + t * dy);
+  }
+
   private clearTexts(): void {
     for (const text of this.texts) text.destroy();
     this.texts = [];
@@ -649,7 +704,7 @@ export class WorldMapEditor {
           '绿色方块：入口半径手柄。拖动可缩放入口圈。',
           '橙色多边形：建筑真实碰撞区域。',
           '拖橙色点：调整碰撞多边形顶点。',
-          'Shift+点击多边形边：新增碰撞顶点。',
+          'Shift+点击多边形边附近：新增碰撞顶点。',
           '右键/Alt+点击橙色点：删除碰撞顶点。',
           '点击建筑文字附近：选择建筑。',
           '',
