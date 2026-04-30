@@ -59,7 +59,6 @@ export class NPC extends Entity {
       this.container.setDepth(this.mapX + this.mapY);
     } else {
       this.updateScreenPosition(playerX, playerY);
-      this.container.setDepth(this.mapY);
     }
   }
 

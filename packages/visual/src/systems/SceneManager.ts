@@ -13,7 +13,7 @@ import type { EventBus } from '../core/EventBus';
 import type { GameStore } from '../core/GameStore';
 import type { DialogueSystem } from './DialogueSystem';
 import type { MinimapSystem } from './MinimapSystem';
-import { setBuildingMarkersVisible } from './BuildingMarkers';
+import { setBuildingMarkersVisible, updateBuildingMarkers } from './BuildingMarkers';
 
 export class SceneManager {
   private state: SceneState = SceneState.WorldMap;
@@ -345,6 +345,9 @@ export class SceneManager {
 
     // 立即同步所有实体的屏幕位置
     this.entitySystem.syncEntityScreenPositions(rx, ry);
+
+    // 先把建筑标记同步到世界坐标，再显示；否则首次从小屋回大地图时会等到 WorldMap 状态下一帧才出现。
+    updateBuildingMarkers(this.buildingMarkers, rx, ry);
 
     // 显示小地图和建筑标记
     this.minimapSystem.setVisible(true);

@@ -110,11 +110,13 @@ export function updateBuildingMarkers(
     if (!building) continue;
     const bx = building.visualX ?? building.entryX;
     const by = building.visualY ?? building.entryY;
+    const depthX = building.depthX ?? bx;
+    const depthY = building.depthY ?? by;
     const screen = toScreen(bx, by, playerX, playerY);
     const entryScreen = toScreen(building.entryX, building.entryY, playerX, playerY);
     m.x = screen.x;
     m.y = screen.y;
-    m.setDepth(by + 0.25);
+    m.setDepth(depthX + depthY + 0.25);
     const entryGlow = m.getData('entryGlow') as Phaser.GameObjects.Graphics | undefined;
     if (entryGlow) {
       entryGlow.x = entryScreen.x - screen.x;

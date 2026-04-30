@@ -3,7 +3,14 @@ import { BUILDINGS } from '../data/BuildingData';
 import type { BuildingDef } from '../types';
 import { toScreen } from '../utils/IsoProjection';
 
-type WorldEditorHandleKind = 'visual-center' | 'entry-center' | 'entry-radius' | 'collision-center' | 'collision-radius' | 'collision-point';
+type WorldEditorHandleKind =
+  | 'visual-center'
+  | 'depth-center'
+  | 'entry-center'
+  | 'entry-radius'
+  | 'collision-center'
+  | 'collision-radius'
+  | 'collision-point';
 
 type WorldEditorDrag = {
   buildingId: string;
@@ -17,6 +24,8 @@ type WorldEditorSnapshotItem = {
   id: string;
   visualX?: number;
   visualY?: number;
+  depthX?: number;
+  depthY?: number;
   entryX: number;
   entryY: number;
   entryRadius: number;
@@ -27,7 +36,7 @@ type WorldEditorSnapshotItem = {
 };
 
 type WorldEditorStoragePayload = {
-  version: 1 | 2 | 3 | 4;
+  version: 1 | 2 | 3 | 4 | 5;
   savedAt: number;
   items: WorldEditorSnapshotItem[];
 };
@@ -192,6 +201,12 @@ export class WorldMapEditor {
         hit.offsetX = (building.visualX ?? building.entryX) - mapPos.x;
         hit.offsetY = (building.visualY ?? building.entryY) - mapPos.y;
       }
+      if (building && hit.kind === 'depth-center') {
+        const mapPos = this.screenToMap(pointer.x, pointer.y, this.lastPlayerX, this.lastPlayerY);
+        const depthPos = this.getDepthPosition(building);
+        hit.offsetX = depthPos.x - mapPos.x;
+        hit.offsetY = depthPos.y - mapPos.y;
+      }
       this.drag = hit;
       this.updateHelpText();
       return;
@@ -239,6 +254,10 @@ export class WorldMapEditor {
       building.visualX = nextX;
       building.visualY = nextY;
       this.translateBuildingCollision(building, dx, dy);
+      this.translateBuildingDepth(building, dx, dy);
+    } else if (this.drag.kind === 'depth-center') {
+      building.depthX = this.round(mapPos.x + (this.drag.offsetX ?? 0));
+      building.depthY = this.round(mapPos.y + (this.drag.offsetY ?? 0));
     } else if (this.drag.kind === 'entry-center') {
       building.entryX = this.round(mapPos.x);
       building.entryY = this.round(mapPos.y);
@@ -302,7 +321,9 @@ export class WorldMapEditor {
       const selected = building.id === this.selectedBuildingId;
       const visualX = building.visualX ?? building.entryX;
       const visualY = building.visualY ?? building.entryY;
+      const depthPos = this.getDepthPosition(building);
       const visualScreen = toScreen(visualX, visualY, playerX, playerY);
+      const depthScreen = toScreen(depthPos.x, depthPos.y, playerX, playerY);
       const entryScreen = toScreen(building.entryX, building.entryY, playerX, playerY);
       const entryRadiusHandle = toScreen(building.entryX + building.entryRadius, building.entryY, playerX, playerY);
       const entryRx = building.entryRadius * TILE_HALF_W;
@@ -311,12 +332,19 @@ export class WorldMapEditor {
       if (selected) {
         this.overlay.lineStyle(1, 0xfbbf24, 0.55);
         this.overlay.lineBetween(visualScreen.x, visualScreen.y, entryScreen.x, entryScreen.y);
+        this.overlay.lineStyle(1, 0xa855f7, 0.7);
+        this.overlay.lineBetween(visualScreen.x, visualScreen.y, depthScreen.x, depthScreen.y);
       }
 
       this.overlay.fillStyle(0xfbbf24, selected ? 0.96 : 0.68);
       this.overlay.fillCircle(visualScreen.x, visualScreen.y, selected ? 7 : 5);
       this.overlay.lineStyle(selected ? 2 : 1, selected ? 0xffffff : 0x78350f, selected ? 0.95 : 0.65);
       this.overlay.strokeCircle(visualScreen.x, visualScreen.y, selected ? 10 : 7);
+
+      this.overlay.fillStyle(0xa855f7, selected ? 0.96 : 0.62);
+      this.overlay.fillCircle(depthScreen.x, depthScreen.y, selected ? 7 : 5);
+      this.overlay.lineStyle(selected ? 2 : 1, selected ? 0xffffff : 0x581c87, selected ? 0.95 : 0.65);
+      this.overlay.strokeCircle(depthScreen.x, depthScreen.y, selected ? 11 : 7);
 
       this.overlay.lineStyle(selected ? 3 : 2, selected ? 0xfbbf24 : 0x22c55e, selected ? 0.95 : 0.55);
       this.overlay.strokeEllipse(entryScreen.x, entryScreen.y, entryRx * 2, entryRy * 2);
@@ -365,7 +393,7 @@ export class WorldMapEditor {
       }
 
       const collisionText = polygon.length >= 3 ? `碰撞 多边形 ${polygon.length}点` : `碰撞 r=${radius.toFixed(1)}`;
-      const label = this.scene.add.text(visualScreen.x + 10, visualScreen.y - 54, `${building.name}\n建筑 ${visualX.toFixed(1)},${visualY.toFixed(1)}\n入口 ${building.entryX.toFixed(1)},${building.entryY.toFixed(1)} r=${building.entryRadius.toFixed(1)}\n${collisionText}`, {
+      const label = this.scene.add.text(visualScreen.x + 10, visualScreen.y - 54, `${building.name}\n建筑 ${visualX.toFixed(1)},${visualY.toFixed(1)}\n遮挡 ${depthPos.x.toFixed(1)},${depthPos.y.toFixed(1)} d=${(depthPos.x + depthPos.y).toFixed(1)}\n入口 ${building.entryX.toFixed(1)},${building.entryY.toFixed(1)} r=${building.entryRadius.toFixed(1)}\n${collisionText}`, {
         fontSize: selected ? '11px' : '10px',
         color: selected ? '#fef3c7' : '#d1d5db',
         stroke: '#000000',
@@ -388,9 +416,14 @@ export class WorldMapEditor {
     for (const building of BUILDINGS) {
       const visualX = building.visualX ?? building.entryX;
       const visualY = building.visualY ?? building.entryY;
+      const depthPos = this.getDepthPosition(building);
       const visualScreen = toScreen(visualX, visualY, this.lastPlayerX, this.lastPlayerY);
+      const depthScreen = toScreen(depthPos.x, depthPos.y, this.lastPlayerX, this.lastPlayerY);
       const entryScreen = toScreen(building.entryX, building.entryY, this.lastPlayerX, this.lastPlayerY);
       const entryRadiusHandle = toScreen(building.entryX + building.entryRadius, building.entryY, this.lastPlayerX, this.lastPlayerY);
+      if (Phaser.Math.Distance.Between(screenX, screenY, depthScreen.x, depthScreen.y) <= 14) {
+        return { buildingId: building.id, kind: 'depth-center' };
+      }
       if (Phaser.Math.Distance.Between(screenX, screenY, entryRadiusHandle.x, entryRadiusHandle.y) <= 12) {
         return { buildingId: building.id, kind: 'entry-radius' };
       }
@@ -446,10 +479,13 @@ export class WorldMapEditor {
         this.lastPlayerX,
         this.lastPlayerY,
       );
+      const depthPos = this.getDepthPosition(building);
+      const depthScreen = toScreen(depthPos.x, depthPos.y, this.lastPlayerX, this.lastPlayerY);
       const entryScreen = toScreen(building.entryX, building.entryY, this.lastPlayerX, this.lastPlayerY);
       const dist = Math.min(
         Phaser.Math.Distance.Between(screenX, screenY, entryScreen.x, entryScreen.y),
         Phaser.Math.Distance.Between(screenX, screenY, visualScreen.x, visualScreen.y),
+        Phaser.Math.Distance.Between(screenX, screenY, depthScreen.x, depthScreen.y),
       );
       if (dist < bestDist) {
         bestDist = dist;
@@ -473,7 +509,7 @@ export class WorldMapEditor {
     if (!raw) return;
     try {
       const payload = JSON.parse(raw) as WorldEditorStoragePayload;
-      if ((payload.version !== 1 && payload.version !== 2 && payload.version !== 3 && payload.version !== 4) || !Array.isArray(payload.items)) return;
+      if (![1, 2, 3, 4, 5].includes(payload.version) || !Array.isArray(payload.items)) return;
       this.applySnapshot(payload.items, payload.version);
     } catch (error) {
       console.warn('[WorldMapEditor] Failed to load saved layout:', error);
@@ -482,7 +518,7 @@ export class WorldMapEditor {
 
   private saveLayoutToStorage(): void {
     const payload: WorldEditorStoragePayload = {
-      version: 4,
+      version: 5,
       savedAt: Date.now(),
       items: this.createSnapshot(),
     };
@@ -494,6 +530,8 @@ export class WorldMapEditor {
       id: building.id,
       visualX: building.visualX,
       visualY: building.visualY,
+      depthX: building.depthX,
+      depthY: building.depthY,
       entryX: building.entryX,
       entryY: building.entryY,
       entryRadius: building.entryRadius,
@@ -504,12 +542,16 @@ export class WorldMapEditor {
     }));
   }
 
-  private applySnapshot(items: WorldEditorSnapshotItem[], payloadVersion: 1 | 2 | 3 | 4 = 4): void {
+  private applySnapshot(items: WorldEditorSnapshotItem[], payloadVersion: 1 | 2 | 3 | 4 | 5 = 5): void {
     for (const item of items) {
       const building = BUILDINGS.find((candidate) => candidate.id === item.id);
       if (!building) continue;
       if (item.visualX !== undefined) building.visualX = item.visualX;
       if (item.visualY !== undefined) building.visualY = item.visualY;
+      if (payloadVersion >= 5) {
+        building.depthX = item.depthX;
+        building.depthY = item.depthY;
+      }
       building.entryX = item.entryX;
       building.entryY = item.entryY;
       building.entryRadius = item.entryRadius;
@@ -533,6 +575,13 @@ export class WorldMapEditor {
     };
   }
 
+  private getDepthPosition(building: BuildingDef): { x: number; y: number } {
+    return {
+      x: building.depthX ?? building.visualX ?? building.entryX,
+      y: building.depthY ?? building.visualY ?? building.entryY,
+    };
+  }
+
   private isPointerOnBuildingBody(screenX: number, screenY: number, visualScreenX: number, visualScreenY: number): boolean {
     const dx = Math.abs(screenX - visualScreenX);
     const dy = screenY - visualScreenY;
@@ -549,6 +598,12 @@ export class WorldMapEditor {
     }
     if (building.collisionX !== undefined) building.collisionX = this.round(building.collisionX + dx);
     if (building.collisionY !== undefined) building.collisionY = this.round(building.collisionY + dy);
+  }
+
+  private translateBuildingDepth(building: BuildingDef, dx: number, dy: number): void {
+    if (!dx && !dy) return;
+    if (building.depthX !== undefined) building.depthX = this.round(building.depthX + dx);
+    if (building.depthY !== undefined) building.depthY = this.round(building.depthY + dy);
   }
 
   private insertCollisionPolygonPoint(building: BuildingDef, point: { x: number; y: number }, insertAfterIndex?: number): number {
@@ -676,9 +731,11 @@ export class WorldMapEditor {
 
   private updateHelpText(): void {
     const selected = this.selectedBuilding;
+    const selectedDepth = selected ? this.getDepthPosition(selected) : null;
     const selectedText = selected
       ? [
           `当前建筑：${selected.name}`,
+          `遮挡：${selectedDepth!.x.toFixed(1)}, ${selectedDepth!.y.toFixed(1)}  d=${(selectedDepth!.x + selectedDepth!.y).toFixed(1)}`,
           `入口：${selected.entryX.toFixed(1)}, ${selected.entryY.toFixed(1)}  r=${selected.entryRadius.toFixed(1)}`,
           `碰撞：${(selected.collisionX ?? selected.entryX).toFixed(1)}, ${(selected.collisionY ?? selected.entryY).toFixed(1)}  r=${(selected.collisionRadius ?? 0).toFixed(1)}`,
         ].join('\n')
@@ -700,6 +757,9 @@ export class WorldMapEditor {
           '',
           '1. 选择与移动',
           '黄色点/建筑本体：拖动整栋建筑贴图。',
+          '紫色点：建筑遮挡排序点，只影响谁盖住谁。',
+          '人在建筑前面还被压住：把紫色点往屏幕上方/建筑后方挪。',
+          '人在建筑后面却盖住建筑：把紫色点往屏幕下方/建筑前方挪。',
           '绿色点：建筑入口中心。拖动绿色点移动入口。',
           '绿色方块：入口半径手柄。拖动可缩放入口圈。',
           '橙色多边形：建筑真实碰撞区域。',

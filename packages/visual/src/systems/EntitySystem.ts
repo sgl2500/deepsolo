@@ -158,6 +158,7 @@ export class EntitySystem {
       // 世界模式：玩家固定在屏幕中心
       this.player.container.x = SCREEN_WIDTH / 2;
       this.player.container.y = SCREEN_HEIGHT / 2;
+      this.player.container.setDepth(playerX + playerY);
     }
     // NPC 按相对玩家位置放置
     for (const npc of this.npcs.values()) {

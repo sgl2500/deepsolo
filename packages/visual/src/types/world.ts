@@ -20,6 +20,9 @@ export interface BuildingDef {
   /** 世界地图建筑贴图锚点；不配置时兼容使用入口坐标 */
   visualX?: number;
   visualY?: number;
+  /** 世界地图建筑遮挡排序点；不配置时使用贴图锚点 */
+  depthX?: number;
+  depthY?: number;
   /** 触发半径（地图格） */
   entryRadius: number;
   /** 大地图建筑碰撞中心与半径；未配置或半径为 0 时不阻挡 */

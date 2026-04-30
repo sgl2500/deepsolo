@@ -25,6 +25,7 @@
 颜色含义：
 
 - 黄色圆点/建筑本体：建筑贴图锚点，拖动它或直接拖建筑主体可以移动整栋建筑。
+- 紫色圆点：建筑遮挡排序点，只影响建筑和玩家谁盖住谁，不移动贴图。
 - 绿色椭圆：建筑入口触发区。
 - 绿色圆点：入口中心，拖动后只移动入口触发点，建筑贴图本体不移动。
 - 绿色方块：入口半径手柄，拖动后入口圈变大或变小。
@@ -38,11 +39,12 @@
 
 1. 点击建筑主体、入口点、碰撞点或建筑文字附近，选中建筑。
 2. 拖黄色点或建筑主体，先把整栋建筑贴图放到合适位置。
-3. 拖绿色圆点，把入口放到门口前方。
-4. 拖绿色方块，让入口范围刚好覆盖玩家应该能进门的位置。
-5. 拖橙色点，把碰撞多边形贴合建筑外轮廓。
-6. 需要更细的形状时，按住 `Shift` 点击多边形边附近新增顶点；必须靠近边线才会生效。
-7. 右键或 `Alt + 点击` 橙色点，删除多余顶点。
+3. 拖紫色点，把遮挡排序点放到建筑脚底前沿或门槛地面线附近。
+4. 拖绿色圆点，把入口放到门口前方。
+5. 拖绿色方块，让入口范围刚好覆盖玩家应该能进门的位置。
+6. 拖橙色点，把碰撞多边形贴合建筑外轮廓。
+7. 需要更细的形状时，按住 `Shift` 点击多边形边附近新增顶点；必须靠近边线才会生效。
+8. 右键或 `Alt + 点击` 橙色点，删除多余顶点。
 
 鼠标滚轮也可辅助微调：
 
@@ -64,6 +66,7 @@
 现在建筑贴图和入口点已经拆开：
 
 - `visualX / visualY`：建筑贴图本体锚点，用来决定建筑画在哪里；编辑模式下拖黄色点或建筑主体会修改它。
+- `depthX / depthY`：建筑遮挡排序点，用来决定建筑和玩家谁显示在上层；编辑模式下拖紫色点修改它。
 - `entryX / entryY / entryRadius`：绿色入口触发区，用来决定玩家走到哪里进入建筑。
 - `collisionPolygon`：橙色不规则碰撞多边形，用来决定玩家不能走进哪里。
 - `collisionX / collisionY / collisionRadius`：旧圆形碰撞兜底字段，只有没有多边形时才使用。
@@ -79,7 +82,7 @@
 - `src/scenes/WorldScene.ts`
   - 创建 `WorldMapEditor`，绑定 `F3/H/R/Delete` 等按键，在大地图状态下调用 `update()`。
 - `src/systems/BuildingMarkers.ts`
-  - 建筑贴图位置每帧读取 `BUILDINGS.visualX / visualY`，没有配置时才回退到入口坐标。
+  - 建筑贴图位置每帧读取 `BUILDINGS.visualX / visualY`，遮挡排序读取 `BUILDINGS.depthX / depthY`；没有配置时才回退到贴图锚点和入口坐标。
 - `src/systems/SceneManager.ts`
   - 进入建筑读取 `BUILDINGS.entryX / entryY / entryRadius`，所以入口编辑会即时影响进入触发。
 - `src/content/WorldBuildingCollision.ts`
@@ -87,7 +90,7 @@
 - `src/entities/Player.ts`
   - 世界地图移动时调用 `isBlockedByWorldBuildingCollision()`。
 - `src/types.ts`
-  - `BuildingDef` 包含：`visualX`、`visualY`、`collisionPolygon`、`collisionX`、`collisionY`、`collisionRadius`。
+  - `BuildingDef` 包含：`visualX`、`visualY`、`depthX`、`depthY`、`collisionPolygon`、`collisionX`、`collisionY`、`collisionRadius`。
 - `src/config.ts`
   - `LS_KEY_WORLD_MAP_EDITOR_LAYOUTS = 'deepsolo_world_map_editor_layouts'`。
 
@@ -103,7 +106,7 @@ deepsolo_world_map_editor_layouts
 
 ```ts
 {
-  version: 4,
+  version: 5,
   savedAt: number,
   items: [
     {
@@ -113,6 +116,9 @@ deepsolo_world_map_editor_layouts
       entryRadius: number,
       visualX?: number,
       visualY?: number,
+      // v5 开始保存建筑遮挡排序点。
+      depthX?: number,
+      depthY?: number,
       // v4 开始保存不规则碰撞多边形。
       collisionPolygon?: Array<{ x: number, y: number }>,
       // 旧圆形碰撞兜底字段。

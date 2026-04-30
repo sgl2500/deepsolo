@@ -43,6 +43,7 @@ npm run audit:governance # 治理巡检，输出风险提示
 ## 大地图建筑数据约定
 
 - `visualX/visualY`：建筑贴图锚点，黄色点控制。
+- `depthX/depthY`：建筑遮挡排序点，紫色点控制。
 - `entryX/entryY/entryRadius`：进入建筑的绿色入口圈。
 - `collisionPolygon`：橙色不规则碰撞多边形，优先用于玩家阻挡。
 - `collisionX/collisionY/collisionRadius`：旧圆形碰撞兜底字段，不作为主要编辑对象。
@@ -53,7 +54,7 @@ npm run audit:governance # 治理巡检，输出风险提示
 
 1. 从观察者小屋进入大地图。
 2. 大地图普通模式没有后台坐标。
-3. `F3` 大地图编辑模式可以拖建筑、入口和橙色碰撞点。
+3. `F3` 大地图编辑模式可以拖建筑、紫色遮挡点、入口和橙色碰撞点。
 4. 进入观察者小屋后，大地图策略排行和小地图隐藏。
 5. 室内 `F2` 家具编辑器只在编辑模式显示点位。
 6. 床休息、书架秘籍、背包/武功面板流程正常。

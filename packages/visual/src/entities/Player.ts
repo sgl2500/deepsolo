@@ -114,7 +114,7 @@ export class Player extends Entity {
     } else {
       this.container.x = SCREEN_WIDTH / 2;
       this.container.y = SCREEN_HEIGHT / 2;
-      this.container.setDepth(this.mapY);
+      this.container.setDepth(this.mapX + this.mapY);
       if (this.sprite) this.sprite.y = 14;
     }
 

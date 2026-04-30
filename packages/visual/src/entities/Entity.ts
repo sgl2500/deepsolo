@@ -41,7 +41,7 @@ export abstract class Entity {
     const screen = toScreen(this.mapX, this.mapY, playerX, playerY);
     this.container.x = screen.x;
     this.container.y = screen.y;
-    this.container.setDepth(this.mapY);
+    this.container.setDepth(this.mapX + this.mapY);
   }
 
   /** 更新行走动画 */
