@@ -51,6 +51,9 @@ export class WorldMapEditor {
   private texts: Phaser.GameObjects.Text[] = [];
   private helpText: Phaser.GameObjects.Text;
   private guideText: Phaser.GameObjects.Text;
+  private toastText: Phaser.GameObjects.Text;
+  private saveButton: Phaser.GameObjects.Text;
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private guideCollapsed = false;
   private lastPlayerX = 0;
   private lastPlayerY = 0;
@@ -85,10 +88,45 @@ export class WorldMapEditor {
       this.toggleGuide();
     });
 
+    this.toastText = scene.add.text(SCREEN_WIDTH / 2, 80, '', {
+      fontSize: '14px',
+      color: '#f0fdf4',
+      backgroundColor: 'rgba(22,101,52,0.92)',
+      padding: { x: 16, y: 10 },
+      fontFamily: 'PingFang SC, Microsoft YaHei, monospace',
+    }).setDepth(21002).setScrollFactor(0).setVisible(false).setOrigin(0.5, 0.5);
+
+    this.saveButton = scene.add.text(SCREEN_WIDTH - 16, 14, ' 保存到源码 ', {
+      fontSize: '13px',
+      color: '#fef3c7',
+      backgroundColor: '#92400e',
+      padding: { x: 12, y: 8 },
+      fontFamily: 'PingFang SC, Microsoft YaHei, monospace',
+      fontStyle: 'bold',
+    }).setDepth(21001).setScrollFactor(0).setVisible(false).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    this.saveButton.on('pointerover', () => {
+      this.saveButton.setBackgroundColor('#b45309');
+    });
+    this.saveButton.on('pointerout', () => {
+      this.saveButton.setBackgroundColor('#92400e');
+    });
+    this.saveButton.on('pointerdown', (_pointer: Phaser.Input.Pointer, _x: number, _y: number, event?: Phaser.Types.Input.EventData) => {
+      event?.stopPropagation();
+      this.saveToSource();
+    });
+
     scene.input.on('pointerdown', this.onPointerDown, this);
     scene.input.on('pointermove', this.onPointerMove, this);
     scene.input.on('pointerup', this.onPointerUp, this);
     scene.input.on('wheel', this.onPointerWheel, this);
+
+    scene.input.keyboard!.on('keydown', (event: KeyboardEvent) => {
+      if (!this.active) return;
+      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+        event.preventDefault();
+        this.saveToSource();
+      }
+    });
   }
 
   toggle(): void {
@@ -100,6 +138,7 @@ export class WorldMapEditor {
     this.overlay.setVisible(active);
     this.helpText.setVisible(active);
     this.guideText.setVisible(active);
+    this.saveButton.setVisible(active);
     this.drag = null;
     if (active && !this.selectedBuildingId) {
       this.selectedBuildingId = BUILDINGS[0]?.id ?? null;
@@ -161,6 +200,48 @@ export class WorldMapEditor {
     localStorage.removeItem(LS_KEY_WORLD_MAP_EDITOR_LAYOUTS);
     this.applySnapshot(this.defaultItems);
     this.updateHelpText();
+  }
+
+  private async saveToSource(): Promise<void> {
+    const items = BUILDINGS.map((b) => ({
+      id: b.id,
+      visualX: b.visualX,
+      visualY: b.visualY,
+      depthX: b.depthX,
+      depthY: b.depthY,
+      entryX: b.entryX,
+      entryY: b.entryY,
+      entryRadius: b.entryRadius,
+      collisionX: b.collisionX,
+      collisionY: b.collisionY,
+      collisionRadius: b.collisionRadius ?? 0,
+      collisionPolygon: b.collisionPolygon?.map((p) => ({ x: p.x, y: p.y })),
+    }));
+
+    try {
+      const res = await fetch('/api/save-world-layout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version: 1, savedAt: Date.now(), items }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        this.showToast('已保存到 world_layout_override.json');
+      } else {
+        this.showToast(`保存失败: ${data.error || res.statusText}`);
+      }
+    } catch (e: any) {
+      this.showToast(`保存失败: ${e.message}`);
+    }
+  }
+
+  private showToast(msg: string): void {
+    if (this.toastTimer) clearTimeout(this.toastTimer);
+    this.toastText.setText(msg).setVisible(true);
+    this.toastTimer = setTimeout(() => {
+      this.toastText.setVisible(false);
+      this.toastTimer = null;
+    }, 2500);
   }
 
   toggleGuide(): void {
@@ -772,7 +853,8 @@ export class WorldMapEditor {
           '入口范围仍用绿色方块或滚轮调整。',
           '旧圆形碰撞数据只作为兜底，不再是主要碰撞形状。',
           '',
-          '3. 清除与恢复',
+          '3. 保存与恢复',
+          'Ctrl+S / Cmd+S：保存编辑结果到源码。',
           'Delete：清除当前建筑碰撞。',
           'R：清空本地保存，恢复代码默认。',
           'F3：退出编辑模式。',
