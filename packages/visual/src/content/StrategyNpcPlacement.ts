@@ -33,10 +33,16 @@ const BUILDING_STRATEGY_SLOTS: Record<string, StrategyNpcSlot[]> = {
     { mapX: 11.5, mapY: 9.5, direction: Direction.Down },
   ],
   token_center: [
-    { mapX: 6.5, mapY: 8.5, direction: Direction.Down },
-    { mapX: 8.5, mapY: 8.5, direction: Direction.Down },
-    { mapX: 10.5, mapY: 8.5, direction: Direction.Down },
-    { mapX: 12.5, mapY: 8.5, direction: Direction.Down },
+    { mapX: 12, mapY: 20, direction: Direction.Down },
+    { mapX: 16, mapY: 20, direction: Direction.Down },
+    { mapX: 20, mapY: 20, direction: Direction.Down },
+    { mapX: 24, mapY: 20, direction: Direction.Down },
+    { mapX: 28, mapY: 20, direction: Direction.Down },
+    { mapX: 12, mapY: 26, direction: Direction.Down },
+    { mapX: 16, mapY: 26, direction: Direction.Down },
+    { mapX: 20, mapY: 26, direction: Direction.Down },
+    { mapX: 24, mapY: 26, direction: Direction.Down },
+    { mapX: 28, mapY: 26, direction: Direction.Down },
   ],
 };
 

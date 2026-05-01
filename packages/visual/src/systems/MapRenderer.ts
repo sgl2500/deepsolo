@@ -467,7 +467,8 @@ export class MapRenderer {
     }
 
     const layout = INDOOR_DECOR_LAYOUTS[this.currentIndoorBuildingId];
-    if (!layout) return;
+    const furnitureDefs = getIndoorFurnitureDefs(this.currentIndoorBuildingId);
+    if (!layout && furnitureDefs.length === 0) return;
 
     const cx = this.indoorCx;
     const cy = this.indoorCy;
@@ -475,19 +476,45 @@ export class MapRenderer {
     const scrCy = SCREEN_HEIGHT / 2;
     const s = INDOOR_SCALE;
 
-    for (const decor of layout) {
-      if (!this.scene.textures.exists(decor.textureKey)) continue;
+    if (layout) {
+      for (const decor of layout) {
+        if (!this.scene.textures.exists(decor.textureKey)) continue;
 
-      const sx = TILE_HALF_W * s * ((decor.mapX - cx) - (decor.mapY - cy)) + scrCx + (decor.offsetX ?? 0);
-      const sy = TILE_HALF_H * s * ((decor.mapX - cx) + (decor.mapY - cy)) + scrCy + (decor.offsetY ?? 0);
-      const img = this.scene.add.image(sx, sy, decor.textureKey)
-        .setOrigin(0.5, 1)
-        .setScale(decor.scale ?? 1)
-        .setAlpha(decor.alpha ?? 1)
-        .setDepth(decor.mapX + decor.mapY + (decor.depthBias ?? 0));
+        const sx = TILE_HALF_W * s * ((decor.mapX - cx) - (decor.mapY - cy)) + scrCx + (decor.offsetX ?? 0);
+        const sy = TILE_HALF_H * s * ((decor.mapX - cx) + (decor.mapY - cy)) + scrCy + (decor.offsetY ?? 0);
+        const img = this.scene.add.image(sx, sy, decor.textureKey)
+          .setOrigin(0.5, 1)
+          .setScale(decor.scale ?? 1)
+          .setAlpha(decor.alpha ?? 1)
+          .setDepth(decor.mapX + decor.mapY + (decor.depthBias ?? 0));
+
+        this.indoorContainer.add(img);
+        this.indoorDecorSprites.push(img);
+      }
+    }
+
+    for (const furniture of furnitureDefs) {
+      if (!this.scene.textures.exists(furniture.textureKey)) continue;
+
+      const { mapX, mapY } = toActualIndoorMapPosition(this.currentIndoorBuildingId, furniture.localX, furniture.localY);
+      const depthPosition = toActualIndoorMapPosition(
+        this.currentIndoorBuildingId,
+        furniture.depthLocalX ?? furniture.localX,
+        furniture.depthLocalY ?? furniture.localY,
+      );
+      const x = TILE_HALF_W * s * ((mapX - cx) - (mapY - cy)) + scrCx + (furniture.pixelOffsetX ?? 0);
+      const y = TILE_HALF_H * s * ((mapX - cx) + (mapY - cy)) + scrCy + (furniture.pixelOffsetY ?? 0);
+
+      const img = this.scene.add.image(x, y, furniture.textureKey)
+        .setOrigin(furniture.originX ?? 0.5, furniture.originY ?? 1)
+        .setScale(furniture.scale ?? 1)
+        .setAlpha(furniture.alpha ?? 1)
+        .setDepth(depthPosition.mapX + depthPosition.mapY + (furniture.depthBias ?? 0));
 
       this.indoorContainer.add(img);
       this.indoorDecorSprites.push(img);
+      this.indoorFurnitureSprites.set(furniture.id, img);
+      this.updateFurnitureOccluderSprite(furniture, true);
     }
   }
 

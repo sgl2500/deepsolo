@@ -32,6 +32,8 @@ export type IndoorFurnitureDef = {
 const INDOOR_LOCAL_ORIGINS: Record<string, { x: number; y: number }> = {
   // 观察者小屋的用户指定坐标以围墙内左上角为 (0, 0)，围墙实际从地图 (3, 3) 开始。
   birth_house: { x: 3, y: 3 },
+  // Token中心围墙从地图 (3, 3) 开始。
+  token_center: { x: 3, y: 3 },
 };
 
 export const INDOOR_FURNITURE_DEFS: IndoorFurnitureDef[] = [
@@ -101,6 +103,18 @@ export const INDOOR_FURNITURE_DEFS: IndoorFurnitureDef[] = [
     localY: 4.9,
     scale: 0.5,
     collider: { minLocalX: 4.1, maxLocalX: 5.9, minLocalY: 4.1, maxLocalY: 5.9 },
+  },
+  // --- Token中心 ---
+  {
+    buildingId: 'token_center',
+    id: 'boss_portrait',
+    textureKey: 'token_center_boss',
+    localX: 17,
+    localY: 2,
+    scale: 0.7,
+    depthLocalX: 17,
+    depthLocalY: 0,
+    collider: { minLocalX: 15.5, maxLocalX: 18.5, minLocalY: 0.5, maxLocalY: 3.5 },
   },
 ];
 
