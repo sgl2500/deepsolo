@@ -312,6 +312,32 @@ export class MapRenderer {
     this.updateFurnitureEditorHelpText();
   }
 
+  rotateSelectedFurniture(delta: number): void {
+    if (!this.furnitureEditorActive || !this.currentIndoorBuildingId) return;
+    const selected = this.getSelectedFurniture();
+    if (!selected) return;
+    selected.rotation = Math.round(((selected.rotation ?? 0) + delta) * 10) / 10;
+    const sprite = this.indoorFurnitureSprites.get(selected.id);
+    if (sprite) sprite.setAngle(selected.rotation);
+    this.saveFurnitureEditorLayoutToStorage();
+    this.updateFurnitureEditorHelpText();
+  }
+
+  nudgeSelectedFurnitureOrigin(dx: number, dy: number): void {
+    if (!this.furnitureEditorActive || !this.currentIndoorBuildingId) return;
+    const selected = this.getSelectedFurniture();
+    if (!selected) return;
+    selected.originX = Math.round(((selected.originX ?? 0.5) + dx) * 100) / 100;
+    selected.originY = Math.round(((selected.originY ?? 1) + dy) * 100) / 100;
+    const sprite = this.indoorFurnitureSprites.get(selected.id);
+    if (sprite) {
+      sprite.setOrigin(selected.originX, selected.originY);
+      sprite.setAngle(selected.rotation ?? 0);
+    }
+    this.saveFurnitureEditorLayoutToStorage();
+    this.updateFurnitureEditorHelpText();
+  }
+
   removeLastFurnitureMaskPoint(): void {
     const selected = this.getSelectedFurniture();
     if (!this.furnitureEditorActive || !this.furnitureMaskEditorActive || !selected?.occluderMask?.length) return;
@@ -453,6 +479,7 @@ export class MapRenderer {
           .setOrigin(visual.originX ?? 0.5, visual.originY ?? 1)
           .setScale(visual.scale ?? 1)
           .setAlpha(visual.alpha ?? 1)
+          .setAngle((visual as IndoorFurnitureDef).rotation ?? 0)
           .setDepth(depthPosition.mapX + depthPosition.mapY + (visual.depthBias ?? 0));
 
         this.indoorContainer.add(img);
@@ -509,6 +536,7 @@ export class MapRenderer {
         .setOrigin(furniture.originX ?? 0.5, furniture.originY ?? 1)
         .setScale(furniture.scale ?? 1)
         .setAlpha(furniture.alpha ?? 1)
+        .setAngle(furniture.rotation ?? 0)
         .setDepth(depthPosition.mapX + depthPosition.mapY + (furniture.depthBias ?? 0));
 
       this.indoorContainer.add(img);
@@ -1171,6 +1199,8 @@ export class MapRenderer {
         position.x + (furniture.pixelOffsetX ?? 0),
         position.y + (furniture.pixelOffsetY ?? 0),
       )
+      .setOrigin(furniture.originX ?? 0.5, furniture.originY ?? 1)
+      .setAngle(furniture.rotation ?? 0)
       .setDepth(depthPosition.mapX + depthPosition.mapY + (furniture.depthBias ?? 0));
     this.furnitureOccluderRenderer.sync(furniture, sprite, this.currentIndoorBuildingId);
     this.indoorContainer?.sort('depth');
@@ -1222,6 +1252,8 @@ export class MapRenderer {
             ? `碰撞框：${selected.collider.minLocalX.toFixed(1)},${selected.collider.minLocalY.toFixed(1)} -> ${selected.collider.maxLocalX.toFixed(1)},${selected.collider.maxLocalY.toFixed(1)}`
             : '碰撞框：无',
           `mask：${this.furnitureMaskEditorActive ? '开启' : '关闭'}（${selected.occluderMask?.length ?? 0} 点，选中 ${this.furnitureEditorSelectedMaskIndex ?? '-'}）`,
+          `旋转：${selected.rotation ?? 0}°`,
+          `旋转中心 origin：${selected.originX ?? 0.5}, ${selected.originY ?? 1}`,
         ].join('\n')
       : '当前家具：无';
     const selectedInteractable = getIndoorInteractables(this.currentIndoorBuildingId)
@@ -1262,7 +1294,13 @@ export class MapRenderer {
           '拖紫色点：调整整件家具和玩家谁在前。',
           '黄紫重合时：普通拖动选黄色；按住 Shift 拖动选紫色。',
           '',
-          '4. 局部 mask 遮挡',
+          '4. 旋转与旋转中心',
+          'Q/E：逆时针/顺时针旋转 15°。',
+          'Shift+Q/E：微调旋转 1°。',
+          'Shift+方向键：调整旋转中心 origin ±0.05。',
+          '旋转中心决定绕哪个点转，默认底部中央(0.5,1)。',
+          '',
+          '5. 局部 mask 遮挡',
           '按 M 开关 mask 模式。',
           'mask 开启后，点击家具图片新增橙色点。',
           '拖橙色点：调整局部遮挡范围。',
@@ -1270,12 +1308,12 @@ export class MapRenderer {
           'Backspace/Delete：删选中点；没有选中点就删最后一个。',
           'C：清空当前家具 mask。',
           '',
-          '5. 交互区域',
+          '6. 交互区域',
           '拖青色中心点：移动交互区域。',
           '拖青色四角：调整触发范围。',
           '床休息点、书架翻书都用这个范围。',
           '',
-          '6. 保存与重置',
+          '7. 保存与重置',
           '松开鼠标或改 mask 后自动保存。',
           '刷新页面会恢复上次编辑。',
           'R：清空本地保存，恢复代码默认值。',

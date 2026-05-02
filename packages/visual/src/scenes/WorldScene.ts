@@ -153,6 +153,32 @@ export class WorldScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-C', () => {
       this.mapRenderer.clearFurnitureMask();
     });
+    this.input.keyboard!.on('keydown-Q', (_event: KeyboardEvent) => {
+      if (_event.shiftKey) {
+        this.mapRenderer.rotateSelectedFurniture(-1);
+      } else {
+        this.mapRenderer.rotateSelectedFurniture(-15);
+      }
+    });
+    this.input.keyboard!.on('keydown-E', (_event: KeyboardEvent) => {
+      if (_event.shiftKey) {
+        this.mapRenderer.rotateSelectedFurniture(1);
+      } else {
+        this.mapRenderer.rotateSelectedFurniture(15);
+      }
+    });
+    this.input.keyboard!.on('keydown-LEFT', (_event: KeyboardEvent) => {
+      if (_event.shiftKey) this.mapRenderer.nudgeSelectedFurnitureOrigin(-0.05, 0);
+    });
+    this.input.keyboard!.on('keydown-RIGHT', (_event: KeyboardEvent) => {
+      if (_event.shiftKey) this.mapRenderer.nudgeSelectedFurnitureOrigin(0.05, 0);
+    });
+    this.input.keyboard!.on('keydown-UP', (_event: KeyboardEvent) => {
+      if (_event.shiftKey) this.mapRenderer.nudgeSelectedFurnitureOrigin(0, -0.05);
+    });
+    this.input.keyboard!.on('keydown-DOWN', (_event: KeyboardEvent) => {
+      if (_event.shiftKey) this.mapRenderer.nudgeSelectedFurnitureOrigin(0, 0.05);
+    });
     this.input.keyboard!.on('keydown-R', () => {
       if (this.worldMapEditor?.isActive()) {
         this.worldMapEditor.resetSavedLayout();

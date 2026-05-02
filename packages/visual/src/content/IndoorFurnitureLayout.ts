@@ -22,6 +22,7 @@ export type IndoorFurnitureDef = {
   originY?: number;
   pixelOffsetX?: number;
   pixelOffsetY?: number;
+  rotation?: number;
   depthLocalX?: number;
   depthLocalY?: number;
   depthBias?: number;
@@ -115,6 +116,16 @@ export const INDOOR_FURNITURE_DEFS: IndoorFurnitureDef[] = [
     depthLocalX: 17,
     depthLocalY: 0,
     collider: { minLocalX: 15.5, maxLocalX: 18.5, minLocalY: 0.5, maxLocalY: 3.5 },
+  },
+  {
+    buildingId: 'token_center',
+    id: 'wall_decor',
+    textureKey: 'token_center_wall_decor',
+    localX: 17,
+    localY: 1,
+    depthLocalX: 17,
+    depthLocalY: 0,
+    collider: { minLocalX: 10, maxLocalX: 24, minLocalY: 0, maxLocalY: 3 },
   },
 ];
 

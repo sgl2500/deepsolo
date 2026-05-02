@@ -13,6 +13,7 @@ export type FurnitureEditorSnapshotItem = {
   originY?: number;
   pixelOffsetX?: number;
   pixelOffsetY?: number;
+  rotation?: number;
   depthLocalX?: number;
   depthLocalY?: number;
   depthBias?: number;
@@ -61,6 +62,7 @@ export function createFurnitureEditorSnapshot(buildingId: string): FurnitureEdit
     originY: item.originY,
     pixelOffsetX: item.pixelOffsetX,
     pixelOffsetY: item.pixelOffsetY,
+    rotation: item.rotation,
     depthLocalX: item.depthLocalX,
     depthLocalY: item.depthLocalY,
     depthBias: item.depthBias,
@@ -83,6 +85,7 @@ export function applyFurnitureEditorSnapshot(buildingId: string, items: Furnitur
     target.originY = optionalNumber(saved.originY);
     target.pixelOffsetX = optionalNumber(saved.pixelOffsetX);
     target.pixelOffsetY = optionalNumber(saved.pixelOffsetY);
+    target.rotation = optionalNumber(saved.rotation);
     target.depthLocalX = optionalNumber(saved.depthLocalX);
     target.depthLocalY = optionalNumber(saved.depthLocalY);
     target.depthBias = optionalNumber(saved.depthBias);
