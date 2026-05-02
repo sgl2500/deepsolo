@@ -104,13 +104,24 @@ export class BootScene extends Phaser.Scene {
 
     // === 室内地图数据 ===
     for (const b of BUILDINGS) {
-      this.load.json(b.indoorMapKey, `assets/maps/indoor/${b.indoorMapKey}.json?v=10`);
+      this.load.json(b.indoorMapKey, `assets/maps/indoor/${b.indoorMapKey}.json?v=11`);
     }
     for (const asset of BIRTH_HOUSE_DECOR_ASSETS) {
       this.load.image(asset.key, `assets/rooms/observer_house/${asset.file}?v=9`);
     }
     // Token中心室内装饰
     this.load.image('token_center_boss', 'assets/rooms/token-centre/token中心掌门.png?v=2');
+    // Token中心地砖
+    this.load.image('smap_9514', 'assets/maps/dizhuan/0514.png?v=1');
+
+    // === 地毯瓦片 ===
+    const DITAN_IDS = [306, 307, 308, 309, 310, 311, 312, 313, 330];
+    for (const id of DITAN_IDS) {
+      const padded = String(id).padStart(4, '0');
+      const smapId = 9000 + id;
+      this.load.image(`smap_${smapId}`, `assets/maps/ditan/${padded}.png?v=1`);
+    }
+
     for (const asset of WORLD_BUILDING_ASSETS) {
       this.load.image(asset.key, `assets/world/buildings/${asset.file}?v=1`);
     }

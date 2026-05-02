@@ -32,6 +32,18 @@ const CUSTOM_SMAP_OFFSETS: Record<number, { xoff: number; yoff: number }> = {
   9532: { xoff: 18, yoff: 46 },
   9533: { xoff: 18, yoff: 23 },
   9534: { xoff: 18, yoff: 24 },
+  // 地砖 (dizhuan)
+  9514: { xoff: 18, yoff: 17 },
+  // 地毯瓦片 (ditan)
+  9306: { xoff: 18, yoff: 17 },
+  9307: { xoff: 18, yoff: 17 },
+  9308: { xoff: 18, yoff: 17 },
+  9309: { xoff: 18, yoff: 17 },
+  9310: { xoff: 18, yoff: 17 },
+  9311: { xoff: 18, yoff: 17 },
+  9312: { xoff: 18, yoff: 17 },
+  9313: { xoff: 18, yoff: 17 },
+  9330: { xoff: 18, yoff: 17 },
 };
 
 export type IndoorFixedFloorTilesDef = {
@@ -194,7 +206,7 @@ export class IndoorLayerRenderer {
     for (let row = 0; row < mapData.height; row++) {
       for (let col = 0; col < mapData.width; col++) {
         const sv = mapData.surface[row][col];
-        if (sv === 0) continue;
+        if (sv === 0 || sv === 307) continue;
         const { sx, sy } = pos(col, row);
         this.drawSmapTileOnCtx(ctx, sv, sx, sy, s);
       }
@@ -280,7 +292,7 @@ export class IndoorLayerRenderer {
         const bId = building ? (building[row]?.[col] ?? 0) : 0;
 
         const tileId = mapData.surface[row][col];
-        if (tileId !== 0 && !(bId !== 0 && tileId === bId)) {
+        if (tileId !== 0 && tileId !== 307 && !(bId !== 0 && tileId === bId)) {
           const texKey = `smap_${tileId}`;
           if (this.scene.textures.exists(texKey)) {
             const off = this.smapOffsets.get(tileId);
