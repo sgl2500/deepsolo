@@ -115,6 +115,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('smap_9514', 'assets/maps/dizhuan/0514.png?v=1');
     // Token中心墙壁装饰
     this.load.image('token_center_wall_decor', 'assets/maps/qiangti/墙体贴图.png?v=1');
+    this.load.image('token_center_left_wall_decor', 'assets/maps/qiangti/左侧贴图.png?v=1');
 
     // === 地毯瓦片 ===
     const DITAN_IDS = [306, 307, 308, 309, 310, 311, 312, 313, 330];

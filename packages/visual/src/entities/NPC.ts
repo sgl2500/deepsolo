@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Direction, type MapData, type NPCDef } from '../types';
-import { WALK_FRAME_INTERVAL, TILE_HALF_W, TILE_HALF_H, SCREEN_WIDTH, SCREEN_HEIGHT, INDOOR_SCALE } from '../config';
+import { WALK_FRAME_INTERVAL, TILE_HALF_W, TILE_HALF_H, SCREEN_WIDTH, SCREEN_HEIGHT, INDOOR_SCALE, INDOOR_ACTOR_DEPTH_BASE } from '../config';
 import { Entity } from './Entity';
 import { isFrameValid } from '../utils/MathUtils';
 
@@ -56,7 +56,7 @@ export class NPC extends Entity {
       const s = INDOOR_SCALE;
       this.container.x = TILE_HALF_W * s * ((this.mapX - this.indoorCx) - (this.mapY - this.indoorCy)) + SCREEN_WIDTH / 2;
       this.container.y = TILE_HALF_H * s * ((this.mapX - this.indoorCx) + (this.mapY - this.indoorCy)) + SCREEN_HEIGHT / 2;
-      this.container.setDepth(this.mapX + this.mapY);
+      this.container.setDepth(INDOOR_ACTOR_DEPTH_BASE + this.mapX + this.mapY);
     } else {
       this.updateScreenPosition(playerX, playerY);
     }

@@ -1,4 +1,5 @@
 import {
+  INDOOR_FOREGROUND_DEPTH_BASE,
   INDOOR_SCALE,
   SCREEN_HEIGHT,
   SCREEN_WIDTH,
@@ -32,8 +33,6 @@ const CUSTOM_SMAP_OFFSETS: Record<number, { xoff: number; yoff: number }> = {
   9532: { xoff: 18, yoff: 46 },
   9533: { xoff: 18, yoff: 23 },
   9534: { xoff: 18, yoff: 24 },
-  // 地砖 (dizhuan)
-  9514: { xoff: 18, yoff: 17 },
   // 地毯瓦片 (ditan)
   9306: { xoff: 18, yoff: 17 },
   9307: { xoff: 18, yoff: 17 },
@@ -270,6 +269,7 @@ export class IndoorLayerRenderer {
     const s = INDOOR_SCALE;
     const building = mapData.building;
     const heightMap = mapData.surfaceHeight;
+    const frontWallRow = this.findFrontWallRow(mapData);
 
     let roofYoff = 0;
     for (let r = 0; r < mapData.height; r++) {
@@ -301,7 +301,7 @@ export class IndoorLayerRenderer {
             const img = this.scene.add.image(sx - ox, sy - oy - d4 * s, texKey)
               .setOrigin(0, 0)
               .setScale(s)
-              .setDepth(col + row);
+              .setDepth(this.getWallTileDepth(col, row, row === frontWallRow));
             container.add(img);
             this.wallSprites.push(img);
           }
@@ -319,7 +319,7 @@ export class IndoorLayerRenderer {
             const img = this.scene.add.image(sx - ox, sy - oy - d4 * s - yOffset, texKey)
               .setOrigin(0, 0)
               .setScale(s)
-              .setDepth(col + row + 0.5)
+              .setDepth(isWallOverlay ? col + row + 0.5 : INDOOR_FOREGROUND_DEPTH_BASE + col + row + 0.5)
               .setAlpha(1.0);
 
             container.add(img);
@@ -345,7 +345,7 @@ export class IndoorLayerRenderer {
     const scrCy = SCREEN_HEIGHT / 2;
     const s = INDOOR_SCALE;
 
-    const addWallTile = (tileId: number, col: number, row: number, depthBias = 0): void => {
+    const addWallTile = (tileId: number, col: number, row: number, foreground = false, depthBias = 0): void => {
       const texKey = `smap_${tileId}`;
       if (!this.scene.textures.exists(texKey)) return;
 
@@ -358,7 +358,7 @@ export class IndoorLayerRenderer {
       const img = this.scene.add.image(sx - ox, sy - oy, texKey)
         .setOrigin(0, 0)
         .setScale(s)
-        .setDepth(col + row + depthBias);
+        .setDepth(this.getWallTileDepth(col, row, foreground, depthBias));
 
       container.add(img);
       this.wallSprites.push(img);
@@ -388,8 +388,26 @@ export class IndoorLayerRenderer {
         : col === wallTiles.colEnd
           ? 848
           : 839;
-      addWallTile(bottomTile, col, wallTiles.rowEnd, 0.5);
+      addWallTile(bottomTile, col, wallTiles.rowEnd, true, 0.5);
     }
+  }
+
+  private findFrontWallRow(mapData: MapData): number | null {
+    let frontRow: number | null = null;
+    for (let row = 0; row < mapData.height; row++) {
+      for (let col = 0; col < mapData.width; col++) {
+        const tileId = mapData.surface[row]?.[col] ?? 0;
+        if (tileId !== 0 && tileId !== 307) {
+          frontRow = frontRow === null ? row : Math.max(frontRow, row);
+        }
+      }
+    }
+    return frontRow;
+  }
+
+  private getWallTileDepth(col: number, row: number, foreground: boolean, depthBias = 0): number {
+    const base = foreground ? INDOOR_FOREGROUND_DEPTH_BASE : 0;
+    return base + col + row + depthBias;
   }
 
   private drawSmapTileOnCtx(ctx: CanvasRenderingContext2D, tileId: number, sx: number, sy: number, scale = 1): void {

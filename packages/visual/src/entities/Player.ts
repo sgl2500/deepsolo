@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Direction, type MapData } from '../types';
-import { MOVE_SPEED, MAP_BORDER, SCREEN_WIDTH, SCREEN_HEIGHT, TILE_HALF_W, TILE_HALF_H, INDOOR_SCALE, WALK_FRAME_INTERVAL, WALK_FRAME_COUNT } from '../config';
+import { MOVE_SPEED, MAP_BORDER, SCREEN_WIDTH, SCREEN_HEIGHT, TILE_HALF_W, TILE_HALF_H, INDOOR_SCALE, WALK_FRAME_INTERVAL, WALK_FRAME_COUNT, INDOOR_ACTOR_DEPTH_BASE } from '../config';
 import { Entity } from './Entity';
 import { clamp } from '../utils/MathUtils';
 import { getTile } from '../utils/IsoProjection';
@@ -109,7 +109,7 @@ export class Player extends Entity {
       const s = INDOOR_SCALE;
       this.container.x = TILE_HALF_W * s * ((this.mapX - this.indoorCx) - (this.mapY - this.indoorCy)) + SCREEN_WIDTH / 2;
       this.container.y = TILE_HALF_H * s * ((this.mapX - this.indoorCx) + (this.mapY - this.indoorCy)) + SCREEN_HEIGHT / 2;
-      this.container.setDepth(this.mapX + this.mapY);
+      this.container.setDepth(INDOOR_ACTOR_DEPTH_BASE + this.mapX + this.mapY);
       if (this.sprite) this.sprite.y = 0;
     } else {
       this.container.x = SCREEN_WIDTH / 2;
@@ -173,7 +173,7 @@ export class Player extends Entity {
 
   /** 立即应用室内模式的视觉状态（淡入前调用，避免过渡期间显示世界模式外观） */
   applyIndoorVisual(time: number): void {
-    this.container.setDepth(this.mapX + this.mapY);
+    this.container.setDepth(INDOOR_ACTOR_DEPTH_BASE + this.mapX + this.mapY);
     if (this.sprite) this.sprite.y = 0;
     this.updateWalkAnimation(time, false);
   }

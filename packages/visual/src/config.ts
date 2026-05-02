@@ -27,6 +27,15 @@ export const TILE_HALF_H = 9;
 /** 室内场景瓦片放大倍率 */
 export const INDOOR_SCALE = 2;
 
+/** 室内墙面贴图层：高于背景墙体，低于玩家/NPC/家具 */
+export const INDOOR_WALL_DECOR_DEPTH = 900;
+
+/** 室内动态实体层：玩家、NPC、普通家具按等距坐标继续细分排序 */
+export const INDOOR_ACTOR_DEPTH_BASE = 1000;
+
+/** 室内前景墙层：门口/底边墙始终可遮挡动态实体 */
+export const INDOOR_FOREGROUND_DEPTH_BASE = 2000;
+
 /** 双缓冲尺寸 */
 export const BUFFER_WIDTH = 3200;
 export const BUFFER_HEIGHT = 1800;

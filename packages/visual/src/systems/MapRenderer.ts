@@ -6,6 +6,8 @@ import {
   TILE_HALF_W, TILE_HALF_H,
   SCREEN_WIDTH, SCREEN_HEIGHT,
   INDOOR_SCALE,
+  INDOOR_ACTOR_DEPTH_BASE,
+  INDOOR_WALL_DECOR_DEPTH,
 } from '../config';
 import type { IndoorInteractableDef, MapData, TileMeta } from '../types';
 import {
@@ -480,7 +482,7 @@ export class MapRenderer {
           .setScale(visual.scale ?? 1)
           .setAlpha(visual.alpha ?? 1)
           .setAngle((visual as IndoorFurnitureDef).rotation ?? 0)
-          .setDepth(depthPosition.mapX + depthPosition.mapY + (visual.depthBias ?? 0));
+          .setDepth(this.getIndoorVisualDepth(visual, depthPosition.mapX, depthPosition.mapY));
 
         this.indoorContainer.add(img);
         this.indoorDecorSprites.push(img);
@@ -537,7 +539,7 @@ export class MapRenderer {
         .setScale(furniture.scale ?? 1)
         .setAlpha(furniture.alpha ?? 1)
         .setAngle(furniture.rotation ?? 0)
-        .setDepth(depthPosition.mapX + depthPosition.mapY + (furniture.depthBias ?? 0));
+        .setDepth(this.getIndoorVisualDepth(furniture, depthPosition.mapX, depthPosition.mapY));
 
       this.indoorContainer.add(img);
       this.indoorDecorSprites.push(img);
@@ -1201,9 +1203,20 @@ export class MapRenderer {
       )
       .setOrigin(furniture.originX ?? 0.5, furniture.originY ?? 1)
       .setAngle(furniture.rotation ?? 0)
-      .setDepth(depthPosition.mapX + depthPosition.mapY + (furniture.depthBias ?? 0));
+      .setDepth(this.getIndoorVisualDepth(furniture, depthPosition.mapX, depthPosition.mapY));
     this.furnitureOccluderRenderer.sync(furniture, sprite, this.currentIndoorBuildingId);
     this.indoorContainer?.sort('depth');
+  }
+
+  private getIndoorVisualDepth(
+    visual: { renderLayer?: IndoorFurnitureDef['renderLayer']; depthBias?: number },
+    mapX: number,
+    mapY: number,
+  ): number {
+    if (visual.renderLayer === 'wall') {
+      return INDOOR_WALL_DECOR_DEPTH + (visual.depthBias ?? 0);
+    }
+    return INDOOR_ACTOR_DEPTH_BASE + mapX + mapY + (visual.depthBias ?? 0);
   }
 
   private updateFurnitureEditorHelpText(): void {

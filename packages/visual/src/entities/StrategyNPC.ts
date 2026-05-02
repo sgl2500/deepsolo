@@ -3,7 +3,7 @@
 // ============================================================
 
 import { type MapData, type Strategy } from '../types';
-import { SCREEN_HEIGHT, SCREEN_WIDTH, TILE_HALF_H, TILE_HALF_W, INDOOR_SCALE } from '../config';
+import { SCREEN_HEIGHT, SCREEN_WIDTH, TILE_HALF_H, TILE_HALF_W, INDOOR_SCALE, INDOOR_ACTOR_DEPTH_BASE } from '../config';
 import { Entity } from './Entity';
 import type { StrategyNpcSlot } from '../content/StrategyNpcPlacement';
 import { isFrameValid } from '../utils/MathUtils';
@@ -70,7 +70,7 @@ export class StrategyNPC extends Entity {
       const s = INDOOR_SCALE;
       this.container.x = TILE_HALF_W * s * ((this.mapX - this.indoorCx) - (this.mapY - this.indoorCy)) + SCREEN_WIDTH / 2;
       this.container.y = TILE_HALF_H * s * ((this.mapX - this.indoorCx) + (this.mapY - this.indoorCy)) + SCREEN_HEIGHT / 2;
-      this.container.setDepth(this.mapX + this.mapY);
+      this.container.setDepth(INDOOR_ACTOR_DEPTH_BASE + this.mapX + this.mapY);
     } else {
       this.updateScreenPosition(playerX, playerY);
     }
