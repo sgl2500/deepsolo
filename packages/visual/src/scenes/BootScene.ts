@@ -114,7 +114,7 @@ export class BootScene extends Phaser.Scene {
     // Token中心地砖
     this.load.image('smap_9514', 'assets/maps/dizhuan/0514.png?v=1');
     // Token中心墙壁装饰
-    this.load.image('token_center_wall_decor', 'assets/maps/qiangti/墙体贴图.png?v=1');
+    this.load.image('token_center_sect_backdrop', 'assets/maps/qiangti/门派背景.png?v=1');
     this.load.image('token_center_left_wall_decor', 'assets/maps/qiangti/左侧贴图.png?v=1');
 
     // === 地毯瓦片 ===
