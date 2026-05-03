@@ -7,6 +7,7 @@ import { MOVE_SPEED, MAP_BORDER, SCREEN_WIDTH, SCREEN_HEIGHT, TILE_HALF_W, TILE_
 import { Entity } from './Entity';
 import { clamp } from '../utils/MathUtils';
 import { getTile } from '../utils/IsoProjection';
+import { isBlockedByIndoorCharacter } from '../content/IndoorCharacterCollision';
 import { isBlockedByIndoorFurniture } from '../content/IndoorFurnitureCollision';
 import { isBlockedByWorldBuildingCollision } from '../content/WorldBuildingCollision';
 import type { InputController } from '../systems/InputController';
@@ -129,6 +130,7 @@ export class Player extends Entity {
   private isBlocked(x: number, y: number): boolean {
     if (!this.indoorMode) return isBlockedByWorldBuildingCollision(x, y);
     if (isBlockedByIndoorFurniture(this.indoorBuildingId, x, y)) return true;
+    if (isBlockedByIndoorCharacter(this.indoorBuildingId, x, y)) return true;
     // 检查 surface 层
     const sv = getTile(this.mapData, 1, x, y);
     if (sv !== 0 && sv !== 307) return true;  // surface 有墙（门口 307 除外）

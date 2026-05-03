@@ -270,6 +270,7 @@ export class IndoorLayerRenderer {
     const building = mapData.building;
     const heightMap = mapData.surfaceHeight;
     const frontWallRow = this.findFrontWallRow(mapData);
+    const frontWallCol = this.findFrontWallCol(mapData);
 
     let roofYoff = 0;
     for (let r = 0; r < mapData.height; r++) {
@@ -301,7 +302,7 @@ export class IndoorLayerRenderer {
             const img = this.scene.add.image(sx - ox, sy - oy - d4 * s, texKey)
               .setOrigin(0, 0)
               .setScale(s)
-              .setDepth(this.getWallTileDepth(col, row, row === frontWallRow));
+              .setDepth(this.getWallTileDepth(col, row, row === frontWallRow || col === frontWallCol));
             container.add(img);
             this.wallSprites.push(img);
           }
@@ -375,7 +376,7 @@ export class IndoorLayerRenderer {
 
     for (let row = wallTiles.rowStart + 1; row < wallTiles.rowEnd; row++) {
       addWallTile(837, wallTiles.colStart, row);
-      addWallTile(837, wallTiles.colEnd, row);
+      addWallTile(837, wallTiles.colEnd, row, true);
     }
 
     for (let col = wallTiles.colStart; col <= wallTiles.colEnd; col++) {
@@ -403,6 +404,19 @@ export class IndoorLayerRenderer {
       }
     }
     return frontRow;
+  }
+
+  private findFrontWallCol(mapData: MapData): number | null {
+    let frontCol: number | null = null;
+    for (let row = 0; row < mapData.height; row++) {
+      for (let col = 0; col < mapData.width; col++) {
+        const tileId = mapData.surface[row]?.[col] ?? 0;
+        if (tileId !== 0 && tileId !== 307) {
+          frontCol = frontCol === null ? col : Math.max(frontCol, col);
+        }
+      }
+    }
+    return frontCol;
   }
 
   private getWallTileDepth(col: number, row: number, foreground: boolean, depthBias = 0): number {

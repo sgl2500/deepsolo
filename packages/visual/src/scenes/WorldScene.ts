@@ -150,7 +150,12 @@ export class WorldScene extends Phaser.Scene {
       }
       this.mapRenderer.removeLastFurnitureMaskPoint();
     });
-    this.input.keyboard!.on('keydown-C', () => {
+    this.input.keyboard!.on('keydown-C', (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey) {
+        event.preventDefault();
+        this.mapRenderer.exportIndoorCharacterEditorLayout();
+        return;
+      }
       this.mapRenderer.clearFurnitureMask();
     });
     this.input.keyboard!.on('keydown-D', (event: KeyboardEvent) => {

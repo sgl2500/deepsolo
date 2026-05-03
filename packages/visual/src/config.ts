@@ -175,6 +175,9 @@ export const LS_KEY_FURNITURE_EDITOR_LAYOUTS = 'deepsolo_furniture_editor_layout
 /** 室内可交互区域编辑器 localStorage key 前缀 */
 export const LS_KEY_INTERACTABLE_EDITOR_LAYOUTS = 'deepsolo_interactable_editor_layouts';
 
+/** 室内人物贴图编辑器 localStorage key 前缀 */
+export const LS_KEY_INDOOR_CHARACTER_EDITOR_LAYOUTS = 'deepsolo_indoor_character_editor_layouts';
+
 /** 大地图入口/碰撞编辑器 localStorage key */
 export const LS_KEY_WORLD_MAP_EDITOR_LAYOUTS = 'deepsolo_world_map_editor_layouts';
 

@@ -20,6 +20,7 @@ import {
   toLocalIndoorMapPosition,
   type IndoorFurnitureDef,
 } from '../content/IndoorFurnitureLayout';
+import { getIndoorCharacterDefs, type IndoorCharacterDef } from '../content/IndoorCharacterLayout';
 import { getIndoorInteractables } from '../content/IndoorInteractables';
 import { DebugLogger } from '../utils/DebugLogger';
 import {
@@ -34,16 +35,22 @@ import { FurnitureOccluderRenderer } from './map/FurnitureOccluderRenderer';
 import { IndoorLayerRenderer, type IndoorFixedRoomDef } from './map/IndoorLayerRenderer';
 import { WorldMapCanvasRenderer } from './map/WorldMapCanvasRenderer';
 import {
+  applyIndoorCharacterEditorSnapshot,
   applyFurnitureEditorSnapshot,
   applyInteractableEditorSnapshot,
+  createIndoorCharacterEditorSnapshot,
   createFurnitureEditorSnapshot,
   createInteractableEditorSnapshot,
+  getIndoorCharacterEditorStorageKey,
   getFurnitureEditorStorageKey,
   getInteractableEditorStorageKey,
+  loadIndoorCharacterEditorSnapshot,
   loadFurnitureEditorSnapshot,
   loadInteractableEditorSnapshot,
+  saveIndoorCharacterEditorSnapshot,
   saveFurnitureEditorSnapshot,
   saveInteractableEditorSnapshot,
+  type IndoorCharacterEditorSnapshotItem,
   type FurnitureEditorSnapshotItem,
   type InteractableEditorSnapshotItem,
 } from './map/IndoorEditorPersistence';
@@ -61,6 +68,13 @@ type InteractableEditorHandleKind = 'interaction-center' | 'interaction-nw' | 'i
 type InteractableEditorDrag = {
   interactable: IndoorInteractableDef;
   kind: InteractableEditorHandleKind;
+};
+
+type CharacterEditorHandleKind = 'character-anchor' | 'character-depth' | 'character-nw' | 'character-ne' | 'character-se' | 'character-sw';
+
+type CharacterEditorDrag = {
+  character: IndoorCharacterDef;
+  kind: CharacterEditorHandleKind;
 };
 
 type IndoorDecorDef = {
@@ -114,13 +128,16 @@ export class MapRenderer {
   private indoorContainer: Phaser.GameObjects.Container | null = null;
   // 自定义室内装饰层（用于出生小屋样板）
   private indoorDecorSprites: Phaser.GameObjects.Image[] = [];
+  private indoorCharacterSprites: Map<string, Phaser.GameObjects.Image> = new Map();
   private indoorFurnitureSprites: Map<string, Phaser.GameObjects.Image> = new Map();
   private indoorDebugGraphics: Phaser.GameObjects.Graphics | null = null;
   private indoorDebugTexts: Phaser.GameObjects.Text[] = [];
   private furnitureEditorActive = false;
   private furnitureEditorSelectedId: string | null = null;
+  private characterEditorSelectedId: string | null = null;
   private interactableEditorSelectedId: string | null = null;
   private furnitureEditorDrag: FurnitureEditorDrag | null = null;
+  private characterEditorDrag: CharacterEditorDrag | null = null;
   private interactableEditorDrag: InteractableEditorDrag | null = null;
   private furnitureEditorHelpText: Phaser.GameObjects.Text | null = null;
   private furnitureEditorGuideText: Phaser.GameObjects.Text | null = null;
@@ -128,6 +145,7 @@ export class MapRenderer {
   private furnitureMaskEditorActive = false;
   private furnitureEditorSelectedMaskIndex: number | null = null;
   private furnitureEditorDefaultSnapshots: Map<string, FurnitureEditorSnapshotItem[]> = new Map();
+  private characterEditorDefaultSnapshots: Map<string, IndoorCharacterEditorSnapshotItem[]> = new Map();
   private interactableEditorDefaultSnapshots: Map<string, InteractableEditorSnapshotItem[]> = new Map();
   // 室内房间中心
   private indoorCx = 0;
@@ -170,6 +188,8 @@ export class MapRenderer {
     if (this.currentIndoorBuildingId) {
       this.captureFurnitureEditorDefaults(this.currentIndoorBuildingId);
       this.restoreFurnitureEditorLayoutFromStorage(this.currentIndoorBuildingId);
+      this.captureIndoorCharacterEditorDefaults(this.currentIndoorBuildingId);
+      this.restoreIndoorCharacterEditorLayoutFromStorage(this.currentIndoorBuildingId);
       this.captureInteractableEditorDefaults(this.currentIndoorBuildingId);
       this.restoreInteractableEditorLayoutFromStorage(this.currentIndoorBuildingId);
     }
@@ -182,6 +202,7 @@ export class MapRenderer {
 
     this.indoorLayerRenderer.create(mapData, this.indoorContainer, this.currentFixedRoomLayout);
     this.createIndoorDecorSprites();
+    this.createIndoorCharacterSprites();
   }
 
   /** 确保当前室内地图依赖的 smap 贴图已加载 */
@@ -243,6 +264,7 @@ export class MapRenderer {
     this.indoorLayerRenderer.destroy();
     this.currentIndoorBuildingId = null;
     this.destroyIndoorDecorSprites();
+    this.destroyIndoorCharacterSprites();
     this.destroyIndoorDebugOverlay();
     this.setFurnitureEditorActive(false);
 
@@ -420,6 +442,7 @@ export class MapRenderer {
     if (!this.furnitureEditorActive || !this.currentIndoorBuildingId) return;
 
     localStorage.removeItem(getFurnitureEditorStorageKey(this.currentIndoorBuildingId));
+    localStorage.removeItem(getIndoorCharacterEditorStorageKey(this.currentIndoorBuildingId));
     localStorage.removeItem(getInteractableEditorStorageKey(this.currentIndoorBuildingId));
     const defaults = this.furnitureEditorDefaultSnapshots.get(this.currentIndoorBuildingId);
     if (defaults) {
@@ -432,6 +455,15 @@ export class MapRenderer {
       this.createIndoorDecorSprites();
       this.updateIndoorDebugOverlay(0, 0);
     }
+    const characterDefaults = this.characterEditorDefaultSnapshots.get(this.currentIndoorBuildingId);
+    if (characterDefaults) {
+      applyIndoorCharacterEditorSnapshot(this.currentIndoorBuildingId, characterDefaults);
+      if (!characterDefaults.some((item) => item.id === this.characterEditorSelectedId)) {
+        this.characterEditorSelectedId = characterDefaults[0]?.id ?? null;
+      }
+      this.createIndoorCharacterSprites();
+      this.updateIndoorDebugOverlay(0, 0);
+    }
     const interactableDefaults = this.interactableEditorDefaultSnapshots.get(this.currentIndoorBuildingId);
     if (interactableDefaults) {
       applyInteractableEditorSnapshot(this.currentIndoorBuildingId, interactableDefaults);
@@ -441,11 +473,12 @@ export class MapRenderer {
 
   setFurnitureEditorActive(active: boolean): void {
     this.furnitureEditorActive = active && this.isIndoor && !!this.currentIndoorBuildingId;
-    if (this.furnitureEditorActive && !this.furnitureEditorSelectedId) {
+    if (this.furnitureEditorActive && !this.furnitureEditorSelectedId && !this.characterEditorSelectedId) {
       this.furnitureEditorSelectedId = getIndoorFurnitureDefs(this.currentIndoorBuildingId)[0]?.id ?? null;
     }
     if (!this.furnitureEditorActive) {
       this.furnitureEditorDrag = null;
+      this.characterEditorDrag = null;
       this.interactableEditorDrag = null;
       this.furnitureMaskEditorActive = false;
       this.furnitureEditorSelectedMaskIndex = null;
@@ -467,6 +500,18 @@ export class MapRenderer {
     navigator.clipboard?.writeText(json).catch(() => undefined);
     DebugLogger.userInfo('FurnitureEditor', 'Exported layout', json);
     this.showFurnitureEditorMessage('家具配置已复制到剪贴板，详情见 console.info');
+    return json;
+  }
+
+  exportIndoorCharacterEditorLayout(): string {
+    const layout = getIndoorCharacterDefs(this.currentIndoorBuildingId).map((item) => ({
+      ...item,
+      collider: item.collider ? { ...item.collider } : undefined,
+    }));
+    const json = JSON.stringify(layout, null, 2);
+    navigator.clipboard?.writeText(json).catch(() => undefined);
+    DebugLogger.userInfo('IndoorCharacterEditor', 'Exported layout', json);
+    this.showFurnitureEditorMessage('人物配置已复制到剪贴板，详情见 console.info');
     return json;
   }
 
@@ -604,11 +649,55 @@ export class MapRenderer {
     }
   }
 
+  private createIndoorCharacterSprites(): void {
+    this.destroyIndoorCharacterSprites();
+    if (!this.indoorContainer || !this.currentIndoorBuildingId) return;
+
+    const characters = getIndoorCharacterDefs(this.currentIndoorBuildingId);
+    if (characters.length === 0) return;
+
+    for (const character of characters) {
+      if (!this.scene.textures.exists(character.textureKey)) continue;
+
+      const { mapX, mapY } = toActualIndoorMapPosition(
+        this.currentIndoorBuildingId,
+        character.localX,
+        character.localY,
+      );
+      const depthPosition = toActualIndoorMapPosition(
+        this.currentIndoorBuildingId,
+        character.depthLocalX ?? character.localX,
+        character.depthLocalY ?? character.localY,
+      );
+      const position = this.indoorCoordinateMapper.mapToScreen(mapX, mapY);
+
+      const img = this.scene.add.image(
+        position.x + (character.pixelOffsetX ?? 0),
+        position.y + (character.pixelOffsetY ?? 0),
+        character.textureKey,
+      )
+        .setOrigin(character.originX ?? 0.5, character.originY ?? 1)
+        .setScale(character.scale ?? 1)
+        .setAlpha(character.alpha ?? 1)
+        .setDepth(this.getIndoorCharacterDepth(character, depthPosition.mapX, depthPosition.mapY));
+
+      this.indoorContainer.add(img);
+      this.indoorCharacterSprites.set(character.id, img);
+    }
+
+    this.indoorContainer.sort('depth');
+  }
+
   private destroyIndoorDecorSprites(): void {
     this.destroyIndoorFurnitureOccluders();
     for (const sprite of this.indoorDecorSprites) sprite.destroy();
     this.indoorDecorSprites = [];
     this.indoorFurnitureSprites.clear();
+  }
+
+  private destroyIndoorCharacterSprites(): void {
+    for (const sprite of this.indoorCharacterSprites.values()) sprite.destroy();
+    this.indoorCharacterSprites.clear();
   }
 
   private destroyIndoorFurnitureOccluders(): void {
@@ -689,6 +778,33 @@ export class MapRenderer {
       g.strokeCircle(depthScreen.x, depthScreen.y, selected ? 5 : 4);
     }
 
+    for (const character of getIndoorCharacterDefs(this.currentIndoorBuildingId)) {
+      const anchor = toActualIndoorMapPosition(this.currentIndoorBuildingId, character.localX, character.localY);
+      const anchorScreen = this.indoorCoordinateMapper.mapToScreen(anchor.mapX, anchor.mapY);
+      const depthPoint = toActualIndoorMapPosition(
+        this.currentIndoorBuildingId,
+        character.depthLocalX ?? character.localX,
+        character.depthLocalY ?? character.localY,
+      );
+      const depthScreen = this.indoorCoordinateMapper.mapToScreen(depthPoint.mapX, depthPoint.mapY);
+      const selected = character.id === this.characterEditorSelectedId;
+
+      if (character.collider) {
+        const bounds = toActualIndoorBounds(this.currentIndoorBuildingId, character.collider);
+        strokeIndoorRectBounds(g, this.indoorCoordinateMapper, bounds.minX, bounds.maxX, bounds.minY, bounds.maxY, 0x34d399, selected ? 0.9 : 0.5);
+      }
+
+      g.lineStyle(selected ? 3 : 2, 0x34d399, 1);
+      g.fillStyle(0x052e2b, 0.58);
+      g.fillCircle(anchorScreen.x, anchorScreen.y, selected ? 6 : 5);
+      g.strokeCircle(anchorScreen.x, anchorScreen.y, selected ? 7 : 6);
+
+      g.fillStyle(0x38bdf8, 1);
+      g.fillCircle(depthScreen.x, depthScreen.y, selected ? 4 : 3);
+      g.lineStyle(1, 0xffffff, selected ? 0.95 : 0.65);
+      g.strokeCircle(depthScreen.x, depthScreen.y, selected ? 5 : 4);
+    }
+
     for (const interactable of getIndoorInteractables(this.currentIndoorBuildingId)) {
       this.strokeInteractableEditor(g, interactable);
     }
@@ -714,6 +830,7 @@ export class MapRenderer {
       const maskHandle = this.findFurnitureMaskHandle(pointer.x, pointer.y);
       if (maskHandle) {
         this.furnitureEditorSelectedId = maskHandle.furniture.id;
+        this.characterEditorSelectedId = null;
         this.furnitureEditorSelectedMaskIndex = maskHandle.maskIndex ?? null;
         if (this.isMaskDeletePointer(pointer)) {
           (pointer.event as MouseEvent | undefined)?.preventDefault();
@@ -728,6 +845,7 @@ export class MapRenderer {
       const selected = this.getSelectedFurniture();
       const point = selected ? this.screenToFurniturePixel(selected, pointer.x, pointer.y) : null;
       if (selected && point) {
+        this.characterEditorSelectedId = null;
         selected.occluderMask ??= [];
         selected.occluderMask.push(point);
         this.updateFurnitureOccluderSprite(selected, true);
@@ -743,11 +861,26 @@ export class MapRenderer {
       }
     }
 
+    const characterHandle = this.findIndoorCharacterEditorHandle(pointer.x, pointer.y, this.isShiftPointer(pointer));
+    if (characterHandle) {
+      this.characterEditorSelectedId = characterHandle.character.id;
+      this.furnitureEditorSelectedId = null;
+      this.interactableEditorSelectedId = null;
+      this.furnitureEditorSelectedMaskIndex = null;
+      this.characterEditorDrag = characterHandle;
+      this.furnitureEditorDrag = null;
+      this.interactableEditorDrag = null;
+      this.updateFurnitureEditorHelpText();
+      return;
+    }
+
     const interactableHandle = this.findInteractableEditorHandle(pointer.x, pointer.y);
     if (interactableHandle) {
       this.interactableEditorSelectedId = interactableHandle.interactable.id;
       this.interactableEditorDrag = interactableHandle;
       this.furnitureEditorDrag = null;
+      this.characterEditorDrag = null;
+      this.characterEditorSelectedId = null;
       this.updateFurnitureEditorHelpText();
       return;
     }
@@ -759,12 +892,18 @@ export class MapRenderer {
       this.furnitureEditorSelectedMaskIndex = null;
     }
     this.furnitureEditorSelectedId = handle.furniture.id;
+    this.characterEditorSelectedId = null;
     this.furnitureEditorDrag = handle;
+    this.characterEditorDrag = null;
     this.updateFurnitureEditorHelpText();
   }
 
   private onFurnitureEditorPointerMove(pointer: Phaser.Input.Pointer): void {
-    if (!this.furnitureEditorActive || (!this.furnitureEditorDrag && !this.interactableEditorDrag) || !this.currentIndoorBuildingId) return;
+    if (
+      !this.furnitureEditorActive ||
+      (!this.furnitureEditorDrag && !this.characterEditorDrag && !this.interactableEditorDrag) ||
+      !this.currentIndoorBuildingId
+    ) return;
 
     const localPos = this.indoorCoordinateMapper.screenToLocal(this.currentIndoorBuildingId, pointer.x, pointer.y);
 
@@ -772,6 +911,14 @@ export class MapRenderer {
       const nextX = roundEditorValue(localPos.localX);
       const nextY = roundEditorValue(localPos.localY);
       this.updateInteractableEditorDrag(this.interactableEditorDrag, nextX, nextY);
+      this.updateFurnitureEditorHelpText();
+      return;
+    }
+
+    if (this.characterEditorDrag) {
+      const nextX = roundEditorValue(localPos.localX);
+      const nextY = roundEditorValue(localPos.localY);
+      this.updateIndoorCharacterEditorDrag(this.characterEditorDrag, nextX, nextY);
       this.updateFurnitureEditorHelpText();
       return;
     }
@@ -838,7 +985,11 @@ export class MapRenderer {
     if (this.interactableEditorDrag) {
       this.saveInteractableEditorLayoutToStorage();
     }
+    if (this.characterEditorDrag) {
+      this.saveIndoorCharacterEditorLayoutToStorage();
+    }
     this.furnitureEditorDrag = null;
+    this.characterEditorDrag = null;
     this.interactableEditorDrag = null;
   }
 
@@ -880,6 +1031,54 @@ export class MapRenderer {
     const actual = toActualIndoorMapPosition(interactable.buildingId, center.localX, center.localY);
     interactable.mapX = roundEditorValue(actual.mapX);
     interactable.mapY = roundEditorValue(actual.mapY);
+  }
+
+  private updateIndoorCharacterEditorDrag(drag: CharacterEditorDrag, nextX: number, nextY: number): void {
+    const { character, kind } = drag;
+    if (kind === 'character-anchor') {
+      const dx = nextX - character.localX;
+      const dy = nextY - character.localY;
+      character.localX = nextX;
+      character.localY = nextY;
+      if (character.depthLocalX !== undefined) character.depthLocalX = roundEditorValue(character.depthLocalX + dx);
+      if (character.depthLocalY !== undefined) character.depthLocalY = roundEditorValue(character.depthLocalY + dy);
+      if (character.collider) {
+        character.collider.minLocalX = roundEditorValue(character.collider.minLocalX + dx);
+        character.collider.maxLocalX = roundEditorValue(character.collider.maxLocalX + dx);
+        character.collider.minLocalY = roundEditorValue(character.collider.minLocalY + dy);
+        character.collider.maxLocalY = roundEditorValue(character.collider.maxLocalY + dy);
+      }
+    } else if (kind === 'character-depth') {
+      character.depthLocalX = nextX;
+      character.depthLocalY = nextY;
+    } else {
+      if (!character.collider) {
+        character.collider = {
+          minLocalX: character.localX - 0.5,
+          maxLocalX: character.localX + 0.5,
+          minLocalY: character.localY - 0.5,
+          maxLocalY: character.localY + 0.5,
+        };
+      }
+      if (kind === 'character-nw' || kind === 'character-sw') character.collider.minLocalX = nextX;
+      if (kind === 'character-ne' || kind === 'character-se') character.collider.maxLocalX = nextX;
+      if (kind === 'character-nw' || kind === 'character-ne') character.collider.minLocalY = nextY;
+      if (kind === 'character-sw' || kind === 'character-se') character.collider.maxLocalY = nextY;
+      this.normalizeIndoorCharacterCollider(character);
+    }
+    this.updateIndoorCharacterSprite(character);
+  }
+
+  private normalizeIndoorCharacterCollider(character: IndoorCharacterDef): void {
+    if (!character.collider) return;
+    const minX = Math.min(character.collider.minLocalX, character.collider.maxLocalX);
+    const maxX = Math.max(character.collider.minLocalX, character.collider.maxLocalX);
+    const minY = Math.min(character.collider.minLocalY, character.collider.maxLocalY);
+    const maxY = Math.max(character.collider.minLocalY, character.collider.maxLocalY);
+    character.collider.minLocalX = roundEditorValue(minX);
+    character.collider.maxLocalX = roundEditorValue(maxX);
+    character.collider.minLocalY = roundEditorValue(minY);
+    character.collider.maxLocalY = roundEditorValue(maxY);
   }
 
   private findFurnitureEditorHandle(screenX: number, screenY: number, preferDepth = false): FurnitureEditorDrag | null {
@@ -926,6 +1125,52 @@ export class MapRenderer {
 
     if (!best || bestDistance > 16) return null;
     return { furniture: best.furniture, kind: best.kind };
+  }
+
+  private findIndoorCharacterEditorHandle(screenX: number, screenY: number, preferDepth = false): CharacterEditorDrag | null {
+    if (!this.currentIndoorBuildingId) return null;
+
+    const handles: Array<CharacterEditorDrag & { x: number; y: number }> = [];
+    for (const character of getIndoorCharacterDefs(this.currentIndoorBuildingId)) {
+      const anchor = toActualIndoorMapPosition(this.currentIndoorBuildingId, character.localX, character.localY);
+      const anchorScreen = this.indoorCoordinateMapper.mapToScreenWithContainer(anchor.mapX, anchor.mapY);
+      handles.push({ character, kind: 'character-anchor', x: anchorScreen.x, y: anchorScreen.y });
+
+      const depth = toActualIndoorMapPosition(
+        this.currentIndoorBuildingId,
+        character.depthLocalX ?? character.localX,
+        character.depthLocalY ?? character.localY,
+      );
+      const depthScreen = this.indoorCoordinateMapper.mapToScreenWithContainer(depth.mapX, depth.mapY);
+      handles.push({ character, kind: 'character-depth', x: depthScreen.x, y: depthScreen.y });
+
+      if (character.collider) {
+        const bounds = toActualIndoorBounds(this.currentIndoorBuildingId, character.collider);
+        const corners: Array<{ kind: CharacterEditorHandleKind; x: number; y: number }> = [
+          { kind: 'character-nw', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.minX, bounds.minY) },
+          { kind: 'character-ne', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.maxX, bounds.minY) },
+          { kind: 'character-se', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.maxX, bounds.maxY) },
+          { kind: 'character-sw', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.minX, bounds.maxY) },
+        ];
+        for (const corner of corners) handles.push({ character, ...corner });
+      }
+    }
+
+    let best: (CharacterEditorDrag & { x: number; y: number }) | null = null;
+    let bestScore = Infinity;
+    let bestDistance = Infinity;
+    for (const handle of handles) {
+      const distance = Math.hypot(handle.x - screenX, handle.y - screenY);
+      const score = distance - (preferDepth && handle.kind === 'character-depth' ? 0.5 : 0);
+      if (score < bestScore) {
+        best = handle;
+        bestScore = score;
+        bestDistance = distance;
+      }
+    }
+
+    if (!best || bestDistance > 16) return null;
+    return { character: best.character, kind: best.kind };
   }
 
   private findInteractableEditorHandle(screenX: number, screenY: number): InteractableEditorDrag | null {
@@ -975,6 +1220,35 @@ export class MapRenderer {
       if (items) applyFurnitureEditorSnapshot(buildingId, items);
     } catch (error) {
       console.warn('[FurnitureEditor] Failed to restore saved layout:', error);
+    }
+  }
+
+  private captureIndoorCharacterEditorDefaults(buildingId: string): void {
+    if (this.characterEditorDefaultSnapshots.has(buildingId)) return;
+    this.characterEditorDefaultSnapshots.set(buildingId, createIndoorCharacterEditorSnapshot(buildingId));
+  }
+
+  private restoreIndoorCharacterEditorLayoutFromStorage(buildingId: string): void {
+    try {
+      const items = loadIndoorCharacterEditorSnapshot(buildingId);
+      if (items) applyIndoorCharacterEditorSnapshot(buildingId, items);
+    } catch (error) {
+      console.warn('[IndoorCharacterEditor] Failed to restore saved layout:', error);
+    }
+  }
+
+  private saveIndoorCharacterEditorLayoutToStorage(): void {
+    if (!this.currentIndoorBuildingId) return;
+
+    try {
+      saveIndoorCharacterEditorSnapshot(
+        this.currentIndoorBuildingId,
+        createIndoorCharacterEditorSnapshot(this.currentIndoorBuildingId),
+      );
+      this.updateFurnitureEditorHelpText();
+    } catch (error) {
+      console.warn('[IndoorCharacterEditor] Failed to save layout:', error);
+      this.showFurnitureEditorMessage('人物贴图自动保存失败，请检查浏览器存储权限');
     }
   }
 
@@ -1264,6 +1538,34 @@ export class MapRenderer {
     this.indoorContainer?.sort('depth');
   }
 
+  private updateIndoorCharacterSprite(character: IndoorCharacterDef): void {
+    if (!this.currentIndoorBuildingId) return;
+    const sprite = this.indoorCharacterSprites.get(character.id);
+    if (!sprite) return;
+
+    const { mapX, mapY } = toActualIndoorMapPosition(
+      this.currentIndoorBuildingId,
+      character.localX,
+      character.localY,
+    );
+    const depthPosition = toActualIndoorMapPosition(
+      this.currentIndoorBuildingId,
+      character.depthLocalX ?? character.localX,
+      character.depthLocalY ?? character.localY,
+    );
+    const position = this.indoorCoordinateMapper.mapToScreen(mapX, mapY);
+    sprite
+      .setPosition(
+        position.x + (character.pixelOffsetX ?? 0),
+        position.y + (character.pixelOffsetY ?? 0),
+      )
+      .setOrigin(character.originX ?? 0.5, character.originY ?? 1)
+      .setScale(character.scale ?? 1)
+      .setAlpha(character.alpha ?? 1)
+      .setDepth(this.getIndoorCharacterDepth(character, depthPosition.mapX, depthPosition.mapY));
+    this.indoorContainer?.sort('depth');
+  }
+
   private getIndoorVisualDepth(
     visual: { renderLayer?: IndoorFurnitureDef['renderLayer']; depthBias?: number },
     mapX: number,
@@ -1273,6 +1575,10 @@ export class MapRenderer {
       return INDOOR_WALL_DECOR_DEPTH + (visual.depthBias ?? 0);
     }
     return INDOOR_ACTOR_DEPTH_BASE + mapX + mapY + (visual.depthBias ?? 0);
+  }
+
+  private getIndoorCharacterDepth(character: IndoorCharacterDef, mapX: number, mapY: number): number {
+    return INDOOR_ACTOR_DEPTH_BASE + mapX + mapY + (character.depthBias ?? 0);
   }
 
   private updateFurnitureEditorHelpText(): void {
@@ -1325,6 +1631,19 @@ export class MapRenderer {
           `旋转中心 origin：${selected.originX ?? 0.5}, ${selected.originY ?? 1}`,
         ].join('\n')
       : '当前家具：无';
+    const selectedCharacter = getIndoorCharacterDefs(this.currentIndoorBuildingId)
+      .find((item) => item.id === this.characterEditorSelectedId);
+    const characterText = selectedCharacter
+      ? [
+          `当前人物：${selectedCharacter.id}`,
+          `锚点 local：${selectedCharacter.localX.toFixed(1)}, ${selectedCharacter.localY.toFixed(1)}`,
+          `遮挡 depth：${(selectedCharacter.depthLocalX ?? selectedCharacter.localX).toFixed(1)}, ${(selectedCharacter.depthLocalY ?? selectedCharacter.localY).toFixed(1)}`,
+          selectedCharacter.collider
+            ? `碰撞框：${selectedCharacter.collider.minLocalX.toFixed(1)},${selectedCharacter.collider.minLocalY.toFixed(1)} -> ${selectedCharacter.collider.maxLocalX.toFixed(1)},${selectedCharacter.collider.maxLocalY.toFixed(1)}`
+            : '碰撞框：无',
+          `缩放：${selectedCharacter.scale ?? 1}`,
+        ].join('\n')
+      : '当前人物：无';
     const selectedInteractable = getIndoorInteractables(this.currentIndoorBuildingId)
       .find((item) => item.id === this.interactableEditorSelectedId);
     const interactableText = selectedInteractable
@@ -1340,6 +1659,7 @@ export class MapRenderer {
       '家具编辑模式',
       '参数会自动保存到浏览器',
       selectedText,
+      characterText,
       interactableText,
     ].join('\n'));
 
@@ -1353,15 +1673,21 @@ export class MapRenderer {
           '',
           '1. 选择对象',
           '黄色圆环/紫色点/红框：家具。',
+          '绿色圆环/蓝色点：人物贴图。',
+          '绿色矩形：人物碰撞框。',
           '青色框/青色点：可交互区域。',
           'Cmd/Ctrl/Shift+D：复制当前家具或墙面贴图。',
+          'Cmd/Ctrl+Shift+C：导出人物配置。',
           '',
           '2. 移动与碰撞',
           '拖黄色圆环：移动家具锚点。',
+          '拖绿色圆环：移动人物贴图和碰撞框。',
           '拖红框角点：调整玩家不能进入的区域。',
+          '拖绿色框角点：调整人物阻挡区域。',
           '',
           '3. 遮挡排序',
           '拖紫色点：调整整件家具和玩家谁在前。',
+          '拖蓝色点：调整人物和玩家/墙体谁在前。',
           '黄紫重合时：普通拖动选黄色；按住 Shift 拖动选紫色。',
           '',
           '4. 旋转与旋转中心',

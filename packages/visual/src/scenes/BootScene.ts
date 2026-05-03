@@ -111,6 +111,11 @@ export class BootScene extends Phaser.Scene {
     }
     // Token中心室内装饰
     this.load.image('token_center_boss', 'assets/rooms/token-centre/token中心掌门.png?v=2');
+    // Token中心室内人物贴图
+    this.load.image('token_center_dashixiong', 'assets/renwu/大师兄.png?v=1');
+    this.load.image('token_center_guihai_yidao', 'assets/renwu/归海一刀.png?v=1');
+    this.load.image('token_center_shishu', 'assets/renwu/师叔.png?v=1');
+    this.load.image('token_center_sun_daniang', 'assets/renwu/孙大娘.png?v=1');
     // Token中心地砖
     this.load.image('smap_9514', 'assets/maps/dizhuan/0514.png?v=1');
     // Token中心墙壁装饰

@@ -1,5 +1,6 @@
-import { LS_KEY_FURNITURE_EDITOR_LAYOUTS, LS_KEY_INTERACTABLE_EDITOR_LAYOUTS } from '../../config';
+import { LS_KEY_FURNITURE_EDITOR_LAYOUTS, LS_KEY_INDOOR_CHARACTER_EDITOR_LAYOUTS, LS_KEY_INTERACTABLE_EDITOR_LAYOUTS } from '../../config';
 import type { IndoorInteractableDef, IndoorInteractableZone } from '../../types';
+import { getIndoorCharacterDefs, type IndoorCharacterDef } from '../../content/IndoorCharacterLayout';
 import { addIndoorFurnitureDef, getIndoorFurnitureDefs, type IndoorFurnitureDef } from '../../content/IndoorFurnitureLayout';
 import { getIndoorInteractables } from '../../content/IndoorInteractables';
 
@@ -45,12 +46,39 @@ type InteractableEditorStoragePayload = {
   items: InteractableEditorSnapshotItem[];
 };
 
+export type IndoorCharacterEditorSnapshotItem = {
+  id: string;
+  localX: number;
+  localY: number;
+  scale?: number;
+  alpha?: number;
+  originX?: number;
+  originY?: number;
+  pixelOffsetX?: number;
+  pixelOffsetY?: number;
+  depthLocalX?: number;
+  depthLocalY?: number;
+  depthBias?: number;
+  collider?: IndoorCharacterDef['collider'];
+};
+
+type IndoorCharacterEditorStoragePayload = {
+  version: 1;
+  buildingId: string;
+  savedAt: number;
+  items: IndoorCharacterEditorSnapshotItem[];
+};
+
 export function getFurnitureEditorStorageKey(buildingId: string): string {
   return `${LS_KEY_FURNITURE_EDITOR_LAYOUTS}:${buildingId}`;
 }
 
 export function getInteractableEditorStorageKey(buildingId: string): string {
   return `${LS_KEY_INTERACTABLE_EDITOR_LAYOUTS}:${buildingId}`;
+}
+
+export function getIndoorCharacterEditorStorageKey(buildingId: string): string {
+  return `${LS_KEY_INDOOR_CHARACTER_EDITOR_LAYOUTS}:${buildingId}`;
 }
 
 export function createFurnitureEditorSnapshot(buildingId: string): FurnitureEditorSnapshotItem[] {
@@ -177,6 +205,69 @@ export function saveInteractableEditorSnapshot(buildingId: string, items: Intera
     items,
   };
   localStorage.setItem(getInteractableEditorStorageKey(buildingId), JSON.stringify(payload));
+}
+
+export function createIndoorCharacterEditorSnapshot(buildingId: string): IndoorCharacterEditorSnapshotItem[] {
+  return getIndoorCharacterDefs(buildingId).map((item) => ({
+    id: item.id,
+    localX: item.localX,
+    localY: item.localY,
+    scale: item.scale,
+    alpha: item.alpha,
+    originX: item.originX,
+    originY: item.originY,
+    pixelOffsetX: item.pixelOffsetX,
+    pixelOffsetY: item.pixelOffsetY,
+    depthLocalX: item.depthLocalX,
+    depthLocalY: item.depthLocalY,
+    depthBias: item.depthBias,
+    collider: item.collider ? { ...item.collider } : undefined,
+  }));
+}
+
+export function applyIndoorCharacterEditorSnapshot(buildingId: string, items: IndoorCharacterEditorSnapshotItem[]): void {
+  const characterById = new Map(getIndoorCharacterDefs(buildingId).map((item) => [item.id, item]));
+  for (const saved of items) {
+    const target = characterById.get(saved.id);
+    if (!target || !Number.isFinite(saved.localX) || !Number.isFinite(saved.localY)) continue;
+    applyIndoorCharacterEditorSnapshotItem(target, saved);
+  }
+}
+
+export function loadIndoorCharacterEditorSnapshot(buildingId: string): IndoorCharacterEditorSnapshotItem[] | null {
+  const raw = localStorage.getItem(getIndoorCharacterEditorStorageKey(buildingId));
+  if (!raw) return null;
+  const payload = JSON.parse(raw) as Partial<IndoorCharacterEditorStoragePayload>;
+  if (payload.version !== 1 || payload.buildingId !== buildingId || !Array.isArray(payload.items)) return null;
+  return payload.items;
+}
+
+export function saveIndoorCharacterEditorSnapshot(buildingId: string, items: IndoorCharacterEditorSnapshotItem[]): void {
+  const payload: IndoorCharacterEditorStoragePayload = {
+    version: 1,
+    buildingId,
+    savedAt: Date.now(),
+    items,
+  };
+  localStorage.setItem(getIndoorCharacterEditorStorageKey(buildingId), JSON.stringify(payload));
+}
+
+function applyIndoorCharacterEditorSnapshotItem(
+  target: IndoorCharacterDef,
+  saved: IndoorCharacterEditorSnapshotItem,
+): void {
+  target.localX = saved.localX;
+  target.localY = saved.localY;
+  target.scale = optionalNumber(saved.scale);
+  target.alpha = optionalNumber(saved.alpha);
+  target.originX = optionalNumber(saved.originX);
+  target.originY = optionalNumber(saved.originY);
+  target.pixelOffsetX = optionalNumber(saved.pixelOffsetX);
+  target.pixelOffsetY = optionalNumber(saved.pixelOffsetY);
+  target.depthLocalX = optionalNumber(saved.depthLocalX);
+  target.depthLocalY = optionalNumber(saved.depthLocalY);
+  target.depthBias = optionalNumber(saved.depthBias);
+  if ('collider' in saved) target.collider = saved.collider ? { ...saved.collider } : undefined;
 }
 
 function optionalNumber(value: unknown): number | undefined {
