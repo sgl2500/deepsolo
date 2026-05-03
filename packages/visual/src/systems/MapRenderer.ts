@@ -11,7 +11,10 @@ import {
 } from '../config';
 import type { IndoorInteractableDef, MapData, TileMeta } from '../types';
 import {
+  addIndoorFurnitureDef,
+  createIndoorFurnitureCopyId,
   getIndoorFurnitureDefs,
+  removeIndoorFurnitureDefs,
   toActualIndoorBounds,
   toActualIndoorMapPosition,
   toLocalIndoorMapPosition,
@@ -366,6 +369,53 @@ export class MapRenderer {
     this.updateFurnitureEditorHelpText();
   }
 
+  duplicateSelectedFurniture(): void {
+    if (!this.furnitureEditorActive || !this.currentIndoorBuildingId) return;
+    const selected = this.getSelectedFurniture();
+    if (!selected) {
+      this.showFurnitureEditorMessage('没有可复制的家具/贴图');
+      return;
+    }
+
+    const copy = this.createFurnitureCopy(selected, this.currentIndoorBuildingId);
+    addIndoorFurnitureDef(copy);
+    this.furnitureEditorSelectedId = copy.id;
+    this.furnitureEditorSelectedMaskIndex = null;
+    this.furnitureEditorDrag = null;
+    this.interactableEditorSelectedId = null;
+    this.createIndoorDecorSprites();
+    this.updateIndoorDebugOverlay(0, 0);
+    this.saveFurnitureEditorLayoutToStorage();
+    this.showFurnitureEditorMessage(`已复制：${selected.id} -> ${copy.id}`);
+  }
+
+  private createFurnitureCopy(source: IndoorFurnitureDef, buildingId: string): IndoorFurnitureDef {
+    const offset = 1;
+    const copyId = createIndoorFurnitureCopyId(buildingId, source.id);
+    const offsetNumber = (value: number | undefined): number | undefined => (
+      value === undefined ? undefined : roundEditorValue(value + offset)
+    );
+
+    return {
+      ...source,
+      buildingId,
+      id: copyId,
+      localX: roundEditorValue(source.localX + offset),
+      localY: roundEditorValue(source.localY + offset),
+      depthLocalX: offsetNumber(source.depthLocalX),
+      depthLocalY: offsetNumber(source.depthLocalY),
+      collider: source.collider
+        ? {
+            minLocalX: roundEditorValue(source.collider.minLocalX + offset),
+            maxLocalX: roundEditorValue(source.collider.maxLocalX + offset),
+            minLocalY: roundEditorValue(source.collider.minLocalY + offset),
+            maxLocalY: roundEditorValue(source.collider.maxLocalY + offset),
+          }
+        : undefined,
+      occluderMask: source.occluderMask?.map((point) => ({ ...point })),
+    };
+  }
+
   resetFurnitureEditorSavedLayout(): void {
     if (!this.furnitureEditorActive || !this.currentIndoorBuildingId) return;
 
@@ -373,8 +423,14 @@ export class MapRenderer {
     localStorage.removeItem(getInteractableEditorStorageKey(this.currentIndoorBuildingId));
     const defaults = this.furnitureEditorDefaultSnapshots.get(this.currentIndoorBuildingId);
     if (defaults) {
+      const defaultIds = new Set(defaults.map((item) => item.id));
+      removeIndoorFurnitureDefs(this.currentIndoorBuildingId, (item) => !defaultIds.has(item.id));
       applyFurnitureEditorSnapshot(this.currentIndoorBuildingId, defaults);
-      this.refreshFurnitureEditorVisuals();
+      if (!defaultIds.has(this.furnitureEditorSelectedId ?? '')) {
+        this.furnitureEditorSelectedId = defaults[0]?.id ?? null;
+      }
+      this.createIndoorDecorSprites();
+      this.updateIndoorDebugOverlay(0, 0);
     }
     const interactableDefaults = this.interactableEditorDefaultSnapshots.get(this.currentIndoorBuildingId);
     if (interactableDefaults) {
@@ -1298,6 +1354,7 @@ export class MapRenderer {
           '1. 选择对象',
           '黄色圆环/紫色点/红框：家具。',
           '青色框/青色点：可交互区域。',
+          'Cmd/Ctrl/Shift+D：复制当前家具或墙面贴图。',
           '',
           '2. 移动与碰撞',
           '拖黄色圆环：移动家具锚点。',

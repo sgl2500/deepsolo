@@ -153,6 +153,11 @@ export class WorldScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-C', () => {
       this.mapRenderer.clearFurnitureMask();
     });
+    this.input.keyboard!.on('keydown-D', (event: KeyboardEvent) => {
+      if (!event.metaKey && !event.ctrlKey && !event.shiftKey) return;
+      event.preventDefault();
+      this.mapRenderer.duplicateSelectedFurniture();
+    });
     this.input.keyboard!.on('keydown-Q', (_event: KeyboardEvent) => {
       if (_event.shiftKey) {
         this.mapRenderer.rotateSelectedFurniture(-1);

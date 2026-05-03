@@ -1,10 +1,12 @@
 import { LS_KEY_FURNITURE_EDITOR_LAYOUTS, LS_KEY_INTERACTABLE_EDITOR_LAYOUTS } from '../../config';
 import type { IndoorInteractableDef, IndoorInteractableZone } from '../../types';
-import { getIndoorFurnitureDefs, type IndoorFurnitureDef } from '../../content/IndoorFurnitureLayout';
+import { addIndoorFurnitureDef, getIndoorFurnitureDefs, type IndoorFurnitureDef } from '../../content/IndoorFurnitureLayout';
 import { getIndoorInteractables } from '../../content/IndoorInteractables';
 
 export type FurnitureEditorSnapshotItem = {
   id: string;
+  textureKey?: string;
+  renderLayer?: IndoorFurnitureDef['renderLayer'];
   localX: number;
   localY: number;
   scale?: number;
@@ -54,6 +56,8 @@ export function getInteractableEditorStorageKey(buildingId: string): string {
 export function createFurnitureEditorSnapshot(buildingId: string): FurnitureEditorSnapshotItem[] {
   return getIndoorFurnitureDefs(buildingId).map((item) => ({
     id: item.id,
+    textureKey: item.textureKey,
+    renderLayer: item.renderLayer,
     localX: item.localX,
     localY: item.localY,
     scale: item.scale,
@@ -74,26 +78,47 @@ export function createFurnitureEditorSnapshot(buildingId: string): FurnitureEdit
 export function applyFurnitureEditorSnapshot(buildingId: string, items: FurnitureEditorSnapshotItem[]): void {
   const furnitureById = new Map(getIndoorFurnitureDefs(buildingId).map((item) => [item.id, item]));
   for (const saved of items) {
-    const target = furnitureById.get(saved.id);
-    if (!target || !Number.isFinite(saved.localX) || !Number.isFinite(saved.localY)) continue;
+    if (!Number.isFinite(saved.localX) || !Number.isFinite(saved.localY)) continue;
 
-    target.localX = saved.localX;
-    target.localY = saved.localY;
-    target.scale = optionalNumber(saved.scale);
-    target.alpha = optionalNumber(saved.alpha);
-    target.originX = optionalNumber(saved.originX);
-    target.originY = optionalNumber(saved.originY);
-    target.pixelOffsetX = optionalNumber(saved.pixelOffsetX);
-    target.pixelOffsetY = optionalNumber(saved.pixelOffsetY);
-    target.rotation = optionalNumber(saved.rotation);
-    target.depthLocalX = optionalNumber(saved.depthLocalX);
-    target.depthLocalY = optionalNumber(saved.depthLocalY);
-    target.depthBias = optionalNumber(saved.depthBias);
-    target.collider = saved.collider ? { ...saved.collider } : undefined;
-    target.occluderMask = Array.isArray(saved.occluderMask)
-      ? saved.occluderMask.map((point) => ({ ...point }))
-      : undefined;
+    let target = furnitureById.get(saved.id);
+    if (!target) {
+      if (!saved.textureKey) continue;
+      const template = Array.from(furnitureById.values()).find((item) => item.textureKey === saved.textureKey);
+      target = {
+        buildingId,
+        id: saved.id,
+        textureKey: saved.textureKey,
+        renderLayer: saved.renderLayer ?? template?.renderLayer,
+        localX: saved.localX,
+        localY: saved.localY,
+      };
+      addIndoorFurnitureDef(target);
+      furnitureById.set(target.id, target);
+    }
+
+    applyFurnitureEditorSnapshotItem(target, saved);
   }
+}
+
+function applyFurnitureEditorSnapshotItem(target: IndoorFurnitureDef, saved: FurnitureEditorSnapshotItem): void {
+  target.textureKey = saved.textureKey ?? target.textureKey;
+  if ('renderLayer' in saved) target.renderLayer = saved.renderLayer;
+  target.localX = saved.localX;
+  target.localY = saved.localY;
+  target.scale = optionalNumber(saved.scale);
+  target.alpha = optionalNumber(saved.alpha);
+  target.originX = optionalNumber(saved.originX);
+  target.originY = optionalNumber(saved.originY);
+  target.pixelOffsetX = optionalNumber(saved.pixelOffsetX);
+  target.pixelOffsetY = optionalNumber(saved.pixelOffsetY);
+  target.rotation = optionalNumber(saved.rotation);
+  target.depthLocalX = optionalNumber(saved.depthLocalX);
+  target.depthLocalY = optionalNumber(saved.depthLocalY);
+  target.depthBias = optionalNumber(saved.depthBias);
+  target.collider = saved.collider ? { ...saved.collider } : undefined;
+  target.occluderMask = Array.isArray(saved.occluderMask)
+    ? saved.occluderMask.map((point) => ({ ...point }))
+    : undefined;
 }
 
 export function loadFurnitureEditorSnapshot(buildingId: string): FurnitureEditorSnapshotItem[] | null {

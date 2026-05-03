@@ -147,6 +147,40 @@ export function getIndoorFurnitureDefs(buildingId: string | null): IndoorFurnitu
   return INDOOR_FURNITURE_DEFS.filter((item) => item.buildingId === buildingId);
 }
 
+export function addIndoorFurnitureDef(def: IndoorFurnitureDef): void {
+  const existingIndex = INDOOR_FURNITURE_DEFS.findIndex(
+    (item) => item.buildingId === def.buildingId && item.id === def.id,
+  );
+  if (existingIndex >= 0) {
+    INDOOR_FURNITURE_DEFS[existingIndex] = def;
+    return;
+  }
+  INDOOR_FURNITURE_DEFS.push(def);
+}
+
+export function removeIndoorFurnitureDefs(
+  buildingId: string,
+  shouldRemove: (item: IndoorFurnitureDef) => boolean,
+): void {
+  for (let i = INDOOR_FURNITURE_DEFS.length - 1; i >= 0; i--) {
+    const item = INDOOR_FURNITURE_DEFS[i];
+    if (item.buildingId === buildingId && shouldRemove(item)) {
+      INDOOR_FURNITURE_DEFS.splice(i, 1);
+    }
+  }
+}
+
+export function createIndoorFurnitureCopyId(buildingId: string, baseId: string): string {
+  const existingIds = new Set(getIndoorFurnitureDefs(buildingId).map((item) => item.id));
+  let index = 1;
+  let nextId = `${baseId}_copy_${index}`;
+  while (existingIds.has(nextId)) {
+    index++;
+    nextId = `${baseId}_copy_${index}`;
+  }
+  return nextId;
+}
+
 export function toActualIndoorMapPosition(
   buildingId: string,
   localX: number,
