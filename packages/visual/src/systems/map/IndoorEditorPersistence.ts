@@ -1,7 +1,7 @@
 import { LS_KEY_FURNITURE_EDITOR_LAYOUTS, LS_KEY_INDOOR_CHARACTER_EDITOR_LAYOUTS, LS_KEY_INTERACTABLE_EDITOR_LAYOUTS } from '../../config';
 import type { IndoorInteractableDef, IndoorInteractableZone } from '../../types';
-import { getIndoorCharacterDefs, type IndoorCharacterDef } from '../../content/IndoorCharacterLayout';
-import { addIndoorFurnitureDef, getIndoorFurnitureDefs, type IndoorFurnitureDef } from '../../content/IndoorFurnitureLayout';
+import { addIndoorCharacterDef, getIndoorCharacterDefs, removeIndoorCharacterDefs, type IndoorCharacterDef } from '../../content/IndoorCharacterLayout';
+import { addIndoorFurnitureDef, getIndoorFurnitureDefs, removeIndoorFurnitureDefs, type IndoorFurnitureDef } from '../../content/IndoorFurnitureLayout';
 import { getIndoorInteractables } from '../../content/IndoorInteractables';
 
 export type FurnitureEditorSnapshotItem = {
@@ -25,9 +25,10 @@ export type FurnitureEditorSnapshotItem = {
 };
 
 type FurnitureEditorStoragePayload = {
-  version: 1;
+  version: 1 | 2;
   buildingId: string;
   savedAt: number;
+  replaceMissing?: boolean;
   items: FurnitureEditorSnapshotItem[];
 };
 
@@ -48,6 +49,7 @@ type InteractableEditorStoragePayload = {
 
 export type IndoorCharacterEditorSnapshotItem = {
   id: string;
+  textureKey?: string;
   localX: number;
   localY: number;
   scale?: number;
@@ -63,10 +65,16 @@ export type IndoorCharacterEditorSnapshotItem = {
 };
 
 type IndoorCharacterEditorStoragePayload = {
-  version: 1;
+  version: 1 | 2;
   buildingId: string;
   savedAt: number;
+  replaceMissing?: boolean;
   items: IndoorCharacterEditorSnapshotItem[];
+};
+
+export type LoadedEditorSnapshot<T> = {
+  items: T[];
+  replaceMissing: boolean;
 };
 
 export function getFurnitureEditorStorageKey(buildingId: string): string {
@@ -103,7 +111,15 @@ export function createFurnitureEditorSnapshot(buildingId: string): FurnitureEdit
   }));
 }
 
-export function applyFurnitureEditorSnapshot(buildingId: string, items: FurnitureEditorSnapshotItem[]): void {
+export function applyFurnitureEditorSnapshot(
+  buildingId: string,
+  items: FurnitureEditorSnapshotItem[],
+  options: { replaceMissing?: boolean } = {},
+): void {
+  if (options.replaceMissing) {
+    const savedIds = new Set(items.map((item) => item.id));
+    removeIndoorFurnitureDefs(buildingId, (item) => !savedIds.has(item.id));
+  }
   const furnitureById = new Map(getIndoorFurnitureDefs(buildingId).map((item) => [item.id, item]));
   for (const saved of items) {
     if (!Number.isFinite(saved.localX) || !Number.isFinite(saved.localY)) continue;
@@ -150,18 +166,32 @@ function applyFurnitureEditorSnapshotItem(target: IndoorFurnitureDef, saved: Fur
 }
 
 export function loadFurnitureEditorSnapshot(buildingId: string): FurnitureEditorSnapshotItem[] | null {
+  return loadFurnitureEditorSnapshotPayload(buildingId)?.items ?? null;
+}
+
+export function loadFurnitureEditorSnapshotPayload(
+  buildingId: string,
+): LoadedEditorSnapshot<FurnitureEditorSnapshotItem> | null {
   const raw = localStorage.getItem(getFurnitureEditorStorageKey(buildingId));
   if (!raw) return null;
   const payload = JSON.parse(raw) as Partial<FurnitureEditorStoragePayload>;
-  if (payload.version !== 1 || payload.buildingId !== buildingId || !Array.isArray(payload.items)) return null;
-  return payload.items;
+  if (
+    (payload.version !== 1 && payload.version !== 2) ||
+    payload.buildingId !== buildingId ||
+    !Array.isArray(payload.items)
+  ) return null;
+  return {
+    items: payload.items,
+    replaceMissing: payload.version >= 2 && payload.replaceMissing === true,
+  };
 }
 
 export function saveFurnitureEditorSnapshot(buildingId: string, items: FurnitureEditorSnapshotItem[]): void {
   const payload: FurnitureEditorStoragePayload = {
-    version: 1,
+    version: 2,
     buildingId,
     savedAt: Date.now(),
+    replaceMissing: true,
     items,
   };
   localStorage.setItem(getFurnitureEditorStorageKey(buildingId), JSON.stringify(payload));
@@ -210,6 +240,7 @@ export function saveInteractableEditorSnapshot(buildingId: string, items: Intera
 export function createIndoorCharacterEditorSnapshot(buildingId: string): IndoorCharacterEditorSnapshotItem[] {
   return getIndoorCharacterDefs(buildingId).map((item) => ({
     id: item.id,
+    textureKey: item.textureKey,
     localX: item.localX,
     localY: item.localY,
     scale: item.scale,
@@ -225,28 +256,62 @@ export function createIndoorCharacterEditorSnapshot(buildingId: string): IndoorC
   }));
 }
 
-export function applyIndoorCharacterEditorSnapshot(buildingId: string, items: IndoorCharacterEditorSnapshotItem[]): void {
+export function applyIndoorCharacterEditorSnapshot(
+  buildingId: string,
+  items: IndoorCharacterEditorSnapshotItem[],
+  options: { replaceMissing?: boolean } = {},
+): void {
+  if (options.replaceMissing) {
+    const savedIds = new Set(items.map((item) => item.id));
+    removeIndoorCharacterDefs(buildingId, (item) => !savedIds.has(item.id));
+  }
   const characterById = new Map(getIndoorCharacterDefs(buildingId).map((item) => [item.id, item]));
   for (const saved of items) {
-    const target = characterById.get(saved.id);
-    if (!target || !Number.isFinite(saved.localX) || !Number.isFinite(saved.localY)) continue;
+    if (!Number.isFinite(saved.localX) || !Number.isFinite(saved.localY)) continue;
+    let target = characterById.get(saved.id);
+    if (!target) {
+      if (!saved.textureKey) continue;
+      target = {
+        buildingId,
+        id: saved.id,
+        textureKey: saved.textureKey,
+        localX: saved.localX,
+        localY: saved.localY,
+      };
+      addIndoorCharacterDef(target);
+      characterById.set(target.id, target);
+    }
     applyIndoorCharacterEditorSnapshotItem(target, saved);
   }
 }
 
 export function loadIndoorCharacterEditorSnapshot(buildingId: string): IndoorCharacterEditorSnapshotItem[] | null {
+  return loadIndoorCharacterEditorSnapshotPayload(buildingId)?.items ?? null;
+}
+
+export function loadIndoorCharacterEditorSnapshotPayload(
+  buildingId: string,
+): LoadedEditorSnapshot<IndoorCharacterEditorSnapshotItem> | null {
   const raw = localStorage.getItem(getIndoorCharacterEditorStorageKey(buildingId));
   if (!raw) return null;
   const payload = JSON.parse(raw) as Partial<IndoorCharacterEditorStoragePayload>;
-  if (payload.version !== 1 || payload.buildingId !== buildingId || !Array.isArray(payload.items)) return null;
-  return payload.items;
+  if (
+    (payload.version !== 1 && payload.version !== 2) ||
+    payload.buildingId !== buildingId ||
+    !Array.isArray(payload.items)
+  ) return null;
+  return {
+    items: payload.items,
+    replaceMissing: payload.version >= 2 && payload.replaceMissing === true,
+  };
 }
 
 export function saveIndoorCharacterEditorSnapshot(buildingId: string, items: IndoorCharacterEditorSnapshotItem[]): void {
   const payload: IndoorCharacterEditorStoragePayload = {
-    version: 1,
+    version: 2,
     buildingId,
     savedAt: Date.now(),
+    replaceMissing: true,
     items,
   };
   localStorage.setItem(getIndoorCharacterEditorStorageKey(buildingId), JSON.stringify(payload));
@@ -256,6 +321,7 @@ function applyIndoorCharacterEditorSnapshotItem(
   target: IndoorCharacterDef,
   saved: IndoorCharacterEditorSnapshotItem,
 ): void {
+  target.textureKey = saved.textureKey ?? target.textureKey;
   target.localX = saved.localX;
   target.localY = saved.localY;
   target.scale = optionalNumber(saved.scale);

@@ -141,14 +141,14 @@ export class WorldScene extends Phaser.Scene {
     });
     this.input.keyboard!.on('keydown-BACKSPACE', (event: KeyboardEvent) => {
       event.preventDefault();
-      this.mapRenderer.removeLastFurnitureMaskPoint();
+      this.mapRenderer.deleteSelectedIndoorEditorItem();
     });
     this.input.keyboard!.on('keydown-DELETE', () => {
       if (this.worldMapEditor?.isActive()) {
         this.worldMapEditor.clearSelectedCollision();
         return;
       }
-      this.mapRenderer.removeLastFurnitureMaskPoint();
+      this.mapRenderer.deleteSelectedIndoorEditorItem();
     });
     this.input.keyboard!.on('keydown-C', (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.shiftKey) {

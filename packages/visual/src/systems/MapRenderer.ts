@@ -20,7 +20,14 @@ import {
   toLocalIndoorMapPosition,
   type IndoorFurnitureDef,
 } from '../content/IndoorFurnitureLayout';
-import { getIndoorCharacterDefs, type IndoorCharacterDef } from '../content/IndoorCharacterLayout';
+import {
+  addIndoorCharacterDef,
+  createIndoorCharacterInstanceId,
+  getIndoorCharacterDefs,
+  removeIndoorCharacterDefs,
+  type IndoorCharacterDef,
+} from '../content/IndoorCharacterLayout';
+import { getIndoorAsset, INDOOR_ASSET_LIBRARY, type IndoorAssetDef } from '../content/IndoorAssetLibrary';
 import { getIndoorInteractables } from '../content/IndoorInteractables';
 import { DebugLogger } from '../utils/DebugLogger';
 import {
@@ -44,8 +51,8 @@ import {
   getIndoorCharacterEditorStorageKey,
   getFurnitureEditorStorageKey,
   getInteractableEditorStorageKey,
-  loadIndoorCharacterEditorSnapshot,
-  loadFurnitureEditorSnapshot,
+  loadIndoorCharacterEditorSnapshotPayload,
+  loadFurnitureEditorSnapshotPayload,
   loadInteractableEditorSnapshot,
   saveIndoorCharacterEditorSnapshot,
   saveFurnitureEditorSnapshot,
@@ -75,6 +82,13 @@ type CharacterEditorHandleKind = 'character-anchor' | 'character-depth' | 'chara
 type CharacterEditorDrag = {
   character: IndoorCharacterDef;
   kind: CharacterEditorHandleKind;
+};
+
+type IndoorAssetPlacementDrag = {
+  assetId: string;
+  startX: number;
+  startY: number;
+  hasMoved: boolean;
 };
 
 type IndoorDecorDef = {
@@ -141,6 +155,11 @@ export class MapRenderer {
   private interactableEditorDrag: InteractableEditorDrag | null = null;
   private furnitureEditorHelpText: Phaser.GameObjects.Text | null = null;
   private furnitureEditorGuideText: Phaser.GameObjects.Text | null = null;
+  private indoorAssetPanel: Phaser.GameObjects.Container | null = null;
+  private indoorAssetPanelBounds: Phaser.Geom.Rectangle | null = null;
+  private indoorAssetPlacementDrag: IndoorAssetPlacementDrag | null = null;
+  private indoorAssetDragPreview: Phaser.GameObjects.Image | null = null;
+  private pendingIndoorAssetId: string | null = null;
   private furnitureEditorGuideCollapsed = false;
   private furnitureMaskEditorActive = false;
   private furnitureEditorSelectedMaskIndex: number | null = null;
@@ -365,9 +384,9 @@ export class MapRenderer {
     this.updateFurnitureEditorHelpText();
   }
 
-  removeLastFurnitureMaskPoint(): void {
+  removeLastFurnitureMaskPoint(): boolean {
     const selected = this.getSelectedFurniture();
-    if (!this.furnitureEditorActive || !this.furnitureMaskEditorActive || !selected?.occluderMask?.length) return;
+    if (!this.furnitureEditorActive || !this.furnitureMaskEditorActive || !selected?.occluderMask?.length) return false;
     const selectedIndex = this.furnitureEditorSelectedMaskIndex;
     const deleteIndex = selectedIndex !== null && selected.occluderMask[selectedIndex]
       ? selectedIndex
@@ -379,6 +398,7 @@ export class MapRenderer {
     this.updateFurnitureOccluderSprite(selected, true);
     this.saveFurnitureEditorLayoutToStorage();
     this.updateFurnitureEditorHelpText();
+    return true;
   }
 
   clearFurnitureMask(): void {
@@ -411,6 +431,51 @@ export class MapRenderer {
     this.showFurnitureEditorMessage(`已复制：${selected.id} -> ${copy.id}`);
   }
 
+  deleteSelectedIndoorEditorItem(): void {
+    if (!this.furnitureEditorActive || !this.currentIndoorBuildingId) return;
+    if (this.removeLastFurnitureMaskPoint()) return;
+
+    if (this.pendingIndoorAssetId) {
+      const assetName = getIndoorAsset(this.pendingIndoorAssetId)?.name ?? this.pendingIndoorAssetId;
+      this.pendingIndoorAssetId = null;
+      this.indoorAssetPlacementDrag = null;
+      this.destroyIndoorAssetDragPreview();
+      this.createIndoorAssetPanel();
+      this.updateFurnitureEditorHelpText();
+      this.showFurnitureEditorMessage(`已取消放置素材：${assetName}`);
+      return;
+    }
+
+    const selectedCharacter = this.getSelectedCharacter();
+    if (selectedCharacter) {
+      const deletedId = selectedCharacter.id;
+      removeIndoorCharacterDefs(this.currentIndoorBuildingId, (item) => item.id === deletedId);
+      this.characterEditorSelectedId = getIndoorCharacterDefs(this.currentIndoorBuildingId)[0]?.id ?? null;
+      this.characterEditorDrag = null;
+      this.createIndoorCharacterSprites();
+      this.updateIndoorDebugOverlay(0, 0);
+      this.saveIndoorCharacterEditorLayoutToStorage();
+      this.showFurnitureEditorMessage(`已删除人物：${deletedId}`);
+      return;
+    }
+
+    const selectedFurniture = this.getSelectedFurniture(false);
+    if (selectedFurniture) {
+      const deletedId = selectedFurniture.id;
+      removeIndoorFurnitureDefs(this.currentIndoorBuildingId, (item) => item.id === deletedId);
+      this.furnitureEditorSelectedId = getIndoorFurnitureDefs(this.currentIndoorBuildingId)[0]?.id ?? null;
+      this.furnitureEditorSelectedMaskIndex = null;
+      this.furnitureEditorDrag = null;
+      this.createIndoorDecorSprites();
+      this.updateIndoorDebugOverlay(0, 0);
+      this.saveFurnitureEditorLayoutToStorage();
+      this.showFurnitureEditorMessage(`已删除家具/贴图：${deletedId}`);
+      return;
+    }
+
+    this.showFurnitureEditorMessage('没有选中的人物/家具/贴图可删除');
+  }
+
   private createFurnitureCopy(source: IndoorFurnitureDef, buildingId: string): IndoorFurnitureDef {
     const offset = 1;
     const copyId = createIndoorFurnitureCopyId(buildingId, source.id);
@@ -438,6 +503,81 @@ export class MapRenderer {
     };
   }
 
+  private placePendingIndoorAsset(localX: number, localY: number): void {
+    if (!this.currentIndoorBuildingId || !this.pendingIndoorAssetId) return;
+    const asset = getIndoorAsset(this.pendingIndoorAssetId);
+    if (!asset) return;
+
+    if (asset.kind === 'character') {
+      const character = this.createCharacterFromAsset(asset, this.currentIndoorBuildingId, localX, localY);
+      addIndoorCharacterDef(character);
+      this.characterEditorSelectedId = character.id;
+      this.furnitureEditorSelectedId = null;
+      this.interactableEditorSelectedId = null;
+      this.createIndoorCharacterSprites();
+      this.saveIndoorCharacterEditorLayoutToStorage();
+    } else {
+      const furniture = this.createFurnitureFromAsset(asset, this.currentIndoorBuildingId, localX, localY);
+      addIndoorFurnitureDef(furniture);
+      this.furnitureEditorSelectedId = furniture.id;
+      this.characterEditorSelectedId = null;
+      this.interactableEditorSelectedId = null;
+      this.createIndoorDecorSprites();
+      this.saveFurnitureEditorLayoutToStorage();
+    }
+
+    this.pendingIndoorAssetId = null;
+    this.createIndoorAssetPanel();
+    this.updateIndoorDebugOverlay(0, 0);
+    this.showFurnitureEditorMessage(`已放置素材：${asset.name}`);
+  }
+
+  private createCharacterFromAsset(
+    asset: IndoorAssetDef,
+    buildingId: string,
+    localX: number,
+    localY: number,
+  ): IndoorCharacterDef {
+    const colliderSize = asset.defaultColliderSize ?? { width: 1.2, height: 1.2 };
+    const halfW = colliderSize.width / 2;
+    const halfH = colliderSize.height / 2;
+    return {
+      buildingId,
+      id: createIndoorCharacterInstanceId(buildingId, asset.id),
+      textureKey: asset.textureKey,
+      localX,
+      localY,
+      scale: asset.defaultScale,
+      originX: asset.defaultOriginX,
+      originY: asset.defaultOriginY,
+      collider: {
+        minLocalX: roundEditorValue(localX - halfW),
+        maxLocalX: roundEditorValue(localX + halfW),
+        minLocalY: roundEditorValue(localY - halfH),
+        maxLocalY: roundEditorValue(localY + halfH),
+      },
+    };
+  }
+
+  private createFurnitureFromAsset(
+    asset: IndoorAssetDef,
+    buildingId: string,
+    localX: number,
+    localY: number,
+  ): IndoorFurnitureDef {
+    return {
+      buildingId,
+      id: createIndoorFurnitureCopyId(buildingId, asset.id),
+      textureKey: asset.textureKey,
+      renderLayer: asset.kind === 'wallDecor' ? 'wall' : undefined,
+      localX,
+      localY,
+      scale: asset.defaultScale,
+      originX: asset.defaultOriginX,
+      originY: asset.defaultOriginY,
+    };
+  }
+
   resetFurnitureEditorSavedLayout(): void {
     if (!this.furnitureEditorActive || !this.currentIndoorBuildingId) return;
 
@@ -457,6 +597,8 @@ export class MapRenderer {
     }
     const characterDefaults = this.characterEditorDefaultSnapshots.get(this.currentIndoorBuildingId);
     if (characterDefaults) {
+      const defaultCharacterIds = new Set(characterDefaults.map((item) => item.id));
+      removeIndoorCharacterDefs(this.currentIndoorBuildingId, (item) => !defaultCharacterIds.has(item.id));
       applyIndoorCharacterEditorSnapshot(this.currentIndoorBuildingId, characterDefaults);
       if (!characterDefaults.some((item) => item.id === this.characterEditorSelectedId)) {
         this.characterEditorSelectedId = characterDefaults[0]?.id ?? null;
@@ -480,11 +622,16 @@ export class MapRenderer {
       this.furnitureEditorDrag = null;
       this.characterEditorDrag = null;
       this.interactableEditorDrag = null;
+      this.indoorAssetPlacementDrag = null;
+      this.destroyIndoorAssetDragPreview();
+      this.pendingIndoorAssetId = null;
       this.furnitureMaskEditorActive = false;
       this.furnitureEditorSelectedMaskIndex = null;
       this.destroyIndoorDebugOverlay();
+      this.destroyIndoorAssetPanel();
     } else {
       this.createIndoorDebugOverlay();
+      this.createIndoorAssetPanel();
       this.updateIndoorDebugOverlay(0, 0);
     }
     this.updateFurnitureEditorHelpText();
@@ -823,8 +970,149 @@ export class MapRenderer {
     this.indoorDebugTexts = [];
   }
 
+  private createIndoorAssetPanel(): void {
+    this.destroyIndoorAssetPanel();
+
+    const panelWidth = 206;
+    const rowHeight = 44;
+    const panelHeight = 54 + INDOOR_ASSET_LIBRARY.length * rowHeight;
+    const panelX = SCREEN_WIDTH - panelWidth - 12;
+    const panelY = 42;
+    const panel = this.scene.add.container(panelX, panelY).setDepth(20000);
+    panel.setScrollFactor(0);
+    this.indoorAssetPanelBounds = new Phaser.Geom.Rectangle(panelX, panelY, panelWidth, panelHeight);
+
+    const bg = this.scene.add.rectangle(0, 0, panelWidth, panelHeight, 0x111827, 0.9)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x334155, 0.95);
+    panel.add(bg);
+
+    const title = this.scene.add.text(10, 8, '室内素材库', {
+      fontSize: '13px',
+      color: '#f8fafc',
+      fontFamily: 'PingFang SC, Microsoft YaHei, monospace',
+    });
+    panel.add(title);
+
+    const hint = this.scene.add.text(10, 28, '点击或拖到场景放置', {
+      fontSize: '10px',
+      color: '#cbd5e1',
+      fontFamily: 'PingFang SC, Microsoft YaHei, monospace',
+    });
+    panel.add(hint);
+
+    INDOOR_ASSET_LIBRARY.forEach((asset, index) => {
+      const y = 50 + index * rowHeight;
+      const selected = asset.id === this.pendingIndoorAssetId;
+      const rowBg = this.scene.add.rectangle(8, y, panelWidth - 16, rowHeight - 6, selected ? 0x14532d : 0x1f2937, selected ? 0.95 : 0.78)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1, selected ? 0x86efac : 0x475569, selected ? 1 : 0.6)
+        .setInteractive({ useHandCursor: true });
+      rowBg.on('pointerdown', (pointer: Phaser.Input.Pointer, _x: number, _y: number, event?: Phaser.Types.Input.EventData) => {
+        event?.stopPropagation();
+        this.beginIndoorAssetPlacementDrag(asset.id, pointer);
+      });
+      panel.add(rowBg);
+
+      if (this.scene.textures.exists(asset.textureKey)) {
+        const icon = this.scene.add.image(26, y + 19, asset.textureKey)
+          .setOrigin(0.5)
+          .setDisplaySize(28, 28);
+        panel.add(icon);
+      }
+
+      const kindLabel = asset.kind === 'character' ? '人物' : '墙贴';
+      const text = this.scene.add.text(48, y + 8, `${asset.name} · ${kindLabel}`, {
+        fontSize: '12px',
+        color: selected ? '#dcfce7' : '#e5e7eb',
+        fontFamily: 'PingFang SC, Microsoft YaHei, monospace',
+      });
+      panel.add(text);
+    });
+
+    this.indoorAssetPanel = panel;
+  }
+
+  private destroyIndoorAssetPanel(): void {
+    this.indoorAssetPanel?.destroy(true);
+    this.indoorAssetPanel = null;
+    this.indoorAssetPanelBounds = null;
+  }
+
+  private beginIndoorAssetPlacementDrag(assetId: string, pointer: Phaser.Input.Pointer): void {
+    this.pendingIndoorAssetId = assetId;
+    this.indoorAssetPlacementDrag = {
+      assetId,
+      startX: pointer.x,
+      startY: pointer.y,
+      hasMoved: false,
+    };
+    this.destroyIndoorAssetDragPreview();
+    this.furnitureEditorDrag = null;
+    this.characterEditorDrag = null;
+    this.interactableEditorDrag = null;
+    this.createIndoorAssetPanel();
+    this.updateFurnitureEditorHelpText();
+  }
+
+  private updateIndoorAssetDragPreview(pointer: Phaser.Input.Pointer): void {
+    const drag = this.indoorAssetPlacementDrag;
+    if (!drag) return;
+    const asset = getIndoorAsset(drag.assetId);
+    if (!asset) return;
+
+    if (!drag.hasMoved && Math.hypot(pointer.x - drag.startX, pointer.y - drag.startY) > 6) {
+      drag.hasMoved = true;
+    }
+    if (!drag.hasMoved) return;
+
+    if (!this.indoorAssetDragPreview && this.scene.textures.exists(asset.textureKey)) {
+      const frame = this.scene.textures.getFrame(asset.textureKey);
+      const previewScale = frame ? 44 / Math.max(frame.width, frame.height) : 1;
+      this.indoorAssetDragPreview = this.scene.add.image(pointer.x, pointer.y, asset.textureKey)
+        .setOrigin(0.5)
+        .setScale(previewScale)
+        .setAlpha(0.72)
+        .setDepth(21000)
+        .setScrollFactor(0);
+    }
+    this.indoorAssetDragPreview?.setPosition(pointer.x, pointer.y);
+  }
+
+  private endIndoorAssetPlacementDrag(pointer: Phaser.Input.Pointer): boolean {
+    const drag = this.indoorAssetPlacementDrag;
+    if (!drag) return false;
+
+    this.indoorAssetPlacementDrag = null;
+    this.destroyIndoorAssetDragPreview();
+    if (!drag.hasMoved || this.isPointInsideIndoorAssetPanel(pointer.x, pointer.y)) {
+      return true;
+    }
+    if (!this.currentIndoorBuildingId) return true;
+
+    const localPos = this.indoorCoordinateMapper.screenToLocal(this.currentIndoorBuildingId, pointer.x, pointer.y);
+    this.placePendingIndoorAsset(roundEditorValue(localPos.localX), roundEditorValue(localPos.localY));
+    return true;
+  }
+
+  private destroyIndoorAssetDragPreview(): void {
+    this.indoorAssetDragPreview?.destroy();
+    this.indoorAssetDragPreview = null;
+  }
+
+  private isPointInsideIndoorAssetPanel(x: number, y: number): boolean {
+    return !!this.indoorAssetPanelBounds?.contains(x, y);
+  }
+
   private onFurnitureEditorPointerDown(pointer: Phaser.Input.Pointer): void {
     if (!this.furnitureEditorActive || !this.currentIndoorBuildingId || !this.indoorContainer) return;
+
+    if (this.pendingIndoorAssetId) {
+      if (this.isPointInsideIndoorAssetPanel(pointer.x, pointer.y)) return;
+      const localPos = this.indoorCoordinateMapper.screenToLocal(this.currentIndoorBuildingId, pointer.x, pointer.y);
+      this.placePendingIndoorAsset(roundEditorValue(localPos.localX), roundEditorValue(localPos.localY));
+      return;
+    }
 
     if (this.furnitureMaskEditorActive) {
       const maskHandle = this.findFurnitureMaskHandle(pointer.x, pointer.y);
@@ -899,6 +1187,10 @@ export class MapRenderer {
   }
 
   private onFurnitureEditorPointerMove(pointer: Phaser.Input.Pointer): void {
+    if (this.furnitureEditorActive && this.indoorAssetPlacementDrag) {
+      this.updateIndoorAssetDragPreview(pointer);
+    }
+
     if (
       !this.furnitureEditorActive ||
       (!this.furnitureEditorDrag && !this.characterEditorDrag && !this.interactableEditorDrag) ||
@@ -978,7 +1270,10 @@ export class MapRenderer {
     this.updateFurnitureEditorHelpText();
   }
 
-  private onFurnitureEditorPointerUp(): void {
+  private onFurnitureEditorPointerUp(pointer: Phaser.Input.Pointer): void {
+    if (this.furnitureEditorActive && this.endIndoorAssetPlacementDrag(pointer)) {
+      return;
+    }
     if (this.furnitureEditorDrag) {
       this.saveFurnitureEditorLayoutToStorage();
     }
@@ -1216,8 +1511,14 @@ export class MapRenderer {
 
   private restoreFurnitureEditorLayoutFromStorage(buildingId: string): void {
     try {
-      const items = loadFurnitureEditorSnapshot(buildingId);
-      if (items) applyFurnitureEditorSnapshot(buildingId, items);
+      const snapshot = loadFurnitureEditorSnapshotPayload(buildingId);
+      if (snapshot) {
+        applyFurnitureEditorSnapshot(
+          buildingId,
+          snapshot.items,
+          { replaceMissing: snapshot.replaceMissing },
+        );
+      }
     } catch (error) {
       console.warn('[FurnitureEditor] Failed to restore saved layout:', error);
     }
@@ -1230,8 +1531,14 @@ export class MapRenderer {
 
   private restoreIndoorCharacterEditorLayoutFromStorage(buildingId: string): void {
     try {
-      const items = loadIndoorCharacterEditorSnapshot(buildingId);
-      if (items) applyIndoorCharacterEditorSnapshot(buildingId, items);
+      const snapshot = loadIndoorCharacterEditorSnapshotPayload(buildingId);
+      if (snapshot) {
+        applyIndoorCharacterEditorSnapshot(
+          buildingId,
+          snapshot.items,
+          { replaceMissing: snapshot.replaceMissing },
+        );
+      }
     } catch (error) {
       console.warn('[IndoorCharacterEditor] Failed to restore saved layout:', error);
     }
@@ -1315,10 +1622,19 @@ export class MapRenderer {
     return !!event?.altKey || pointer.rightButtonDown();
   }
 
-  private getSelectedFurniture(): IndoorFurnitureDef | null {
+  private getSelectedFurniture(fallbackToFirst = true): IndoorFurnitureDef | null {
     if (!this.currentIndoorBuildingId) return null;
     const furniture = getIndoorFurnitureDefs(this.currentIndoorBuildingId);
-    return furniture.find((item) => item.id === this.furnitureEditorSelectedId) ?? furniture[0] ?? null;
+    return furniture.find((item) => item.id === this.furnitureEditorSelectedId)
+      ?? (fallbackToFirst ? furniture[0] : null)
+      ?? null;
+  }
+
+  private getSelectedCharacter(): IndoorCharacterDef | null {
+    if (!this.currentIndoorBuildingId || !this.characterEditorSelectedId) return null;
+    return getIndoorCharacterDefs(this.currentIndoorBuildingId)
+      .find((item) => item.id === this.characterEditorSelectedId)
+      ?? null;
   }
 
   private findFurnitureMaskHandle(screenX: number, screenY: number): FurnitureEditorDrag | null {
@@ -1658,6 +1974,9 @@ export class MapRenderer {
     this.furnitureEditorHelpText.setText([
       '家具编辑模式',
       '参数会自动保存到浏览器',
+      this.pendingIndoorAssetId
+        ? `待放置素材：${getIndoorAsset(this.pendingIndoorAssetId)?.name ?? this.pendingIndoorAssetId}`
+        : '待放置素材：无',
       selectedText,
       characterText,
       interactableText,
@@ -1677,6 +1996,7 @@ export class MapRenderer {
           '绿色矩形：人物碰撞框。',
           '青色框/青色点：可交互区域。',
           'Cmd/Ctrl/Shift+D：复制当前家具或墙面贴图。',
+          'Backspace/Delete：删除当前选中人物/家具/贴图。',
           'Cmd/Ctrl+Shift+C：导出人物配置。',
           '',
           '2. 移动与碰撞',
@@ -1701,7 +2021,7 @@ export class MapRenderer {
           'mask 开启后，点击家具图片新增橙色点。',
           '拖橙色点：调整局部遮挡范围。',
           'Alt+点击或右键橙色点：删除指定点。',
-          'Backspace/Delete：删选中点；没有选中点就删最后一个。',
+          'mask 模式下 Backspace/Delete：删选中点；没有选中点就删最后一个。',
           'C：清空当前家具 mask。',
           '',
           '6. 交互区域',

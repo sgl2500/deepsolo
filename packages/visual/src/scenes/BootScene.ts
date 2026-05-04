@@ -7,6 +7,7 @@ import { BUILDINGS } from '../data/BuildingData';
 import { NPC_DEFS } from '../data/NPCData';
 import { EFT_FRAME_COUNTS } from '../data/BattleData';
 import { preloadAgentProfiles } from '../data/agents';
+import { INDOOR_ASSET_LIBRARY } from '../content/IndoorAssetLibrary';
 
 const BIRTH_HOUSE_DECOR_ASSETS = [
   { key: 'birth_house_decor_bookshelf', file: 'bookshelf.png' },
@@ -111,16 +112,11 @@ export class BootScene extends Phaser.Scene {
     }
     // Token中心室内装饰
     this.load.image('token_center_boss', 'assets/rooms/token-centre/token中心掌门.png?v=2');
-    // Token中心室内人物贴图
-    this.load.image('token_center_dashixiong', 'assets/renwu/大师兄.png?v=1');
-    this.load.image('token_center_guihai_yidao', 'assets/renwu/归海一刀.png?v=1');
-    this.load.image('token_center_shishu', 'assets/renwu/师叔.png?v=1');
-    this.load.image('token_center_sun_daniang', 'assets/renwu/孙大娘.png?v=1');
+    for (const asset of INDOOR_ASSET_LIBRARY) {
+      this.load.image(asset.textureKey, `${asset.src}?v=1`);
+    }
     // Token中心地砖
     this.load.image('smap_9514', 'assets/maps/dizhuan/0514.png?v=1');
-    // Token中心墙壁装饰
-    this.load.image('token_center_sect_backdrop', 'assets/maps/qiangti/门派背景.png?v=1');
-    this.load.image('token_center_left_wall_decor', 'assets/maps/qiangti/左侧贴图.png?v=1');
 
     // === 地毯瓦片 ===
     const DITAN_IDS = [306, 307, 308, 309, 310, 311, 312, 313, 330];
