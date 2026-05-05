@@ -158,6 +158,11 @@ export class WorldScene extends Phaser.Scene {
       }
       this.mapRenderer.clearFurnitureMask();
     });
+    this.input.keyboard!.on('keydown-S', (event: KeyboardEvent) => {
+      if (!event.shiftKey || (!event.metaKey && !event.ctrlKey)) return;
+      event.preventDefault();
+      this.mapRenderer.exportIndoorSceneSnapshot();
+    });
     this.input.keyboard!.on('keydown-D', (event: KeyboardEvent) => {
       if (!event.metaKey && !event.ctrlKey && !event.shiftKey) return;
       event.preventDefault();

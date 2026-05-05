@@ -91,3 +91,101 @@ for (const asset of INDOOR_ASSET_LIBRARY) {
 - 选中实例删除。
 - 家具、人物、墙贴统一实例系统。
 - 一键保存到源码文件。
+
+## 架构升级说明
+
+当前 `IndoorAssetLibrary.ts` 已经变成兼容层，真实素材数据来自：
+
+```ts
+packages/visual/src/content/AssetCatalog.ts
+```
+
+以后新增同类素材，优先加到 `AssetCatalog.ts`。室内编辑器会从全局 catalog 里筛选：
+
+- `category: 'indoor.character'` -> 人物素材。
+- `category: 'indoor.wallDecor'` -> 墙面贴图素材。
+
+这样后续大地图建筑、地块装饰、玩家住宅家具都可以继续放进同一个素材目录，再由不同编辑器 adapter 根据场景类型过滤。
+
+长期目标见：
+
+```txt
+packages/visual/docs/plans/2026-05-05-extensible-scene-editor-architecture.md
+```
+
+## 统一场景快照导出
+
+为了向未来数据库保存靠拢，室内编辑器现在支持导出完整 `EditableSceneSnapshot`：
+
+1. 进入室内场景。
+2. 按 `F2` 开启编辑模式。
+3. 按 `Cmd/Ctrl+Shift+S`。
+4. 当前室内场景 JSON 会复制到剪贴板，并输出到 console.info。
+
+这份 JSON 会把当前室内的对象统一成一份 scene state：
+
+- 家具和普通物体：`kind: 'indoorFurniture'`，`layer: 'object'`。
+- 墙面贴图：`kind: 'wallDecor'`，`layer: 'wall'`，`depth.mode: 'behindActor'`。
+- 人物 NPC：`kind: 'indoorCharacter'`，`layer: 'character'`。
+- 交互区域：`kind: 'interactable'`，`layer: 'interaction'`。
+
+这个格式对应未来数据库里的：
+
+- `scenes`
+- `scene_objects`
+- `asset_catalog`
+
+所以后续可以从 localStorage 草稿逐步迁移到服务端保存，而不用重做编辑器数据结构。
+
+## LocalSceneRepository 草稿保存
+
+统一场景快照现在已经接入 `LocalSceneRepository`：
+
+```ts
+packages/visual/src/editor/core/SceneRepository.ts
+```
+
+保存 key 格式：
+
+```txt
+deepsolo_scene_editor_drafts:<sceneType>:<sceneId>
+```
+
+例如 Token 中心：
+
+```txt
+deepsolo_scene_editor_drafts:indoor:token_center
+```
+
+触发保存的时机：
+
+- 进入室内时会生成一次统一 scene draft。
+- 拖动家具、人物、交互区松手后会自动保存。
+- 从素材库新增、复制、删除对象后会自动保存。
+- 按 `Cmd/Ctrl+Shift+S` 会保存并导出当前统一快照。
+- 按 `R` 恢复默认布局时，会清理旧 draft 并保存恢复后的默认快照。
+
+这一步仍然不会强依赖数据库运行，但 `SceneRepository` 接口已经把未来 API/数据库保存的边界留出来。后续只需要新增 `ApiSceneRepository`，就可以把 localStorage 草稿切到服务端。
+
+## 场景对象面板
+
+`F2` 编辑模式右侧现在除了素材库，还会显示“当前场景对象”面板。这个面板直接读取统一 `EditableSceneSnapshot`，用于把底层抽象显性化到 UI：
+
+- 显示当前 sceneId / sceneType / 未来表名 `scene_objects`。
+- 显示统一草稿保存时间和对象数量。
+- 列出当前场景里的人物、墙贴、家具、交互区。
+- 点击列表项会选中对应对象，并同步左侧调试框和场景中的编辑锚点。
+
+这一步的目标是让编辑器从“只靠画面拖拽”开始过渡到“对象化管理”。后续可以在这个面板上继续加搜索、滚动、删除按钮、复制按钮、锁定/隐藏、图层切换和属性面板。
+
+## 建造模式 UI v1
+
+`F2` 现在会打开新的 DOM 建造模式 UI，而不是继续依赖 Phaser 文本面板堆信息：
+
+- 顶部工具栏：选择、碰撞/遮挡、预览、导出 JSON、高级调试、退出。
+- 左侧素材库：按人物、墙贴分组，点击素材后再点击场景放置。
+- 右侧属性面板：显示当前对象类型、名称、位置、图层、缩放和碰撞状态。
+- 右侧对象列表：列出当前 `EditableSceneSnapshot.objects`，点击即可选中对象。
+- 底部状态条：显示自动保存时间、对象数量，并提供复制、删除、恢复默认。
+
+普通建造模式默认隐藏旧的开发者文本说明；点击“高级调试”才会显示旧的 schema/debug 辅助信息和 Phaser 右侧调试列表。这样玩家布置体验和开发调试信息被分开了。
