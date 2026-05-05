@@ -178,6 +178,9 @@ export const LS_KEY_INTERACTABLE_EDITOR_LAYOUTS = 'deepsolo_interactable_editor_
 /** 室内人物贴图编辑器 localStorage key 前缀 */
 export const LS_KEY_INDOOR_CHARACTER_EDITOR_LAYOUTS = 'deepsolo_indoor_character_editor_layouts';
 
+/** 室内地板瓦片覆盖编辑器 localStorage key 前缀 */
+export const LS_KEY_INDOOR_FLOOR_TILE_OVERRIDES = 'deepsolo_indoor_floor_tile_overrides';
+
 /** 统一场景编辑器草稿 localStorage key 前缀 */
 export const LS_KEY_SCENE_EDITOR_DRAFTS = 'deepsolo_scene_editor_drafts';
 

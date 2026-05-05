@@ -2,6 +2,7 @@ import { ASSET_CATALOG } from '../../content/AssetCatalog';
 import { getIndoorCharacterDefs } from '../../content/IndoorCharacterLayout';
 import { getIndoorFurnitureDefs, toLocalIndoorMapPosition } from '../../content/IndoorFurnitureLayout';
 import { getIndoorInteractables } from '../../content/IndoorInteractables';
+import type { IndoorFloorTileOverride } from '../../systems/map/IndoorTileEditorPersistence';
 import type { IndoorInteractableAction, IndoorInteractableZone } from '../../types';
 import type {
   EditableSceneSnapshot,
@@ -13,7 +14,10 @@ import type {
 const assetIdByTextureKey = new Map(ASSET_CATALOG.map((asset) => [asset.textureKey, asset.id]));
 const assetNameByTextureKey = new Map(ASSET_CATALOG.map((asset) => [asset.textureKey, asset.name]));
 
-export function createIndoorEditableSceneSnapshot(buildingId: string): EditableSceneSnapshot {
+export function createIndoorEditableSceneSnapshot(
+  buildingId: string,
+  options: { floorTileOverrides?: IndoorFloorTileOverride[] } = {},
+): EditableSceneSnapshot {
   const objects: PlacedSceneObject[] = [
     ...getIndoorFurnitureDefs(buildingId).map((item): PlacedSceneObject => {
       const isWallDecor = item.renderLayer === 'wall';
@@ -110,12 +114,14 @@ export function createIndoorEditableSceneSnapshot(buildingId: string): EditableS
     templateId: buildingId,
     savedAt: Date.now(),
     objects,
-    metadata: {
-      source: 'visual-indoor-editor',
-      schemaPurpose: 'database-ready-scene-state',
-      objectCount: objects.length,
-    },
-  };
+      metadata: {
+        source: 'visual-indoor-editor',
+        schemaPurpose: 'database-ready-scene-state',
+        objectCount: objects.length,
+        floorTileOverrideCount: options.floorTileOverrides?.length ?? 0,
+        floorTileOverrides: options.floorTileOverrides?.map((item) => ({ ...item })),
+      },
+    };
 }
 
 function rectFromLocalBounds(bounds: {

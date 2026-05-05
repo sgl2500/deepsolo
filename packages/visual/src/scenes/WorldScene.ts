@@ -166,7 +166,7 @@ export class WorldScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-D', (event: KeyboardEvent) => {
       if (!event.metaKey && !event.ctrlKey && !event.shiftKey) return;
       event.preventDefault();
-      this.mapRenderer.duplicateSelectedFurniture();
+      this.mapRenderer.duplicateSelectedIndoorEditorItem();
     });
     this.input.keyboard!.on('keydown-Q', (_event: KeyboardEvent) => {
       if (_event.shiftKey) {
@@ -182,17 +182,37 @@ export class WorldScene extends Phaser.Scene {
         this.mapRenderer.rotateSelectedFurniture(15);
       }
     });
-    this.input.keyboard!.on('keydown-LEFT', (_event: KeyboardEvent) => {
-      if (_event.shiftKey) this.mapRenderer.nudgeSelectedFurnitureOrigin(-0.05, 0);
+    this.input.keyboard!.on('keydown-LEFT', (event: KeyboardEvent) => {
+      if (event.shiftKey && this.mapRenderer.isFurnitureEditorActive()) {
+        event.preventDefault();
+        this.mapRenderer.nudgeSelectedFurnitureOrigin(-0.05, 0);
+        return;
+      }
+      if (this.mapRenderer.nudgeSelectedIndoorEditorItem(event.altKey ? -1 : -0.1, 0)) event.preventDefault();
     });
-    this.input.keyboard!.on('keydown-RIGHT', (_event: KeyboardEvent) => {
-      if (_event.shiftKey) this.mapRenderer.nudgeSelectedFurnitureOrigin(0.05, 0);
+    this.input.keyboard!.on('keydown-RIGHT', (event: KeyboardEvent) => {
+      if (event.shiftKey && this.mapRenderer.isFurnitureEditorActive()) {
+        event.preventDefault();
+        this.mapRenderer.nudgeSelectedFurnitureOrigin(0.05, 0);
+        return;
+      }
+      if (this.mapRenderer.nudgeSelectedIndoorEditorItem(event.altKey ? 1 : 0.1, 0)) event.preventDefault();
     });
-    this.input.keyboard!.on('keydown-UP', (_event: KeyboardEvent) => {
-      if (_event.shiftKey) this.mapRenderer.nudgeSelectedFurnitureOrigin(0, -0.05);
+    this.input.keyboard!.on('keydown-UP', (event: KeyboardEvent) => {
+      if (event.shiftKey && this.mapRenderer.isFurnitureEditorActive()) {
+        event.preventDefault();
+        this.mapRenderer.nudgeSelectedFurnitureOrigin(0, -0.05);
+        return;
+      }
+      if (this.mapRenderer.nudgeSelectedIndoorEditorItem(0, event.altKey ? -1 : -0.1)) event.preventDefault();
     });
-    this.input.keyboard!.on('keydown-DOWN', (_event: KeyboardEvent) => {
-      if (_event.shiftKey) this.mapRenderer.nudgeSelectedFurnitureOrigin(0, 0.05);
+    this.input.keyboard!.on('keydown-DOWN', (event: KeyboardEvent) => {
+      if (event.shiftKey && this.mapRenderer.isFurnitureEditorActive()) {
+        event.preventDefault();
+        this.mapRenderer.nudgeSelectedFurnitureOrigin(0, 0.05);
+        return;
+      }
+      if (this.mapRenderer.nudgeSelectedIndoorEditorItem(0, event.altKey ? 1 : 0.1)) event.preventDefault();
     });
     this.input.keyboard!.on('keydown-R', () => {
       if (this.worldMapEditor?.isActive()) {

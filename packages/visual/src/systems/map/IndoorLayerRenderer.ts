@@ -84,6 +84,12 @@ export type IndoorFixedRoomDef = {
   visuals: IndoorFixedVisualDef[];
 };
 
+export type IndoorFloorTileOverride = {
+  col: number;
+  row: number;
+  textureKey: string;
+};
+
 export class IndoorLayerRenderer {
   private smapOffsets: Map<number, { xoff: number; yoff: number }> = new Map();
   private wallSprites: Phaser.GameObjects.GameObject[] = [];
@@ -95,7 +101,12 @@ export class IndoorLayerRenderer {
 
   constructor(private scene: Phaser.Scene) {}
 
-  create(mapData: MapData, container: Phaser.GameObjects.Container, fixedRoom: IndoorFixedRoomDef | null): void {
+  create(
+    mapData: MapData,
+    container: Phaser.GameObjects.Container,
+    fixedRoom: IndoorFixedRoomDef | null,
+    floorOverrides: IndoorFloorTileOverride[] = [],
+  ): void {
     this.destroy();
     this.loadSmapOffsets();
 
@@ -108,7 +119,7 @@ export class IndoorLayerRenderer {
     this.floorCanvas.height = canvasH;
     this.floorCtx = this.floorCanvas.getContext('2d')!;
 
-    this.renderFloor(mapData, fixedRoom);
+    this.renderFloor(mapData, fixedRoom, floorOverrides);
 
     const texKey = '__indoorFloor';
     if (this.scene.textures.exists(texKey)) {
@@ -123,6 +134,16 @@ export class IndoorLayerRenderer {
     container.add(this.floorImage);
 
     this.createWallSprites(mapData, container, fixedRoom);
+  }
+
+  updateFloor(mapData: MapData, fixedRoom: IndoorFixedRoomDef | null, floorOverrides: IndoorFloorTileOverride[] = []): void {
+    if (!this.floorCanvas || !this.floorCtx || !this.floorImage) return;
+    this.renderFloor(mapData, fixedRoom, floorOverrides);
+    if (this.scene.textures.exists('__indoorFloor')) {
+      this.scene.textures.remove('__indoorFloor');
+    }
+    this.scene.textures.addCanvas('__indoorFloor', this.floorCanvas);
+    this.floorImage.setTexture('__indoorFloor');
   }
 
   updateRoofVisibility(playerCol: number, playerRow: number): void {
@@ -170,13 +191,17 @@ export class IndoorLayerRenderer {
     }
   }
 
-  private renderFloor(mapData: MapData, fixedRoom: IndoorFixedRoomDef | null): void {
+  private renderFloor(
+    mapData: MapData,
+    fixedRoom: IndoorFixedRoomDef | null,
+    floorOverrides: IndoorFloorTileOverride[] = [],
+  ): void {
     const canvas = this.floorCanvas!;
     const ctx = this.floorCtx!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (fixedRoom?.floorTiles) {
-      this.renderFixedRoomFloorTiles(ctx, canvas, mapData, fixedRoom.floorTiles);
+      this.renderFixedRoomFloorTiles(ctx, canvas, mapData, fixedRoom.floorTiles, floorOverrides);
       return;
     }
 
@@ -217,6 +242,7 @@ export class IndoorLayerRenderer {
     canvas: HTMLCanvasElement,
     mapData: MapData,
     floorTiles: IndoorFixedFloorTilesDef,
+    floorOverrides: IndoorFloorTileOverride[],
   ): void {
     const cx = mapData.cx;
     const cy = mapData.cy;
@@ -224,10 +250,13 @@ export class IndoorLayerRenderer {
     const scrCy = canvas.height / 2;
     const s = INDOOR_SCALE;
 
+    const overrideByCoord = new Map(floorOverrides.map((item) => [`${item.col},${item.row}`, item.textureKey]));
+
     for (let row = floorTiles.rowStart; row <= floorTiles.rowEnd; row++) {
       for (let col = floorTiles.colStart; col <= floorTiles.colEnd; col++) {
+        const overrideTextureKey = overrideByCoord.get(`${col},${row}`);
         const variantIndex = this.pickFixedFloorTileVariant(row, col, floorTiles.textureKeys.length);
-        const textureKey = floorTiles.textureKeys[variantIndex];
+        const textureKey = overrideTextureKey ?? floorTiles.textureKeys[variantIndex];
         if (!this.scene.textures.exists(textureKey)) continue;
 
         const sx = TILE_HALF_W * s * ((col - cx) - (row - cy)) + scrCx;
