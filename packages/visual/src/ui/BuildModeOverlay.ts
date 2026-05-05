@@ -25,6 +25,7 @@ export type BuildEditorMode = 'object' | 'tile';
 export type BuildTileBrush = {
   textureKey: string;
   label: string;
+  src?: string;
 };
 
 export type BuildEditableField =
@@ -185,6 +186,7 @@ export class BuildModeOverlay {
   private renderAssetGroups(assets: IndoorAssetDef[], pendingAssetId: string | null): string {
     const filteredAssets = assets.filter((asset) => matchesAssetFilter(asset, this.assetFilter));
     const groups: Array<{ key: IndoorAssetDef['kind']; label: string }> = [
+      { key: 'furniture', label: '家具' },
       { key: 'character', label: '人物' },
       { key: 'wallDecor', label: '墙贴' },
     ];
@@ -238,7 +240,7 @@ export class BuildModeOverlay {
           </button>
           ${brushes.map((brush) => `
             <button class="build-asset-card ${brush.textureKey === selectedTileBrush ? 'is-active' : ''}" data-tile-brush="${escapeAttr(brush.textureKey)}">
-              <img src="${escapeAttr(tileBrushSrc(brush.textureKey))}" alt="" loading="lazy" />
+              <img src="${escapeAttr(tileBrushSrc(brush))}" alt="" loading="lazy" />
               <span>${escapeHtml(brush.label)}</span>
             </button>
           `).join('')}
@@ -634,7 +636,9 @@ function matchesAssetFilter(asset: IndoorAssetDef, filter: string): boolean {
   return haystack.includes(keyword);
 }
 
-function tileBrushSrc(textureKey: string): string {
+function tileBrushSrc(brush: BuildTileBrush): string {
+  const textureKey = brush.textureKey;
+  if (brush.src) return brush.src;
   if (textureKey.startsWith('smap_')) {
     const tileId = textureKey.slice(5).padStart(4, '0');
     return `assets/jy-runtime/10_smap/${tileId}.png`;

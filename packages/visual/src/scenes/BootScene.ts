@@ -7,16 +7,7 @@ import { BUILDINGS } from '../data/BuildingData';
 import { NPC_DEFS } from '../data/NPCData';
 import { EFT_FRAME_COUNTS } from '../data/BattleData';
 import { preloadAgentProfiles } from '../data/agents';
-import { INDOOR_ASSET_LIBRARY } from '../content/IndoorAssetLibrary';
-
-const BIRTH_HOUSE_DECOR_ASSETS = [
-  { key: 'birth_house_decor_bookshelf', file: 'bookshelf.png' },
-  { key: 'birth_house_decor_screen', file: 'screen.png' },
-  { key: 'birth_house_decor_bed', file: 'bed.png' },
-  { key: 'birth_house_decor_chest', file: 'chest.png' },
-  { key: 'birth_house_decor_lantern', file: 'lantern.png' },
-  { key: 'birth_house_decor_table', file: 'table.png' },
-] as const;
+import { ASSET_CATALOG } from '../content/AssetCatalog';
 
 const WORLD_BUILDING_ASSETS = [
   { key: 'world_building_player_house', file: 'npc_1371.png' },
@@ -107,23 +98,8 @@ export class BootScene extends Phaser.Scene {
     for (const b of BUILDINGS) {
       this.load.json(b.indoorMapKey, `assets/maps/indoor/${b.indoorMapKey}.json?v=11`);
     }
-    for (const asset of BIRTH_HOUSE_DECOR_ASSETS) {
-      this.load.image(asset.key, `assets/rooms/observer_house/${asset.file}?v=9`);
-    }
-    // Token中心室内装饰
-    this.load.image('token_center_boss', 'assets/rooms/token-centre/token中心掌门.png?v=2');
-    for (const asset of INDOOR_ASSET_LIBRARY) {
+    for (const asset of ASSET_CATALOG) {
       this.load.image(asset.textureKey, `${asset.src}?v=1`);
-    }
-    // Token中心地砖
-    this.load.image('smap_9514', 'assets/maps/dizhuan/0514.png?v=1');
-
-    // === 地毯瓦片 ===
-    const DITAN_IDS = [306, 307, 308, 309, 310, 311, 312, 313, 330];
-    for (const id of DITAN_IDS) {
-      const padded = String(id).padStart(4, '0');
-      const smapId = 9000 + id;
-      this.load.image(`smap_${smapId}`, `assets/maps/ditan/${padded}.png?v=1`);
     }
 
     for (const asset of WORLD_BUILDING_ASSETS) {

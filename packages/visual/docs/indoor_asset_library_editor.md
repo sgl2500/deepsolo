@@ -17,8 +17,9 @@
 packages/visual/src/content/IndoorAssetLibrary.ts
 ```
 
-当前支持两类素材：
+当前支持三类对象素材：
 
+- `furniture`：家具贴图，放置后进入家具编辑系统，可继续调位置、depth、碰撞和遮挡。
 - `character`：人物贴图，放置后进入人物编辑系统，带默认碰撞框。
 - `wallDecor`：墙面贴图，放置后进入家具/墙贴编辑系统，使用 `renderLayer: 'wall'`，不会遮挡玩家。
 
@@ -30,16 +31,16 @@ packages/visual/src/content/IndoorAssetLibrary.ts
   name: '大师兄',
   kind: 'character',
   textureKey: 'token_center_dashixiong',
-  src: 'assets/renwu/大师兄.png',
+  src: 'assets/indoor/characters/dashixiong.png',
   defaultScale: 0.54,
   defaultColliderSize: { width: 1.2, height: 1.2 },
 }
 ```
 
-`BootScene` 会遍历素材库并预加载贴图：
+`BootScene` 会遍历统一 `AssetCatalog` 并预加载贴图：
 
 ```ts
-for (const asset of INDOOR_ASSET_LIBRARY) {
+for (const asset of ASSET_CATALOG) {
   this.load.image(asset.textureKey, `${asset.src}?v=1`);
 }
 ```
@@ -82,8 +83,10 @@ for (const asset of INDOOR_ASSET_LIBRARY) {
 
 ## 当前收录素材
 
-- 人物：大师兄、归海一刀、师叔、孙大娘。
+- 家具：观察者小屋床、书架、木箱、灯笼、屏风、茶桌，以及 Token 中心掌门像。
+- 人物：大师兄、归海一刀、师叔、孙大娘、和尚。
 - 墙贴：门派背景、左侧贴图。
+- 瓦片：Token 中心地板、地毯 0306-0313 / 0330。
 
 ## 后续扩展
 
@@ -103,7 +106,9 @@ packages/visual/src/content/AssetCatalog.ts
 以后新增同类素材，优先加到 `AssetCatalog.ts`。室内编辑器会从全局 catalog 里筛选：
 
 - `category: 'indoor.character'` -> 人物素材。
+- `category: 'indoor.furniture'` -> 家具素材。
 - `category: 'indoor.wallDecor'` -> 墙面贴图素材。
+- `category: 'indoor.floorTile' / 'indoor.rugTile'` -> 瓦片笔刷素材。
 
 这样后续大地图建筑、地块装饰、玩家住宅家具都可以继续放进同一个素材目录，再由不同编辑器 adapter 根据场景类型过滤。
 
@@ -251,7 +256,7 @@ deepsolo_scene_editor_drafts:indoor:token_center
 
 当前瓦片模式的实现边界：
 
-- 只对带 `fixedRoom.floorTiles` 模板的室内场景开放。
+- 只对 `IndoorRoomTemplate.editableLayers.floor` 配置过的室内区域开放。
 - 点击单个地板格，会写入一个 `floor tile override`。
 - 橡皮会删除 override，恢复模板默认地板瓦片。
 - override 会单独保存到 localStorage，并同步进统一 `EditableSceneSnapshot.metadata`。

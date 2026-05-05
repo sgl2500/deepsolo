@@ -6,6 +6,11 @@ import {
   TILE_HALF_H,
   TILE_HALF_W,
 } from '../../config';
+import type {
+  IndoorFixedFloorTilesDef,
+  IndoorFixedRoomDef,
+  IndoorFixedWallTilesDef,
+} from '../../content/IndoorRoomTemplates';
 import type { MapData } from '../../types';
 
 const CUSTOM_SMAP_OFFSETS: Record<number, { xoff: number; yoff: number }> = {
@@ -43,45 +48,6 @@ const CUSTOM_SMAP_OFFSETS: Record<number, { xoff: number; yoff: number }> = {
   9312: { xoff: 18, yoff: 17 },
   9313: { xoff: 18, yoff: 17 },
   9330: { xoff: 18, yoff: 17 },
-};
-
-export type IndoorFixedFloorTilesDef = {
-  textureKeys: string[];
-  rowStart: number;
-  rowEnd: number;
-  colStart: number;
-  colEnd: number;
-};
-
-export type IndoorFixedWallTilesDef = {
-  rowStart: number;
-  rowEnd: number;
-  colStart: number;
-  colEnd: number;
-  doorColStart?: number;
-  doorColEnd?: number;
-};
-
-export type IndoorFixedVisualDef = {
-  textureKey: string;
-  localX: number;
-  localY: number;
-  scale?: number;
-  alpha?: number;
-  originX?: number;
-  originY?: number;
-  pixelOffsetX?: number;
-  pixelOffsetY?: number;
-  depthLocalX?: number;
-  depthLocalY?: number;
-  depthBias?: number;
-};
-
-export type IndoorFixedRoomDef = {
-  skipTilemap: boolean;
-  floorTiles?: IndoorFixedFloorTilesDef;
-  wallTiles?: IndoorFixedWallTilesDef;
-  visuals: IndoorFixedVisualDef[];
 };
 
 export type IndoorFloorTileOverride = {
@@ -227,6 +193,16 @@ export class IndoorLayerRenderer {
       }
     }
 
+    for (const override of floorOverrides) {
+      if (!this.scene.textures.exists(override.textureKey)) continue;
+      const { sx, sy } = pos(override.col, override.row);
+      if (override.textureKey.startsWith('smap_')) {
+        this.drawSmapTileOnCtx(ctx, Number(override.textureKey.slice(5)), sx, sy, s);
+      } else {
+        this.drawFixedTextureOnCtx(ctx, override.textureKey, sx, sy);
+      }
+    }
+
     for (let row = 0; row < mapData.height; row++) {
       for (let col = 0; col < mapData.width; col++) {
         const sv = mapData.surface[row][col];
@@ -235,6 +211,7 @@ export class IndoorLayerRenderer {
         this.drawSmapTileOnCtx(ctx, sv, sx, sy, s);
       }
     }
+
   }
 
   private renderFixedRoomFloorTiles(

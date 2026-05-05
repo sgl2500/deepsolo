@@ -11,7 +11,12 @@ const externalAssetLibraryRoot = path.resolve(repoRoot, '..', 'assets-library', 
 const requiredPaths = [
   'packages/visual/docs/asset_governance.md',
   'packages/visual/public/assets',
-  'packages/visual/public/assets/rooms/observer_house',
+  'packages/visual/public/assets/indoor',
+  'packages/visual/public/assets/indoor/furniture/observer-house',
+  'packages/visual/public/assets/indoor/characters',
+  'packages/visual/public/assets/indoor/wall-decor',
+  'packages/visual/public/assets/indoor/tiles/floor',
+  'packages/visual/public/assets/indoor/tiles/rug',
   'packages/visual/public/assets/core/tile_atlas.png',
   'packages/visual/public/assets/core/char_atlas.png',
   'packages/visual/public/assets/maps/world/map_data.json',
@@ -34,6 +39,10 @@ const forbiddenPublicPaths = [
   'packages/visual/public/tile_browser.html',
   'packages/visual/public/scene_editor.html',
   'packages/visual/public/assets/tools',
+  'packages/visual/public/assets/renwu/大师兄.png',
+  'packages/visual/public/assets/maps/qiangti/门派背景.png',
+  'packages/visual/public/assets/maps/dizhuan/0514.png',
+  'packages/visual/public/assets/maps/ditan/0306.png',
   'packages/visual/public/assets/observer_house_v1',
   'packages/visual/public/assets/observer_house_v2',
   'packages/visual/public/assets/observer_house_v3/raw',
@@ -113,7 +122,7 @@ function formatSize(bytes) {
 const findings = [];
 const warnings = [];
 
-const observerHouseRuntimeDir = path.join(publicAssetsRoot, 'rooms', 'observer_house');
+const observerHouseFurnitureDir = path.join(publicAssetsRoot, 'indoor', 'furniture', 'observer-house');
 const allowedObserverHouseFiles = new Set([
   'bed.png',
   'bookshelf.png',
@@ -139,10 +148,10 @@ for (const dsStore of walk(publicRoot, file => path.basename(file) === '.DS_Stor
   warnings.push(`public 内存在系统文件：${rel(dsStore)}`);
 }
 
-for (const file of walk(observerHouseRuntimeDir, () => true)) {
-  const relative = path.relative(observerHouseRuntimeDir, file);
+for (const file of walk(observerHouseFurnitureDir, () => true)) {
+  const relative = path.relative(observerHouseFurnitureDir, file);
   if (!allowedObserverHouseFiles.has(relative)) {
-    findings.push(`观察者小屋运行时目录只允许当前家具图：${rel(file)}`);
+    findings.push(`观察者小屋家具目录只允许当前家具图：${rel(file)}`);
   }
 }
 

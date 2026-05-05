@@ -1826,3 +1826,38 @@ python scripts/trigger_heaven.py
 - `types.ts` 从约 638 行降到 15 行；各领域类型文件均保持小文件。
 - `packages/visual/docs/visual_governance.md`、`docs/project_governance.md`、`docs/technical_debt_register.md` 已同步类型边界规则。
 - 验证：`npm run check` 和 `npm run audit:governance` 已通过，17 个 unit tests 通过，治理提醒为暂无。
+
+### 2026-05-05 23:41 CST 通用室内房间模板 v1
+
+- 用户确认希望室内场景编辑器未来可开放给玩家做室内编辑和装修，先从瓦片编辑不再绑定 `birth_house` 开始抽象。
+- 新增 `packages/visual/src/content/IndoorRoomTemplates.ts`：
+  - 定义 `IndoorRoomTemplate`、`IndoorEditableTileRegion`、`IndoorFixedRoomDef` 等模板类型。
+  - `birth_house` 保留原固定房间配置，地板可编辑区为 `col/row 3..22`。
+  - `token_center` 新增地板可编辑区 `col/row 4..36`，先开放 floor 单点刷，避免覆盖墙体边缘。
+- `packages/visual/src/systems/MapRenderer.ts`：
+  - 固定房间渲染配置改为从 `getIndoorRoomTemplate(...).fixedRoom` 读取。
+  - 瓦片编辑可用性、地板笔刷候选、调试网格和点击命中改为读取 `editableLayers.floor`，不再只看出生小屋的 `fixedRoom.floorTiles`。
+- `packages/visual/src/systems/map/IndoorLayerRenderer.ts`：普通室内 tilemap 也会应用 `floor tile overrides`，使 Token 中心这类非 fixed room 场景能进入瓦片编辑链路。
+- `packages/visual/src/content/IndoorFurnitureLayout.ts`：室内 local/map 坐标原点改为从房间模板读取，避免继续维护分散的 `INDOOR_LOCAL_ORIGINS`。
+- 新增 `packages/visual/docs/indoor_room_template_editor.md`，记录 RoomTemplate / RoomInstance 的目标抽象、当前边界和后续路线；文档内更新时间为 `2026-05-05 23:41:17 CST`。
+- 新增 `packages/visual/tests/unit/indoor_room_templates.test.ts`，覆盖出生小屋模板、Token 中心 floor 可编辑区和模板 localOrigin 坐标换算。
+
+### 2026-05-06 00:17 CST 室内素材目录与 AssetCatalog 统一
+
+- 用户要求统一室内编辑器素材并规范目录，方便后续注册添加、玩家装修和资产等级扩展。
+- 运行时可编辑室内素材迁移到 `packages/visual/public/assets/indoor/`：
+  - `furniture/observer-house/`：观察者小屋床、书架、木箱、灯笼、屏风、茶桌。
+  - `furniture/token-center/`：Token 中心掌门像。
+  - `characters/`：大师兄、归海一刀、师叔、孙大娘、和尚。
+  - `wall-decor/token-center/`：门派背景、左侧贴图。
+  - `tiles/floor/token-center/`：Token 中心地板。
+  - `tiles/rug/`：地毯 0306-0313 / 0330。
+- `packages/visual/src/content/AssetCatalog.ts` 扩展为室内编辑器素材注册主入口：
+  - 注册 `indoor.furniture / indoor.character / indoor.wallDecor / indoor.floorTile / indoor.rugTile`。
+  - 保留 `economy` 字段用于未来 default/owned/market/reward、价格和稀有度。
+  - 新增 `getAssetByTextureKey`、`getIndoorTileBrushAssets` 等查询能力。
+- `packages/visual/src/scenes/BootScene.ts` 改为遍历 `ASSET_CATALOG` 预加载室内编辑素材，不再硬编码出生小屋家具、Token 中心装饰、地砖和地毯。
+- `packages/visual/src/content/IndoorAssetLibrary.ts` 作为对象素材兼容层，现支持 `furniture / character / wallDecor`。
+- `packages/visual/src/content/IndoorRoomTemplates.ts` 的 `editableLayers.floor` 支持 `brushAssetIds`，Token 中心 floor brush 改为引用注册资产。
+- `packages/visual/src/ui/BuildModeOverlay.ts` 瓦片笔刷支持从 catalog 读取正确缩略图路径，避免 `smap_9309` 这类自定义瓦片误指向 `jy-runtime/10_smap`。
+- 新增 `packages/visual/docs/indoor_asset_registry.md`，记录目录规范、注册规范和当前边界；更新时间为 `2026-05-06 00:17:51 CST`。

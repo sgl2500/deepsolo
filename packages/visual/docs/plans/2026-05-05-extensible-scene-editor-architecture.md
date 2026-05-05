@@ -140,3 +140,48 @@
 ## 当前执行边界
 
 本轮只做阶段 1：schema + Asset Catalog + 兼容文档。不要在本轮重写 `MapRenderer` 和 `WorldMapEditor`，避免把正在可用的编辑功能改坏。
+
+---
+
+## 2026-05-05 23:41 CST 补充：通用室内 RoomTemplate v1
+
+用户确认希望室内场景编辑器未来可以开放给玩家做室内编辑和装修。为避免瓦片编辑继续只绑定 `birth_house`，本轮追加了一个低风险抽象层：
+
+- 新增 `packages/visual/src/content/IndoorRoomTemplates.ts`。
+- `birth_house` 的原固定房间配置从 `MapRenderer.ts` 移入 `IndoorRoomTemplate.fixedRoom`。
+- `token_center` 新增 `editableLayers.floor`，先开放内部地板单点刷。
+- `MapRenderer.ts` 的瓦片编辑可用性、笔刷候选、点击命中和调试网格改为读取 `IndoorRoomTemplate.editableLayers.floor`。
+- `IndoorLayerRenderer.ts` 对普通室内 tilemap 也应用 `floor tile overrides`，让非 fixed room 的室内也能进入瓦片覆盖链路。
+- `IndoorFurnitureLayout.ts` 的 local/map 原点改为从模板读取。
+
+详细说明见：
+
+```txt
+packages/visual/docs/indoor_room_template_editor.md
+```
+
+这个补充仍然保持小步迁移原则：先建立模板边界，不把现有编辑器一次性重写为玩家装修系统。下一阶段再引入 `IndoorRoomInstance` 和 `IndoorSceneAdapter`。
+
+---
+
+## 2026-05-06 00:17 CST 补充：室内素材目录与 AssetCatalog 统一
+
+为后续玩家装修、资产等级和注册扩展做准备，本轮把可编辑室内素材统一到 `public/assets/indoor/`，并让 `AssetCatalog.ts` 成为注册主入口：
+
+- 物理目录新增/迁移到：
+  - `indoor/furniture/observer-house/`
+  - `indoor/furniture/token-center/`
+  - `indoor/characters/`
+  - `indoor/wall-decor/token-center/`
+  - `indoor/tiles/floor/token-center/`
+  - `indoor/tiles/rug/`
+- `AssetCatalog.ts` 现在注册家具、人物、墙贴、地板瓦片和地毯瓦片。
+- `BootScene` 改为遍历 `ASSET_CATALOG` 预加载室内编辑器素材，不再分别硬编码出生小屋家具、Token 中心装饰、地砖和地毯。
+- `IndoorAssetLibrary` 扩展为对象素材兼容层，支持 `furniture / character / wallDecor`。
+- `IndoorRoomTemplate.editableLayers.floor` 支持 `brushAssetIds`，Token 中心地板笔刷改为引用注册资产。
+
+详细说明见：
+
+```txt
+packages/visual/docs/indoor_asset_registry.md
+```

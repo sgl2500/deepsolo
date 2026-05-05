@@ -29,6 +29,14 @@ import {
 } from '../content/IndoorCharacterLayout';
 import { getIndoorAsset, INDOOR_ASSET_LIBRARY, type IndoorAssetDef } from '../content/IndoorAssetLibrary';
 import { getIndoorInteractables } from '../content/IndoorInteractables';
+import { getAsset, getAssetByTextureKey } from '../content/AssetCatalog';
+import {
+  getIndoorEditableTileRegions,
+  getIndoorRoomTemplate,
+  isIndoorTileEditable,
+  type IndoorRoomTemplate,
+  type IndoorFixedRoomDef,
+} from '../content/IndoorRoomTemplates';
 import { LocalSceneRepository, type SceneDraftRecord } from '../editor/core/SceneRepository';
 import { createIndoorEditableSceneSnapshot } from '../editor/core/SceneSerializer';
 import type { PlacedSceneObject } from '../editor/schema/SceneSchema';
@@ -49,7 +57,7 @@ import {
   strokeIndoorRectBounds,
 } from './map/IndoorCoordinateMapper';
 import { FurnitureOccluderRenderer } from './map/FurnitureOccluderRenderer';
-import { IndoorLayerRenderer, type IndoorFixedRoomDef } from './map/IndoorLayerRenderer';
+import { IndoorLayerRenderer } from './map/IndoorLayerRenderer';
 import {
   clearIndoorFloorTileOverrides,
   loadIndoorFloorTileOverrides,
@@ -136,28 +144,6 @@ type IndoorDecorDef = {
 };
 
 const INDOOR_DECOR_LAYOUTS: Record<string, IndoorDecorDef[]> = {
-};
-
-const INDOOR_FIXED_ROOM_LAYOUTS: Record<string, IndoorFixedRoomDef> = {
-  birth_house: {
-    skipTilemap: true,
-    floorTiles: {
-      textureKeys: ['smap_66'],
-      rowStart: 3,
-      rowEnd: 22,
-      colStart: 3,
-      colEnd: 22,
-    },
-    wallTiles: {
-      rowStart: 3,
-      rowEnd: 22,
-      colStart: 3,
-      colEnd: 22,
-      doorColStart: 12,
-      doorColEnd: 13,
-    },
-    visuals: [],
-  },
 };
 
 function isColliderBoundsField(field: BuildEditableField): field is BuildColliderField {
@@ -403,8 +389,11 @@ export class MapRenderer {
   }
 
   private get currentFixedRoomLayout(): IndoorFixedRoomDef | null {
-    if (!this.currentIndoorBuildingId) return null;
-    return INDOOR_FIXED_ROOM_LAYOUTS[this.currentIndoorBuildingId] ?? null;
+    return this.currentIndoorRoomTemplate?.fixedRoom ?? null;
+  }
+
+  private get currentIndoorRoomTemplate(): IndoorRoomTemplate | null {
+    return getIndoorRoomTemplate(this.currentIndoorBuildingId);
   }
 
   /** 将外部游戏对象加入室内容器（如 NPC），使其跟随房间滚动 */
@@ -759,24 +748,53 @@ export class MapRenderer {
   }
 
   private canEditIndoorFloorTiles(): boolean {
-    return !!this.currentFixedRoomLayout?.floorTiles;
+    return getIndoorEditableTileRegions(this.currentIndoorBuildingId, 'floor').length > 0;
   }
 
   private getIndoorFloorBrushes(): BuildTileBrush[] {
-    if (!this.currentFixedRoomLayout?.floorTiles) return [];
-    const textureKeys = new Set<string>(this.currentFixedRoomLayout.floorTiles.textureKeys);
-    const floorTiles = this.currentFixedRoomLayout.floorTiles;
-    for (let row = floorTiles.rowStart; row <= floorTiles.rowEnd; row++) {
-      for (let col = floorTiles.colStart; col <= floorTiles.colEnd; col++) {
-        const earthId = this.mapData.earth?.[row]?.[col] ?? 0;
-        const surfaceId = this.mapData.surface?.[row]?.[col] ?? 0;
-        if (earthId > 0) textureKeys.add(`smap_${earthId}`);
-        if (surfaceId > 0 && surfaceId !== 307) textureKeys.add(`smap_${surfaceId}`);
+    const floorRegions = getIndoorEditableTileRegions(this.currentIndoorBuildingId, 'floor');
+    if (floorRegions.length === 0) return [];
+
+    const textureKeys = new Set<string>();
+    const brushSrcByTextureKey = new Map<string, string>();
+    for (const region of floorRegions) {
+      for (const assetId of region.brushAssetIds ?? []) {
+        const asset = getAsset(assetId);
+        if (!asset) continue;
+        textureKeys.add(asset.textureKey);
+        brushSrcByTextureKey.set(asset.textureKey, asset.src);
+      }
+      for (const textureKey of region.textureKeys ?? []) {
+        textureKeys.add(textureKey);
+        const asset = getAssetByTextureKey(textureKey);
+        if (asset) brushSrcByTextureKey.set(textureKey, asset.src);
+      }
+      for (let row = region.rowStart; row <= region.rowEnd; row++) {
+        for (let col = region.colStart; col <= region.colEnd; col++) {
+          const earthId = this.mapData.earth?.[row]?.[col] ?? 0;
+          const surfaceId = this.mapData.surface?.[row]?.[col] ?? 0;
+          if (earthId > 0) {
+            const textureKey = `smap_${earthId}`;
+            textureKeys.add(textureKey);
+            const asset = getAssetByTextureKey(textureKey);
+            if (asset) brushSrcByTextureKey.set(textureKey, asset.src);
+          }
+          if (surfaceId > 0 && surfaceId !== 307) {
+            const textureKey = `smap_${surfaceId}`;
+            textureKeys.add(textureKey);
+            const asset = getAssetByTextureKey(textureKey);
+            if (asset) brushSrcByTextureKey.set(textureKey, asset.src);
+          }
+        }
       }
     }
     return Array.from(textureKeys)
       .filter((textureKey) => this.scene.textures.exists(textureKey))
-      .map((textureKey) => ({ textureKey, label: textureKey.replace('smap_', '#') }));
+      .map((textureKey) => ({
+        textureKey,
+        label: getAssetByTextureKey(textureKey)?.name ?? textureKey.replace('smap_', '#'),
+        src: brushSrcByTextureKey.get(textureKey),
+      }));
   }
 
   private getIndoorFloorTileOverrideList(): IndoorFloorTileOverride[] {
@@ -839,18 +857,14 @@ export class MapRenderer {
   }
 
   private getIndoorFloorCellFromPointer(screenX: number, screenY: number): { col: number; row: number } | null {
-    const floorTiles = this.currentFixedRoomLayout?.floorTiles;
-    if (!floorTiles) return null;
+    if (!this.currentIndoorBuildingId) return null;
+    const floorRegions = getIndoorEditableTileRegions(this.currentIndoorBuildingId, 'floor');
+    if (floorRegions.length === 0) return null;
     const offset = this.indoorContainerOffset;
     const mapPos = this.indoorCoordinateMapper.screenToMap(screenX - offset.x, screenY - offset.y);
     const col = Math.round(mapPos.mapX);
     const row = Math.round(mapPos.mapY);
-    if (
-      col < floorTiles.colStart ||
-      col > floorTiles.colEnd ||
-      row < floorTiles.rowStart ||
-      row > floorTiles.rowEnd
-    ) return null;
+    if (!isIndoorTileEditable(this.currentIndoorBuildingId, 'floor', col, row)) return null;
     return { col, row };
   }
 
@@ -1159,23 +1173,24 @@ export class MapRenderer {
     this.indoorDebugGraphics = this.scene.add.graphics().setDepth(10000);
     this.indoorContainer.add(this.indoorDebugGraphics);
 
-    const fixedRoom = this.currentFixedRoomLayout;
-    const floorTiles = fixedRoom?.floorTiles;
-    if (!floorTiles) return;
+    const floorRegions = getIndoorEditableTileRegions(this.currentIndoorBuildingId, 'floor');
+    if (floorRegions.length === 0) return;
 
-    for (let row = floorTiles.rowStart; row <= floorTiles.rowEnd; row++) {
-      for (let col = floorTiles.colStart; col <= floorTiles.colEnd; col++) {
-        if ((row + col) % 2 !== 0) continue;
-        const { x, y } = this.indoorCoordinateMapper.mapToScreen(col, row);
-        const text = this.scene.add.text(x, y - 6, `${col},${row}`, {
-          fontSize: '8px',
-          color: '#fbbf24',
-          stroke: '#000000',
-          strokeThickness: 2,
-          fontFamily: 'monospace',
-        }).setOrigin(0.5).setDepth(10001);
-        this.indoorContainer.add(text);
-        this.indoorDebugTexts.push(text);
+    for (const region of floorRegions) {
+      for (let row = region.rowStart; row <= region.rowEnd; row++) {
+        for (let col = region.colStart; col <= region.colEnd; col++) {
+          if ((row + col) % 2 !== 0) continue;
+          const { x, y } = this.indoorCoordinateMapper.mapToScreen(col, row);
+          const text = this.scene.add.text(x, y - 6, `${col},${row}`, {
+            fontSize: '8px',
+            color: '#fbbf24',
+            stroke: '#000000',
+            strokeThickness: 2,
+            fontFamily: 'monospace',
+          }).setOrigin(0.5).setDepth(10001);
+          this.indoorContainer.add(text);
+          this.indoorDebugTexts.push(text);
+        }
       }
     }
   }
@@ -1186,13 +1201,14 @@ export class MapRenderer {
     const g = this.indoorDebugGraphics;
     g.clear();
 
-    const fixedRoom = this.currentFixedRoomLayout;
-    const floorTiles = fixedRoom?.floorTiles;
-    if (floorTiles) {
+    const floorRegions = getIndoorEditableTileRegions(this.currentIndoorBuildingId, 'floor');
+    if (floorRegions.length > 0) {
       g.lineStyle(1, 0x60a5fa, 0.22);
-      for (let row = floorTiles.rowStart; row <= floorTiles.rowEnd; row++) {
-        for (let col = floorTiles.colStart; col <= floorTiles.colEnd; col++) {
-          strokeIndoorDiamond(g, this.indoorCoordinateMapper, col, row, 0x60a5fa, 0.22);
+      for (const region of floorRegions) {
+        for (let row = region.rowStart; row <= region.rowEnd; row++) {
+          for (let col = region.colStart; col <= region.colEnd; col++) {
+            strokeIndoorDiamond(g, this.indoorCoordinateMapper, col, row, 0x60a5fa, 0.22);
+          }
         }
       }
     }
@@ -1323,7 +1339,11 @@ export class MapRenderer {
         panel.add(icon);
       }
 
-      const kindLabel = asset.kind === 'character' ? '人物' : '墙贴';
+      const kindLabel = asset.kind === 'character'
+        ? '人物'
+        : asset.kind === 'furniture'
+          ? '家具'
+          : '墙贴';
       const text = this.scene.add.text(48, y + 8, `${asset.name} · ${kindLabel}`, {
         fontSize: '12px',
         color: selected ? '#dcfce7' : '#e5e7eb',

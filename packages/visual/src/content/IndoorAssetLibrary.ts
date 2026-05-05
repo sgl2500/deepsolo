@@ -1,7 +1,7 @@
 import { getAsset, getIndoorEditorAssets } from './AssetCatalog';
 import type { GameAssetDef } from '../editor/schema/AssetSchema';
 
-export type IndoorAssetKind = 'character' | 'wallDecor';
+export type IndoorAssetKind = 'character' | 'furniture' | 'wallDecor';
 
 export type IndoorAssetDef = Omit<GameAssetDef, 'kind'> & {
   kind: IndoorAssetKind;
@@ -10,6 +10,7 @@ export type IndoorAssetDef = Omit<GameAssetDef, 'kind'> & {
 
 function toIndoorAssetKind(asset: GameAssetDef): IndoorAssetKind | null {
   if (asset.category === 'indoor.character') return 'character';
+  if (asset.category === 'indoor.furniture') return 'furniture';
   if (asset.category === 'indoor.wallDecor') return 'wallDecor';
   return null;
 }

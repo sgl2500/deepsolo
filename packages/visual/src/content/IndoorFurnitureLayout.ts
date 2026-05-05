@@ -1,3 +1,5 @@
+import { getIndoorRoomTemplate } from './IndoorRoomTemplates';
+
 export type IndoorFurnitureColliderBounds = {
   minLocalX: number;
   maxLocalX: number;
@@ -29,13 +31,6 @@ export type IndoorFurnitureDef = {
   depthBias?: number;
   collider?: IndoorFurnitureColliderBounds;
   occluderMask?: IndoorFurnitureMaskPoint[];
-};
-
-const INDOOR_LOCAL_ORIGINS: Record<string, { x: number; y: number }> = {
-  // 观察者小屋的用户指定坐标以围墙内左上角为 (0, 0)，围墙实际从地图 (3, 3) 开始。
-  birth_house: { x: 3, y: 3 },
-  // Token中心围墙从地图 (3, 3) 开始。
-  token_center: { x: 3, y: 3 },
 };
 
 export const INDOOR_FURNITURE_DEFS: IndoorFurnitureDef[] = [
@@ -186,7 +181,7 @@ export function toActualIndoorMapPosition(
   localX: number,
   localY: number,
 ): { mapX: number; mapY: number } {
-  const origin = INDOOR_LOCAL_ORIGINS[buildingId] ?? { x: 0, y: 0 };
+  const origin = getIndoorRoomTemplate(buildingId)?.localOrigin ?? { x: 0, y: 0 };
   return { mapX: localX + origin.x, mapY: localY + origin.y };
 }
 
@@ -195,7 +190,7 @@ export function toLocalIndoorMapPosition(
   mapX: number,
   mapY: number,
 ): { localX: number; localY: number } {
-  const origin = INDOOR_LOCAL_ORIGINS[buildingId] ?? { x: 0, y: 0 };
+  const origin = getIndoorRoomTemplate(buildingId)?.localOrigin ?? { x: 0, y: 0 };
   return { localX: mapX - origin.x, localY: mapY - origin.y };
 }
 
@@ -203,7 +198,7 @@ export function toActualIndoorBounds(
   buildingId: string,
   bounds: IndoorFurnitureColliderBounds,
 ): { minX: number; maxX: number; minY: number; maxY: number } {
-  const origin = INDOOR_LOCAL_ORIGINS[buildingId] ?? { x: 0, y: 0 };
+  const origin = getIndoorRoomTemplate(buildingId)?.localOrigin ?? { x: 0, y: 0 };
   return {
     minX: bounds.minLocalX + origin.x,
     maxX: bounds.maxLocalX + origin.x,

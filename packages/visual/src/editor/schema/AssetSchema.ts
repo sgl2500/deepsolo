@@ -4,6 +4,8 @@ export type AssetCategory =
   | 'indoor.character'
   | 'indoor.furniture'
   | 'indoor.wallDecor'
+  | 'indoor.floorTile'
+  | 'indoor.rugTile'
   | 'indoor.floorDecor'
   | 'world.building'
   | 'world.decor'

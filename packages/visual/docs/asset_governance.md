@@ -26,7 +26,7 @@ deepsolo/packages/visual/
 - `maps/world/`：当前大地图运行数据，例如 `map_data.json`。
 - `maps/indoor/`：当前建筑会进入的室内地图 JSON。
 - `characters/`：当前运行时角色贴图，例如玩家行走图。
-- `rooms/observer_house/`：观察者小屋当前运行时家具贴图，仅保留 `bed/bookshelf/chest/lantern/screen/table`。
+- `indoor/`：通用室内编辑器运行时素材，按 `furniture/`、`characters/`、`wall-decor/`、`tiles/` 分层归档。
 - `world/buildings/`：大地图建筑当前运行时贴图。
 - `jy-runtime/`：从 JYQXZ 完整素材库中复制出的运行时子集。
 
@@ -71,6 +71,28 @@ deepsolo/packages/visual/
 4. 新增运行时目录时，必须同步更新本文件和 `scripts/visual_asset_audit.mjs`。
 5. 不要把 `.DS_Store`、临时下载文件、未筛选实验图放进 `public`。
 6. 大批量素材改名或搬迁前，先用 `rg "旧路径"` 查清运行时代码和工具脚本引用。
+
+## 室内编辑器目录规范
+
+```text
+public/assets/indoor/
+  furniture/
+    observer-house/     观察者小屋家具
+    token-center/       Token 中心专用室内装饰
+  characters/           可放置室内人物/NPC 贴图
+  wall-decor/           墙面贴图、背景板、挂画
+  tiles/
+    floor/              可替换地板瓦片
+    rug/                地毯/铺装瓦片
+```
+
+新增可编辑素材时，必须同步注册到：
+
+```txt
+packages/visual/src/content/AssetCatalog.ts
+```
+
+房间模板不要直接依赖散落路径，应通过 `assetId` 或 `textureKey` 引用已注册资产。
 
 ## 检查命令
 

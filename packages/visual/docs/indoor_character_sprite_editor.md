@@ -35,7 +35,7 @@ packages/visual/src/content/IndoorCharacterLayout.ts
 贴图资源在 `BootScene` 中预加载：
 
 ```ts
-this.load.image('token_center_dashixiong', 'assets/renwu/大师兄.png?v=1');
+this.load.image('token_center_dashixiong', 'assets/indoor/characters/dashixiong.png?v=1');
 ```
 
 ## 编辑方式
