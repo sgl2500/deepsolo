@@ -1,4 +1,5 @@
 import { getIndoorRoomTemplate } from './IndoorRoomTemplates';
+import { getAutomatedIndoorFurnitureDefs } from './AutomatedBuildingRegistry';
 
 export type IndoorFurnitureColliderBounds = {
   minLocalX: number;
@@ -135,6 +136,7 @@ export const INDOOR_FURNITURE_DEFS: IndoorFurnitureDef[] = [
     depthLocalY: 12,
     depthBias: -0.25,
   },
+  ...getAutomatedIndoorFurnitureDefs(),
 ];
 
 export function getIndoorFurnitureDefs(buildingId: string | null): IndoorFurnitureDef[] {

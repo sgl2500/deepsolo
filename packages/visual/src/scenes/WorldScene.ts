@@ -117,11 +117,11 @@ export class WorldScene extends Phaser.Scene {
     // 剧情系统
     this.storySystem = new StorySystem(this, _eventBus, _store);
 
-    // 大地图入口/碰撞编辑器：先加载本地保存，再创建建筑贴图和场景管理器。
-    this.worldMapEditor = new WorldMapEditor(this);
-
     // 建筑入口标记（必须在 SceneManager 之前创建）
     this.buildingMarkers = createBuildingMarkers(this, this.mapData);
+
+    // 大地图入口/碰撞/新增建筑编辑器。
+    this.worldMapEditor = new WorldMapEditor(this, this.buildingMarkers);
 
     this.sceneManager = new SceneManager(
       this, this.mapRenderer, this.entitySystem,
@@ -143,9 +143,11 @@ export class WorldScene extends Phaser.Scene {
       event.preventDefault();
       this.mapRenderer.deleteSelectedIndoorEditorItem();
     });
-    this.input.keyboard!.on('keydown-DELETE', () => {
+    this.input.keyboard!.on('keydown-DELETE', (event: KeyboardEvent) => {
       if (this.worldMapEditor?.isActive()) {
-        this.worldMapEditor.clearSelectedCollision();
+        event.preventDefault();
+        if (event.shiftKey) this.worldMapEditor.deleteSelectedAutomatedBuilding();
+        else this.worldMapEditor.clearSelectedCollision();
         return;
       }
       this.mapRenderer.deleteSelectedIndoorEditorItem();
@@ -159,9 +161,10 @@ export class WorldScene extends Phaser.Scene {
       this.mapRenderer.clearFurnitureMask();
     });
     this.input.keyboard!.on('keydown-S', (event: KeyboardEvent) => {
-      if (!event.shiftKey || (!event.metaKey && !event.ctrlKey)) return;
+      if (!this.mapRenderer.isFurnitureEditorActive() || (!event.metaKey && !event.ctrlKey)) return;
       event.preventDefault();
-      this.mapRenderer.exportIndoorSceneSnapshot();
+      if (event.shiftKey) this.mapRenderer.exportIndoorSceneSnapshot();
+      else this.mapRenderer.saveIndoorSceneToSource();
     });
     this.input.keyboard!.on('keydown-Z', (event: KeyboardEvent) => {
       if (!this.mapRenderer.isFurnitureEditorActive() || (!event.metaKey && !event.ctrlKey)) return;

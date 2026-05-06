@@ -8,6 +8,7 @@ import { NPC_DEFS } from '../data/NPCData';
 import { EFT_FRAME_COUNTS } from '../data/BattleData';
 import { preloadAgentProfiles } from '../data/agents';
 import { ASSET_CATALOG } from '../content/AssetCatalog';
+import { getAutomatedWorldBuildingAssets } from '../content/AutomatedBuildingRegistry';
 
 const WORLD_BUILDING_ASSETS = [
   { key: 'world_building_player_house', file: 'npc_1371.png' },
@@ -20,6 +21,7 @@ const WORLD_BUILDING_ASSETS = [
   { key: 'world_building_crypto', file: 'ai_building_crypto.png' },
   { key: 'world_building_us', file: 'ai_building_us.png' },
   { key: 'world_building_gold', file: 'ai_building_gold.png' },
+  ...getAutomatedWorldBuildingAssets(),
 ] as const;
 
 /** 收集所有室内地图需要的 smap 瓦片 ID */

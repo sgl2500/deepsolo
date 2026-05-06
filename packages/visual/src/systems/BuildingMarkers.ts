@@ -6,6 +6,7 @@ import { toScreen } from '../utils/IsoProjection';
 import { BUILDINGS } from '../data/BuildingData';
 import type { BuildingDef } from '../types';
 import type { MapData } from '../types';
+import { getAutomatedWorldBuildingVisuals } from '../content/AutomatedBuildingRegistry';
 
 type WorldBuildingVisual = {
   textureKey: string;
@@ -22,7 +23,7 @@ const DEFAULT_WORLD_BUILDING_VISUAL: WorldBuildingVisual = {
   labelY: -156,
 };
 
-const WORLD_BUILDING_VISUALS: Record<string, WorldBuildingVisual> = {
+const STATIC_WORLD_BUILDING_VISUALS: Record<string, WorldBuildingVisual> = {
   birth_house: {
     textureKey: 'world_building_player_house',
     originY: 0.9,
@@ -37,6 +38,12 @@ const WORLD_BUILDING_VISUALS: Record<string, WorldBuildingVisual> = {
   heimu_cliff: { textureKey: 'world_building_heimu_cliff', originY: 0.9, offsetY: 0, labelY: -150 },
 };
 
+function getWorldBuildingVisual(buildingId: string): WorldBuildingVisual {
+  return STATIC_WORLD_BUILDING_VISUALS[buildingId]
+    ?? getAutomatedWorldBuildingVisuals()[buildingId]
+    ?? DEFAULT_WORLD_BUILDING_VISUAL;
+}
+
 function findBuilding(id: string): BuildingDef | undefined {
   return BUILDINGS.find((building) => building.id === id);
 }
@@ -49,54 +56,57 @@ export function createBuildingMarkers(scene: Phaser.Scene, mapData: MapData): Ph
   const markers: Phaser.GameObjects.Container[] = [];
 
   for (const building of BUILDINGS) {
-    const visual = WORLD_BUILDING_VISUALS[building.id] ?? DEFAULT_WORLD_BUILDING_VISUAL;
-    const container = scene.add.container(0, 0);
-
-    const buildingSprite = scene.add.image(0, visual.offsetY, visual.textureKey)
-      .setOrigin(0.5, visual.originY)
-      .setScale(visual.scale ?? 1);
-    buildingSprite.setData('baseY', visual.offsetY);
-    container.add(buildingSprite);
-
-    // 建筑名称标签
-    const label = scene.add.text(0, visual.labelY, building.name, {
-      fontSize: '10px',
-      color: '#f0c040',
-      stroke: '#000',
-      strokeThickness: 3,
-      fontFamily: 'PingFang SC, monospace',
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      padding: { x: 4, y: 2 },
-    }).setOrigin(0.5);
-    container.add(label);
-
-    const entryGlow = scene.add.graphics();
-    entryGlow.fillStyle(0xf0c040, 0.7);
-    entryGlow.fillCircle(0, 0, 4);
-    entryGlow.lineStyle(1, 0xffffff, 0.45);
-    entryGlow.strokeCircle(0, 0, 7);
-    container.add(entryGlow);
-
-    // 入口脉冲动画
-    scene.tweens.add({
-      targets: entryGlow,
-      alpha: { from: 0.55, to: 0.95 },
-      scaleX: { from: 0.8, to: 1.2 },
-      scaleY: { from: 0.8, to: 1.2 },
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-
-    // 存储建筑坐标，用于 update 时计算屏幕位置
-    container.setData('buildingId', building.id);
-    container.setData('entryGlow', entryGlow);
-
-    markers.push(container);
+    markers.push(createBuildingMarker(scene, building));
   }
 
   return markers;
+}
+
+export function createBuildingMarker(scene: Phaser.Scene, building: BuildingDef): Phaser.GameObjects.Container {
+  const visual = getWorldBuildingVisual(building.id);
+  const container = scene.add.container(0, 0);
+
+  const textureKey = scene.textures.exists(visual.textureKey)
+    ? visual.textureKey
+    : DEFAULT_WORLD_BUILDING_VISUAL.textureKey;
+  const buildingSprite = scene.add.image(0, visual.offsetY, textureKey)
+    .setOrigin(0.5, visual.originY)
+    .setScale(visual.scale ?? 1);
+  buildingSprite.setData('baseY', visual.offsetY);
+  container.add(buildingSprite);
+
+  const label = scene.add.text(0, visual.labelY, building.name, {
+    fontSize: '10px',
+    color: '#f0c040',
+    stroke: '#000',
+    strokeThickness: 3,
+    fontFamily: 'PingFang SC, monospace',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    padding: { x: 4, y: 2 },
+  }).setOrigin(0.5);
+  container.add(label);
+
+  const entryGlow = scene.add.graphics();
+  entryGlow.fillStyle(0xf0c040, 0.7);
+  entryGlow.fillCircle(0, 0, 4);
+  entryGlow.lineStyle(1, 0xffffff, 0.45);
+  entryGlow.strokeCircle(0, 0, 7);
+  container.add(entryGlow);
+
+  scene.tweens.add({
+    targets: entryGlow,
+    alpha: { from: 0.55, to: 0.95 },
+    scaleX: { from: 0.8, to: 1.2 },
+    scaleY: { from: 0.8, to: 1.2 },
+    duration: 800,
+    yoyo: true,
+    repeat: -1,
+    ease: 'Sine.easeInOut',
+  });
+
+  container.setData('buildingId', building.id);
+  container.setData('entryGlow', entryGlow);
+  return container;
 }
 
 /** 每帧更新标记的屏幕位置 */

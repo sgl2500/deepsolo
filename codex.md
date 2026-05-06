@@ -1872,3 +1872,64 @@ python scripts/trigger_heaven.py
 - 右侧 inspector 将“碰撞框”文案明确为“实体碰撞框”，和顶部“遮挡Mask”分离。
 - 碰撞框支持未启用时直接输入坐标并自动创建，新增“重置 1x1”和“清除碰撞”按钮。
 - `packages/visual/docs/indoor_asset_library_editor.md` 已补充建造模式 UI v6，更新时间为 `2026-05-06 00:43:23 CST`。
+
+### 2026-05-06 09:01 CST 大地图建筑与室内装修自动化
+
+- 新增自动建筑注册表：`packages/visual/src/content/generated_buildings.json`。
+- 新增自动化脚本：`scripts/register_indoor_building.mjs`，可一条命令生成大地图建筑注册和室内地图副本。
+- 自动注册表已接入：
+  - `BuildingData.ts`：生成 `BUILDINGS` 入口、碰撞、室内 spawn/exit/return。
+  - `SceneData.ts`：同步场景索引。
+  - `BuildingMarkers.ts`：同步大地图建筑贴图配置。
+  - `BootScene.ts`：同步自定义世界建筑贴图预加载。
+  - `IndoorRoomTemplates.ts`：同步室内模板和地板可编辑区。
+  - `IndoorFurnitureLayout.ts`：同步室内 starter decor。
+- 本轮示例新增 `player_manor / 玩家宅邸`，大地图坐标 `(60, 88)`，室内地图为 `indoor_player_manor`，默认家具包括茶桌、书架、木箱。
+- 新增文档 `packages/visual/docs/world_building_automation.md`，更新时间为 `2026-05-06 09:01:15 CST`。
+
+### 2026-05-06 09:08 CST 大地图编辑器支持放置新增建筑
+
+- `F3` 大地图编辑模式右上角新增建筑放置按钮：
+  - `放置宅邸`
+  - `放置商铺`
+  - `放置展馆`
+  - `取消放置`
+- 选择建筑类型后点击大地图，会立即新增一座建筑，自动生成入口、碰撞多边形、室内模板、地板可编辑区和 starter decor。
+- 游戏内新增建筑先保存到 localStorage 的 runtime building registry，刷新仍保留。
+- `Cmd/Ctrl+S` 保存源码时，现在会同时写入 `world_layout_override.json` 和 `generated_buildings.json`。
+- `BuildingMarkers.ts` 新增单建筑 marker 创建能力，WorldMapEditor 放置建筑后可即时在大地图显示建筑图标与入口光点。
+- `packages/visual/docs/world_building_automation.md` 已更新游戏内放置流程，更新时间为 `2026-05-06 09:08:18 CST`。
+
+### 2026-05-06 09:13 CST 大地图编辑交互清理
+
+- `F3` 大地图编辑模式打开时，`#game-container` 会添加 `world-editor-active` class。
+- 编辑模式下自动隐藏右上策略排行 `.panel` 和小地图 `#minimap-canvas`，退出编辑模式后恢复。
+- 大地图新增建筑入口从简单文字按钮升级为右上“新增建筑”面板：
+  - 面板显示当前选择状态。
+  - 建筑选项改为卡片式文案：宅邸、商铺、展馆。
+  - 取消按钮在未选择时弱化，选中待放置建筑后突出。
+- `packages/visual/docs/world_building_automation.md` 已同步说明，更新时间为 `2026-05-06 09:13:12 CST`。
+
+### 2026-05-06 09:16 CST 大地图新增建筑放置预览
+
+- `F3` 大地图编辑模式选中待放置建筑后，会在鼠标位置显示半透明建筑预览、入口落点和坐标。
+- 新增 `Esc` 取消待放置建筑，保留右键地图 / `Alt+点击` 取消，避免误点后必须回到右侧面板。
+- 右侧“新增建筑”面板提示改为“移动鼠标预览，点击地图放置”，和实际交互一致。
+- `packages/visual/docs/world_building_automation.md` 已同步说明，更新时间为 `2026-05-06 09:16:22 CST`。
+
+### 2026-05-06 09:22 CST 大地图新增建筑删除
+
+- `AutomatedBuildingRegistry` 新增自动建筑删除状态，运行时新增建筑可直接移除，已写入源码的自动建筑会通过本地删除列表隐藏。
+- `F3` 大地图编辑器右上“新增建筑”面板新增“删除选中建筑”，只允许删除自动/玩家新增建筑，固定建筑仍受保护。
+- `Shift+Delete` 新增为删除当前新增建筑；普通 `Delete` 保持原来的清除当前建筑碰撞行为。
+- 删除建筑会同步移除 `BUILDINGS`、大地图 marker 和该建筑 starter furniture；`Cmd/Ctrl+S` 后会同步更新 `generated_buildings.json`。
+- `packages/visual/docs/world_building_automation.md` 已同步说明，更新时间为 `2026-05-06 09:22:24 CST`。
+
+### 2026-05-06 09:53 CST 室内编辑保存到源码
+
+- 室内 `F2` 建造模式顶部工具栏新增“保存到源码”按钮。
+- 室内编辑模式下 `Cmd/Ctrl+S` 触发保存到源码，`Cmd/Ctrl+Shift+S` 继续导出统一场景快照。
+- 新增源码文件 `packages/visual/src/content/generated_indoor_layouts.json`，保存家具/墙贴、人物、交互区、地板瓦片 override 和统一 `EditableSceneSnapshot`。
+- 新增 `GeneratedIndoorLayouts.ts`，重新进入室内时先应用源码 generated layout，再叠加 localStorage 草稿；清空本地草稿后会回到源码保存状态。
+- Vite dev server 新增 `/api/save-indoor-layout`，与大地图 `/api/save-world-layout` 形成同一套“自动保存草稿 / 手动保存源码”语义。
+- `packages/visual/docs/indoor_asset_library_editor.md` 和 `packages/visual/docs/world_building_automation.md` 已同步说明，更新时间为 `2026-05-06 09:53:23 CST`。

@@ -5,7 +5,9 @@ import {
   isIndoorTileEditable,
 } from '../../src/content/IndoorRoomTemplates';
 import { toActualIndoorMapPosition, toLocalIndoorMapPosition } from '../../src/content/IndoorFurnitureLayout';
+import { getIndoorFurnitureDefs } from '../../src/content/IndoorFurnitureLayout';
 import { getAsset, getIndoorEditorAssets, getIndoorTileBrushAssets } from '../../src/content/AssetCatalog';
+import { BUILDINGS } from '../../src/data/BuildingData';
 
 export const tests: TestCase[] = [
   test('birth house keeps fixed room floor and wall template', () => {
@@ -47,5 +49,17 @@ export const tests: TestCase[] = [
     assert.equal(getAsset('furniture_birth_house_bed')?.src, 'assets/indoor/furniture/observer-house/bed.png');
     assert.equal(getAsset('character_dashixiong')?.src, 'assets/indoor/characters/dashixiong.png');
     assert.ok(getIndoorTileBrushAssets().some((asset) => asset.textureKey === 'smap_9514'));
+  }),
+
+  test('automated building registry wires world building, room template, and starter furniture', () => {
+    const building = BUILDINGS.find((item) => item.id === 'player_manor');
+    if (!building) {
+      assert.equal(getIndoorRoomTemplate('player_manor'), null);
+      return;
+    }
+    assert.equal(building?.indoorMapKey, 'indoor_player_manor');
+    assert.equal(getIndoorRoomTemplate('player_manor')?.mapKey, 'indoor_player_manor');
+    assert.equal(isIndoorTileEditable('player_manor', 'floor', 4, 4), true);
+    assert.ok(getIndoorFurnitureDefs('player_manor').some((item) => item.id === 'starter_table'));
   }),
 ];

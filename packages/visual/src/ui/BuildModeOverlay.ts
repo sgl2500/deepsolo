@@ -60,6 +60,7 @@ export type BuildModeOverlayActions = {
   onDuplicateSelected(): void;
   onResetScene(): void;
   onExportScene(): void;
+  onSaveSceneToSource(): void;
   onToggleAdvanced(): void;
   onToggleMask(): void;
   onTogglePreview(): void;
@@ -126,6 +127,7 @@ export class BuildModeOverlay {
           <button class="${state.pendingAssetId && isObjectMode ? 'is-active' : ''}" disabled>放置</button>
           <button class="${state.maskActive ? 'is-active' : ''}" data-action="mask">遮挡Mask</button>
           <button class="${state.previewMode ? 'is-active' : ''}" data-action="preview">预览</button>
+          <button data-action="save-source">保存到源码</button>
           <button data-action="export">导出</button>
           <button class="ghost" data-action="advanced">${state.advanced ? '收起调试' : '调试'}</button>
           <button class="danger" data-action="exit">退出</button>
@@ -566,6 +568,7 @@ export class BuildModeOverlay {
         if (action === 'duplicate') this.actions.onDuplicateSelected();
         if (action === 'reset') this.actions.onResetScene();
         if (action === 'export') this.actions.onExportScene();
+        if (action === 'save-source') this.actions.onSaveSceneToSource();
         if (action === 'advanced') this.actions.onToggleAdvanced();
         if (action === 'mask') this.actions.onToggleMask();
         if (action === 'preview') this.actions.onTogglePreview();

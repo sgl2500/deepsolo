@@ -1,3 +1,5 @@
+import { getAutomatedBuildings, type AutomatedBuildingSpec } from './AutomatedBuildingRegistry';
+
 export type IndoorEditableTileLayer = 'floor' | 'wall' | 'rug';
 
 export type IndoorFixedFloorTilesDef = {
@@ -69,6 +71,35 @@ export type IndoorRoomTemplate = {
   mode?: 'developer' | 'player';
 };
 
+function createAutomatedRoomTemplate(building: AutomatedBuildingSpec): IndoorRoomTemplate {
+  const editableFloor = building.roomTemplate?.editableFloor;
+  return {
+    id: building.id,
+    name: building.name,
+    mapKey: building.indoorMapKey ?? `indoor_${building.id}`,
+    localOrigin: building.roomTemplate?.localOrigin ?? { x: 3, y: 3 },
+    editableLayers: editableFloor
+      ? {
+          floor: [
+            {
+              id: `${building.id}_floor`,
+              layer: 'floor',
+              rowStart: editableFloor.rowStart,
+              rowEnd: editableFloor.rowEnd,
+              colStart: editableFloor.colStart,
+              colEnd: editableFloor.colEnd,
+              brushAssetIds: editableFloor.brushAssetIds,
+              textureKeys: editableFloor.textureKeys,
+              allowErase: editableFloor.allowErase ?? true,
+              description: editableFloor.description ?? `${building.name}地板装修区`,
+            },
+          ],
+        }
+      : {},
+    mode: 'developer',
+  };
+}
+
 export const INDOOR_ROOM_TEMPLATES: Record<string, IndoorRoomTemplate> = {
   birth_house: {
     id: 'birth_house',
@@ -138,11 +169,18 @@ export const INDOOR_ROOM_TEMPLATES: Record<string, IndoorRoomTemplate> = {
     },
     mode: 'developer',
   },
+  ...Object.fromEntries(getAutomatedBuildings().map((building) => [
+    building.id,
+    createAutomatedRoomTemplate(building),
+  ])),
 };
 
 export function getIndoorRoomTemplate(buildingId: string | null): IndoorRoomTemplate | null {
   if (!buildingId) return null;
-  return INDOOR_ROOM_TEMPLATES[buildingId] ?? null;
+  const template = INDOOR_ROOM_TEMPLATES[buildingId];
+  if (template) return template;
+  const automatedBuilding = getAutomatedBuildings().find((building) => building.id === buildingId);
+  return automatedBuilding ? createAutomatedRoomTemplate(automatedBuilding) : null;
 }
 
 export function getIndoorEditableTileRegions(

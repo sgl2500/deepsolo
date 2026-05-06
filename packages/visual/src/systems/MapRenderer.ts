@@ -28,6 +28,7 @@ import {
   type IndoorCharacterDef,
 } from '../content/IndoorCharacterLayout';
 import { getIndoorAsset, INDOOR_ASSET_LIBRARY, type IndoorAssetDef } from '../content/IndoorAssetLibrary';
+import { getGeneratedIndoorLayout } from '../content/GeneratedIndoorLayouts';
 import { getIndoorInteractables } from '../content/IndoorInteractables';
 import { getAsset, getAssetByTextureKey } from '../content/AssetCatalog';
 import {
@@ -260,6 +261,7 @@ export class MapRenderer {
       onDuplicateSelected: () => this.duplicateSelectedIndoorEditorItem(),
       onResetScene: () => this.resetFurnitureEditorSavedLayout(),
       onExportScene: () => this.exportIndoorSceneSnapshot(),
+      onSaveSceneToSource: () => this.saveIndoorSceneToSource(),
       onToggleAdvanced: () => this.toggleBuildOverlayAdvanced(),
       onToggleMask: () => this.toggleFurnitureMaskEditor(),
       onTogglePreview: () => this.toggleBuildPreviewMode(),
@@ -290,6 +292,7 @@ export class MapRenderer {
     this.currentIndoorBuildingId = buildingId ?? null;
     this.clearIndoorEditorHistory();
     if (this.currentIndoorBuildingId) {
+      this.applyGeneratedIndoorLayout(this.currentIndoorBuildingId);
       this.captureFurnitureEditorDefaults(this.currentIndoorBuildingId);
       this.restoreFurnitureEditorLayoutFromStorage(this.currentIndoorBuildingId);
       this.captureIndoorCharacterEditorDefaults(this.currentIndoorBuildingId);
@@ -1207,6 +1210,41 @@ export class MapRenderer {
     DebugLogger.userInfo('IndoorSceneEditor', 'Exported unified scene snapshot', json);
     this.showFurnitureEditorMessage(`统一场景快照已保存并复制：${snapshot.objects.length} 个对象，详情见 console.info`);
     return json;
+  }
+
+  async saveIndoorSceneToSource(): Promise<void> {
+    if (!this.currentIndoorBuildingId) return;
+    const sceneId = this.currentIndoorBuildingId;
+    const snapshot = createIndoorEditableSceneSnapshot(sceneId, {
+      floorTileOverrides: this.getIndoorFloorTileOverrideList(),
+    });
+    const layout = {
+      sceneId,
+      savedAt: Date.now(),
+      furniture: createFurnitureEditorSnapshot(sceneId),
+      characters: createIndoorCharacterEditorSnapshot(sceneId),
+      interactables: createInteractableEditorSnapshot(sceneId),
+      floorTileOverrides: this.getIndoorFloorTileOverrideList(),
+      sceneSnapshot: snapshot,
+    };
+
+    try {
+      const res = await fetch('/api/save-indoor-layout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ layout }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        this.lastIndoorSceneDraft = this.sceneRepository.saveSceneDraft(snapshot);
+        this.renderBuildModeOverlay();
+        this.showFurnitureEditorMessage(`已保存室内源码：${sceneId} / ${snapshot.objects.length} 个对象`);
+      } else {
+        this.showFurnitureEditorMessage(`室内源码保存失败：${data.error || res.statusText}`);
+      }
+    } catch (error: any) {
+      this.showFurnitureEditorMessage(`室内源码保存失败：${error.message}`);
+    }
   }
 
   shouldRerender(playerX: number, playerY: number): boolean {
@@ -2608,6 +2646,19 @@ export class MapRenderer {
   private captureFurnitureEditorDefaults(buildingId: string): void {
     if (this.furnitureEditorDefaultSnapshots.has(buildingId)) return;
     this.furnitureEditorDefaultSnapshots.set(buildingId, createFurnitureEditorSnapshot(buildingId));
+  }
+
+  private applyGeneratedIndoorLayout(buildingId: string): void {
+    const layout = getGeneratedIndoorLayout(buildingId);
+    if (!layout) return;
+    try {
+      applyFurnitureEditorSnapshot(buildingId, layout.furniture, { replaceMissing: true });
+      applyIndoorCharacterEditorSnapshot(buildingId, layout.characters, { replaceMissing: true });
+      applyInteractableEditorSnapshot(buildingId, layout.interactables);
+      this.applyIndoorFloorTileOverrideSnapshot(layout.floorTileOverrides);
+    } catch (error) {
+      console.warn('[IndoorSourceLayout] Failed to apply generated layout:', error);
+    }
   }
 
   private restoreFurnitureEditorLayoutFromStorage(buildingId: string): void {

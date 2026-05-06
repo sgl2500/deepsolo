@@ -487,6 +487,11 @@ body {
 /* --- Game Container --- */
 #game-container { position: relative; }
 
+#game-container.world-editor-active .panel,
+#game-container.world-editor-active #minimap-canvas {
+  display: none !important;
+}
+
 /* --- Side Panel --- */
 .panel {
   position: absolute;

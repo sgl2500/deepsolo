@@ -1,0 +1,461 @@
+{
+  "version": 1,
+  "savedAt": 1778033216925,
+  "scenes": {
+    "birth_house": {
+      "sceneId": "birth_house",
+      "savedAt": 1778033216925,
+      "furniture": [
+        {
+          "id": "bed",
+          "textureKey": "birth_house_decor_bed",
+          "localX": 2.3,
+          "localY": 10.4,
+          "scale": 0.5,
+          "depthLocalX": 1.5,
+          "depthLocalY": 9.3,
+          "collider": {
+            "minLocalX": 0,
+            "maxLocalX": 2.5,
+            "minLocalY": 7.3,
+            "maxLocalY": 11.2
+          }
+        },
+        {
+          "id": "bookshelf_left",
+          "textureKey": "birth_house_decor_bookshelf",
+          "localX": 9,
+          "localY": 1,
+          "scale": 0.54,
+          "collider": {
+            "minLocalX": 8.2,
+            "maxLocalX": 9.8,
+            "minLocalY": 0.3,
+            "maxLocalY": 1.9
+          }
+        },
+        {
+          "id": "bookshelf_right",
+          "textureKey": "birth_house_decor_bookshelf",
+          "localX": 11,
+          "localY": 1,
+          "scale": 0.54,
+          "collider": {
+            "minLocalX": 10.2,
+            "maxLocalX": 11.8,
+            "minLocalY": 0.3,
+            "maxLocalY": 1.9
+          }
+        },
+        {
+          "id": "screen",
+          "textureKey": "birth_house_decor_screen",
+          "localX": 13.96,
+          "localY": 5.49,
+          "scale": 0.5,
+          "collider": {
+            "minLocalX": 13,
+            "maxLocalX": 15.1,
+            "minLocalY": 4.7,
+            "maxLocalY": 6.3
+          }
+        },
+        {
+          "id": "lantern",
+          "textureKey": "birth_house_decor_lantern",
+          "localX": 16.11,
+          "localY": 6.39,
+          "scale": 0.5,
+          "collider": {
+            "minLocalX": 15.6,
+            "maxLocalX": 16.6,
+            "minLocalY": 5.9,
+            "maxLocalY": 7
+          }
+        },
+        {
+          "id": "table",
+          "textureKey": "birth_house_decor_table",
+          "localX": 13.6,
+          "localY": 13.3,
+          "scale": 0.55,
+          "depthLocalX": 12.1,
+          "depthLocalY": 12.6,
+          "collider": {
+            "minLocalX": 11.6,
+            "maxLocalX": 13.9,
+            "minLocalY": 10.3,
+            "maxLocalY": 13.8
+          }
+        }
+      ],
+      "characters": [],
+      "interactables": [
+        {
+          "id": "birth_house_bed",
+          "mapX": 4.5,
+          "mapY": 14.5,
+          "interactRadius": 0.05,
+          "interactionZone": {
+            "type": "rect",
+            "minLocalX": 0.2,
+            "maxLocalX": 2.8,
+            "minLocalY": 11.1,
+            "maxLocalY": 12.8
+          }
+        },
+        {
+          "id": "birth_house_bookshelf",
+          "mapX": 13,
+          "mapY": 4,
+          "interactRadius": 2.2
+        },
+        {
+          "id": "birth_house_desk",
+          "mapX": 15.92,
+          "mapY": 15.92,
+          "interactRadius": 2.2
+        },
+        {
+          "id": "birth_house_notice",
+          "mapX": 16.96,
+          "mapY": 8.49,
+          "interactRadius": 2.2
+        }
+      ],
+      "floorTileOverrides": [],
+      "sceneSnapshot": {
+        "version": 1,
+        "sceneId": "birth_house",
+        "sceneType": "indoor",
+        "templateId": "birth_house",
+        "savedAt": 1778033216920,
+        "objects": [
+          {
+            "id": "bed",
+            "sceneId": "birth_house",
+            "sceneType": "indoor",
+            "assetId": "furniture_birth_house_bed",
+            "kind": "indoorFurniture",
+            "layer": "object",
+            "position": {
+              "x": 2.3,
+              "y": 10.4
+            },
+            "transform": {
+              "scale": 0.5
+            },
+            "depth": {
+              "mode": "ySort",
+              "point": {
+                "x": 1.5,
+                "y": 9.3
+              }
+            },
+            "collider": {
+              "type": "rect",
+              "x": 0,
+              "y": 7.3,
+              "width": 2.5,
+              "height": 3.8999999999999995
+            },
+            "metadata": {
+              "legacyType": "IndoorFurnitureDef",
+              "name": "木床",
+              "textureKey": "birth_house_decor_bed"
+            }
+          },
+          {
+            "id": "bookshelf_left",
+            "sceneId": "birth_house",
+            "sceneType": "indoor",
+            "assetId": "furniture_birth_house_bookshelf",
+            "kind": "indoorFurniture",
+            "layer": "object",
+            "position": {
+              "x": 9,
+              "y": 1
+            },
+            "transform": {
+              "scale": 0.54
+            },
+            "depth": {
+              "mode": "ySort",
+              "point": {
+                "x": 9,
+                "y": 1
+              }
+            },
+            "collider": {
+              "type": "rect",
+              "x": 8.2,
+              "y": 0.3,
+              "width": 1.6000000000000014,
+              "height": 1.5999999999999999
+            },
+            "metadata": {
+              "legacyType": "IndoorFurnitureDef",
+              "name": "书架",
+              "textureKey": "birth_house_decor_bookshelf"
+            }
+          },
+          {
+            "id": "bookshelf_right",
+            "sceneId": "birth_house",
+            "sceneType": "indoor",
+            "assetId": "furniture_birth_house_bookshelf",
+            "kind": "indoorFurniture",
+            "layer": "object",
+            "position": {
+              "x": 11,
+              "y": 1
+            },
+            "transform": {
+              "scale": 0.54
+            },
+            "depth": {
+              "mode": "ySort",
+              "point": {
+                "x": 11,
+                "y": 1
+              }
+            },
+            "collider": {
+              "type": "rect",
+              "x": 10.2,
+              "y": 0.3,
+              "width": 1.6000000000000014,
+              "height": 1.5999999999999999
+            },
+            "metadata": {
+              "legacyType": "IndoorFurnitureDef",
+              "name": "书架",
+              "textureKey": "birth_house_decor_bookshelf"
+            }
+          },
+          {
+            "id": "screen",
+            "sceneId": "birth_house",
+            "sceneType": "indoor",
+            "assetId": "furniture_birth_house_screen",
+            "kind": "indoorFurniture",
+            "layer": "object",
+            "position": {
+              "x": 13.96,
+              "y": 5.49
+            },
+            "transform": {
+              "scale": 0.5
+            },
+            "depth": {
+              "mode": "ySort",
+              "point": {
+                "x": 13.96,
+                "y": 5.49
+              }
+            },
+            "collider": {
+              "type": "rect",
+              "x": 13,
+              "y": 4.7,
+              "width": 2.0999999999999996,
+              "height": 1.5999999999999996
+            },
+            "metadata": {
+              "legacyType": "IndoorFurnitureDef",
+              "name": "屏风",
+              "textureKey": "birth_house_decor_screen"
+            }
+          },
+          {
+            "id": "lantern",
+            "sceneId": "birth_house",
+            "sceneType": "indoor",
+            "assetId": "furniture_birth_house_lantern",
+            "kind": "indoorFurniture",
+            "layer": "object",
+            "position": {
+              "x": 16.11,
+              "y": 6.39
+            },
+            "transform": {
+              "scale": 0.5
+            },
+            "depth": {
+              "mode": "ySort",
+              "point": {
+                "x": 16.11,
+                "y": 6.39
+              }
+            },
+            "collider": {
+              "type": "rect",
+              "x": 15.6,
+              "y": 5.9,
+              "width": 1.0000000000000018,
+              "height": 1.0999999999999996
+            },
+            "metadata": {
+              "legacyType": "IndoorFurnitureDef",
+              "name": "灯笼",
+              "textureKey": "birth_house_decor_lantern"
+            }
+          },
+          {
+            "id": "table",
+            "sceneId": "birth_house",
+            "sceneType": "indoor",
+            "assetId": "furniture_birth_house_table",
+            "kind": "indoorFurniture",
+            "layer": "object",
+            "position": {
+              "x": 13.6,
+              "y": 13.3
+            },
+            "transform": {
+              "scale": 0.55
+            },
+            "depth": {
+              "mode": "ySort",
+              "point": {
+                "x": 12.1,
+                "y": 12.6
+              }
+            },
+            "collider": {
+              "type": "rect",
+              "x": 11.6,
+              "y": 10.3,
+              "width": 2.3000000000000007,
+              "height": 3.5
+            },
+            "metadata": {
+              "legacyType": "IndoorFurnitureDef",
+              "name": "茶桌",
+              "textureKey": "birth_house_decor_table"
+            }
+          },
+          {
+            "id": "birth_house_bed",
+            "sceneId": "birth_house",
+            "sceneType": "indoor",
+            "kind": "interactable",
+            "layer": "interaction",
+            "position": {
+              "x": 1.5,
+              "y": 11.5
+            },
+            "interaction": {
+              "type": "rest",
+              "radius": 0.05,
+              "zone": {
+                "type": "rect",
+                "x": 0.2,
+                "y": 11.1,
+                "width": 2.5999999999999996,
+                "height": 1.700000000000001
+              }
+            },
+            "metadata": {
+              "legacyType": "IndoorInteractableDef",
+              "name": "帷幔木榻",
+              "prompt": "空格：在木榻休息",
+              "action": {
+                "type": "rest",
+                "hpRecover": "full",
+                "mpRecover": "full",
+                "message": "你在木榻上调息片刻，生命与内力都恢复了。"
+              }
+            }
+          },
+          {
+            "id": "birth_house_bookshelf",
+            "sceneId": "birth_house",
+            "sceneType": "indoor",
+            "kind": "interactable",
+            "layer": "interaction",
+            "position": {
+              "x": 10,
+              "y": 1
+            },
+            "interaction": {
+              "type": "custom",
+              "radius": 2.2,
+              "targetId": "manual_tuna_intro"
+            },
+            "metadata": {
+              "legacyType": "IndoorInteractableDef",
+              "name": "藏卷书架",
+              "prompt": "空格：翻看藏卷书架",
+              "action": {
+                "type": "discover_manual",
+                "manualId": "manual_tuna_intro",
+                "manualName": "吐纳入门",
+                "onceFlag": "birth_house_bookshelf_manual_found",
+                "firstDialogueId": "birth_house_bookshelf_found_manual",
+                "repeatDialogueId": "birth_house_bookshelf_manual_repeat"
+              }
+            }
+          },
+          {
+            "id": "birth_house_desk",
+            "sceneId": "birth_house",
+            "sceneType": "indoor",
+            "kind": "interactable",
+            "layer": "interaction",
+            "position": {
+              "x": 12.92,
+              "y": 12.92
+            },
+            "interaction": {
+              "type": "dialogue",
+              "radius": 2.2,
+              "targetId": "birth_house_desk"
+            },
+            "metadata": {
+              "legacyType": "IndoorInteractableDef",
+              "name": "长案",
+              "prompt": "空格：查看长案",
+              "action": {
+                "type": "dialogue",
+                "dialogueId": "birth_house_desk"
+              }
+            }
+          },
+          {
+            "id": "birth_house_notice",
+            "sceneId": "birth_house",
+            "sceneType": "indoor",
+            "kind": "interactable",
+            "layer": "interaction",
+            "position": {
+              "x": 13.96,
+              "y": 5.49
+            },
+            "interaction": {
+              "type": "dialogue",
+              "radius": 2.2,
+              "targetId": "birth_house_notice"
+            },
+            "metadata": {
+              "legacyType": "IndoorInteractableDef",
+              "name": "屋规告示",
+              "prompt": "空格：查看屋规告示",
+              "action": {
+                "type": "dialogue",
+                "dialogueId": "birth_house_notice"
+              }
+            }
+          }
+        ],
+        "metadata": {
+          "source": "visual-indoor-editor",
+          "schemaPurpose": "database-ready-scene-state",
+          "objectCount": 10,
+          "floorTileOverrideCount": 0,
+          "floorTileOverrides": []
+        }
+      }
+    }
+  }
+}
