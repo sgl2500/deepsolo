@@ -715,6 +715,152 @@ body {
   font-family: 'PingFang SC', sans-serif;
 }
 
+/* --- Strategy Profile Overlay --- */
+.strategy-profile-overlay {
+  z-index: 1210;
+}
+
+.strategy-card {
+  width: 780px;
+}
+
+.strategy-card-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.strategy-avatar {
+  font-size: 26px;
+}
+
+.strategy-tabs button {
+  min-height: 84px;
+}
+
+.strategy-panel-copy {
+  color: #b9a77f;
+  font-size: 12px;
+  line-height: 1.75;
+}
+
+.strategy-meta-grid,
+.strategy-stat-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.strategy-meta-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.strategy-stat-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.strategy-meta-card,
+.strategy-stat-card {
+  padding: 9px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.strategy-meta-card span,
+.strategy-stat-card span {
+  display: block;
+  color: #b9a77f;
+  font-size: 11px;
+}
+
+.strategy-meta-card b,
+.strategy-stat-card b {
+  display: block;
+  margin-top: 3px;
+  color: #fef3c7;
+  font-size: 15px;
+}
+
+.strategy-stat-card.is-pos b { color: #86efac; }
+.strategy-stat-card.is-neg b { color: #fca5a5; }
+
+.strategy-history-item {
+  align-items: flex-start;
+}
+
+.strategy-history-meta {
+  min-width: 74px;
+}
+
+.strategy-history-meta strong {
+  display: block;
+  color: #fef3c7;
+  font-size: 12px;
+}
+
+.strategy-history-meta span {
+  display: inline-block;
+  margin: 6px 0 0;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.14);
+  color: #fbbf24;
+  font-size: 10px;
+}
+
+.strategy-history-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.strategy-history-body p {
+  margin: 0;
+}
+
+.strategy-live {
+  color: #f7ecd0;
+}
+
+.strategy-live-title {
+  margin-bottom: 10px;
+  color: #e4bf73;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  font-family: 'JetBrains Mono', 'SFMono-Regular', monospace;
+}
+
+.strategy-live .row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 6px 0;
+  font-size: 12px;
+  font-family: 'PingFang SC', sans-serif;
+}
+
+.strategy-live-note,
+.strategy-live-foot,
+.strategy-live-empty {
+  color: rgba(247, 236, 208, 0.62);
+  font-size: 12px;
+  line-height: 1.65;
+  font-family: 'PingFang SC', sans-serif;
+}
+
+.strategy-live-note { margin-top: 8px; }
+.strategy-live-foot { margin-top: 10px; }
+
+.strategy-live-compact .strategy-live-title {
+  margin-bottom: 6px;
+  font-size: 10px;
+}
+
+.strategy-live-compact .row,
+.strategy-live-compact .strategy-live-note,
+.strategy-live-compact .strategy-live-foot,
+.strategy-live-compact .strategy-live-empty {
+  font-size: 9px;
+}
+
 /* --- Side Panel --- */
 .panel {
   position: absolute;
@@ -804,6 +950,45 @@ body {
 /* --- Detail --- */
 .detail { line-height: 1.6; }
 .detail .row { display: flex; justify-content: space-between; }
+.detail-placeholder {
+  padding: 8px 4px;
+  color: var(--text2);
+  text-align: center;
+}
+
+.detail-discussion-head {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.detail-note {
+  margin-bottom: 6px;
+  color: var(--text2);
+}
+
+.detail-turns {
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.detail-turn {
+  margin: 4px 0;
+  padding: 5px 6px;
+  border-left: 2px solid rgba(96, 165, 250, 0.32);
+  border-radius: 0 6px 6px 0;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.detail-turn b {
+  display: block;
+  color: var(--blue);
+}
+
+.detail-turn span {
+  color: var(--text2);
+}
 
 /* --- Minimap --- */
 #minimap-canvas {
@@ -927,6 +1112,35 @@ body {
   background: none;
   padding: 0;
   border: none;
+}
+
+@media (max-width: 900px) {
+  .strategy-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .strategy-card-foot {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .strategy-tabs button {
+    min-height: 0;
+  }
+
+  .strategy-meta-grid,
+  .strategy-stat-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .strategy-history-item {
+    flex-direction: column;
+  }
+
+  .strategy-history-meta {
+    min-width: 0;
+  }
 }
 
 .conv-msg-npc .conv-msg-portrait {

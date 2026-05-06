@@ -6,6 +6,7 @@ import { type MapData, type Strategy } from '../types';
 import { SCREEN_HEIGHT, SCREEN_WIDTH, TILE_HALF_H, TILE_HALF_W, INDOOR_SCALE, INDOOR_ACTOR_DEPTH_BASE } from '../config';
 import { Entity } from './Entity';
 import type { StrategyNpcSlot } from '../content/StrategyNpcPlacement';
+import { getStrategyNpcVisual, type StrategyNpcVisualDef } from '../content/StrategyNpcVisuals';
 import { isFrameValid } from '../utils/MathUtils';
 
 export class StrategyNPC extends Entity {
@@ -13,30 +14,39 @@ export class StrategyNPC extends Entity {
   private indoorMode = false;
   private indoorCx = 0;
   private indoorCy = 0;
-  private readonly charKey = 'player';
+  private readonly visual: StrategyNpcVisualDef;
 
   constructor(scene: Phaser.Scene, mapData: MapData, strategy: Strategy, slot: StrategyNpcSlot) {
     super(scene, mapData, `strategy_${strategy.id}`, slot.mapX, slot.mapY);
     this.strategy = strategy;
+    this.visual = getStrategyNpcVisual(strategy);
     this.direction = slot.direction;
     this.createSprite();
   }
 
   private createSprite(): void {
-    const frameKey = `${this.charKey}_d${this.direction}_f0`;
-    const frame = this.scene.textures.getFrame('chars', frameKey);
-
-    if (isFrameValid(frame)) {
-      this.sprite = this.scene.add.image(0, 14, 'chars', frameKey)
+    if (this.visual.kind === 'static_texture' && this.visual.textureKey) {
+      this.sprite = this.scene.add.image(0, this.visual.offsetY, this.visual.textureKey)
         .setOrigin(0.5, 1.0)
-        .setScale(0.78);
+        .setScale(this.visual.scale);
       this.container.add(this.sprite);
     } else {
-      const body = this.scene.add.graphics();
-      body.fillStyle(0xfbbf24);
-      body.fillRoundedRect(-5, -1, 10, 11, 2);
-      body.fillCircle(0, -6, 6);
-      this.container.add(body);
+      const charKey = this.visual.charKey ?? 'player';
+      const frameKey = `${charKey}_d${this.direction}_f0`;
+      const frame = this.scene.textures.getFrame('chars', frameKey);
+
+      if (isFrameValid(frame)) {
+        this.sprite = this.scene.add.image(0, this.visual.offsetY, 'chars', frameKey)
+          .setOrigin(0.5, 1.0)
+          .setScale(this.visual.scale);
+        this.container.add(this.sprite);
+      } else {
+        const body = this.scene.add.graphics();
+        body.fillStyle(0xfbbf24);
+        body.fillRoundedRect(-5, -1, 10, 11, 2);
+        body.fillCircle(0, -6, 6);
+        this.container.add(body);
+      }
     }
 
     const nameColor = this.strategy.category === 'hot'
@@ -74,7 +84,9 @@ export class StrategyNPC extends Entity {
     } else {
       this.updateScreenPosition(playerX, playerY);
     }
-    this.updateWalkAnimation(time, false, 0, this.charKey);
+    if (this.visual.kind === 'chars_atlas') {
+      this.updateWalkAnimation(time, false, 0, this.visual.charKey ?? 'player');
+    }
   }
 
   setIndoorMode(indoor: boolean, cx: number, cy: number): void {
@@ -84,6 +96,30 @@ export class StrategyNPC extends Entity {
   }
 
   getCharKey(): string {
-    return this.charKey;
+    return this.visual.charKey ?? 'player';
+  }
+
+  containsScreenPoint(screenX: number, screenY: number): boolean {
+    if (this.sprite) {
+      const bounds = this.sprite.getBounds();
+      const padded = new Phaser.Geom.Rectangle(
+        bounds.x - 8,
+        bounds.y - 8,
+        bounds.width + 16,
+        bounds.height + 16,
+      );
+      if (Phaser.Geom.Rectangle.Contains(padded, screenX, screenY)) {
+        return true;
+      }
+    }
+
+    if (this.label) {
+      const labelBounds = this.label.getBounds();
+      if (Phaser.Geom.Rectangle.Contains(labelBounds, screenX, screenY)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }

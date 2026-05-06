@@ -6,6 +6,7 @@ import {
 } from '../../src/content/IndoorRoomTemplates';
 import { toActualIndoorMapPosition, toLocalIndoorMapPosition } from '../../src/content/IndoorFurnitureLayout';
 import { getIndoorFurnitureDefs } from '../../src/content/IndoorFurnitureLayout';
+import { getIndoorCharacterDefs } from '../../src/content/IndoorCharacterLayout';
 import { getAsset, getIndoorEditorAssets, getIndoorTileBrushAssets } from '../../src/content/AssetCatalog';
 import { BUILDINGS } from '../../src/data/BuildingData';
 
@@ -61,5 +62,19 @@ export const tests: TestCase[] = [
     assert.equal(getIndoorRoomTemplate('player_manor')?.mapKey, 'indoor_player_manor');
     assert.equal(isIndoorTileEditable('player_manor', 'floor', 4, 4), true);
     assert.ok(getIndoorFurnitureDefs('player_manor').some((item) => item.id === 'starter_table'));
+  }),
+
+  test('digital sect reuses token center room layout and placements', () => {
+    const building = BUILDINGS.find((item) => item.id === 'digital_sect');
+    assert.ok(building);
+    assert.equal(building?.name, '数字');
+    assert.equal(building?.entryX, 50);
+    assert.equal(building?.entryY, 45);
+    assert.equal(building?.indoorMapKey, 'indoor_digital_sect');
+    assert.equal(getIndoorRoomTemplate('digital_sect')?.mapKey, 'indoor_digital_sect');
+    assert.equal(isIndoorTileEditable('digital_sect', 'floor', 36, 36), true);
+    assert.equal(getIndoorFurnitureDefs('digital_sect').length, getIndoorFurnitureDefs('token_center').length);
+    assert.equal(getIndoorCharacterDefs('digital_sect').length, 3);
+    assert.ok(getIndoorCharacterDefs('digital_sect').every((item) => item.id !== 'digital_sect_shishu'));
   }),
 ];

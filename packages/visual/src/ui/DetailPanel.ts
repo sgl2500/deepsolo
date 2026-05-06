@@ -1,8 +1,8 @@
 // ============================================================
-// DetailPanel.ts — 策略详情 / 讨论实况面板
+// DetailPanel.ts — 讨论实况面板 / 实时状态渲染工具
 // ============================================================
 
-import { STATE_LABELS, TOPIC_LABELS, type Strategy, type DiscussionGroup } from '../types';
+import type { DiscussionGroup } from '../types';
 import type { EventBus } from '../core/EventBus';
 import type { GameStore } from '../core/GameStore';
 
@@ -11,29 +11,70 @@ interface TurnRecord {
   text: string;
 }
 
+export interface StrategyLiveState {
+  mode?: string;
+  strategyName?: string;
+  strategyVersion?: string;
+  symbol?: string;
+  timeframe?: string;
+  capital?: number;
+  equity?: number;
+  realizedPnl?: number;
+  positionsCount?: number;
+  positionSummary?: string;
+  updatedAt?: string;
+  lastDecision?: {
+    action?: string;
+    confidence?: string;
+    reason?: string;
+    source?: string;
+  };
+}
+
+export function renderStrategyLiveState(
+  state: StrategyLiveState | null,
+  loading = false,
+  variant: 'compact' | 'modal' = 'compact',
+): string {
+  const rootClass = variant === 'modal' ? 'strategy-live strategy-live-modal' : 'strategy-live strategy-live-compact';
+  if (loading) {
+    return `<div class="${rootClass}"><div class="strategy-live-empty">正在读取门派实时状态...</div></div>`;
+  }
+  if (!state) {
+    return `<div class="${rootClass}"><div class="strategy-live-empty">暂未同步到门派实时状态</div></div>`;
+  }
+
+  const pnl = safeNumber(state.realizedPnl);
+  const pnlClass = pnl >= 0 ? 'pos' : 'neg';
+  const pnlPrefix = pnl >= 0 ? '+' : '';
+  const decision = state.lastDecision ?? {};
+
+  return `
+    <div class="${rootClass}">
+      <div class="strategy-live-title">门派实时状态</div>
+      <div class="row"><span>模式</span><span class="bold">${escapeHtml(state.mode ?? 'unknown')}</span></div>
+      <div class="row"><span>标的</span><span class="bold">${escapeHtml(state.symbol ?? '未配置')}</span></div>
+      <div class="row"><span>版本</span><span class="bold">${escapeHtml(state.strategyVersion ?? 'unknown')}</span></div>
+      <div class="row"><span>权益</span><span class="bold">¥${safeNumber(state.equity).toLocaleString()}</span></div>
+      <div class="row"><span>已实现盈亏</span><span class="bold ${pnlClass}">${pnlPrefix}${pnl.toLocaleString()}</span></div>
+      <div class="row"><span>持仓数</span><span class="bold">${safeNumber(state.positionsCount, 0)}</span></div>
+      <div class="strategy-live-note">持仓: ${escapeHtml(state.positionSummary ?? '空仓')}</div>
+      <div class="strategy-live-note">最近决策: ${escapeHtml(decision.action ?? 'observe')} / ${escapeHtml(decision.reason ?? '等待信号')}</div>
+      ${decision.confidence ? `<div class="strategy-live-note">决策置信度: ${escapeHtml(decision.confidence)}</div>` : ''}
+      ${state.updatedAt ? `<div class="strategy-live-foot">同步时间: ${escapeHtml(state.updatedAt)}</div>` : ''}
+    </div>
+  `;
+}
+
 export class DetailPanel {
   private el: HTMLElement;
-  private store: GameStore;
-  private eventBus: EventBus;
-
-  // 讨论实况状态
   private currentGroupId: string | null = null;
   private turns: TurnRecord[] = [];
 
-  constructor(container: HTMLElement, eventBus: EventBus, store: GameStore) {
+  constructor(container: HTMLElement, eventBus: EventBus, _store: GameStore) {
     this.el = container;
-    this.store = store;
-    this.eventBus = eventBus;
+    this.showPlaceholder();
 
-    eventBus.on('strategy:selected', (strategy: Strategy | null) => {
-      if (strategy) {
-        this.showDetail(strategy);
-      } else {
-        this.showPlaceholder();
-      }
-    });
-
-    // 讨论实况
     eventBus.on('discussion:view', (group: DiscussionGroup) => {
       this.showDiscussion(group);
     });
@@ -51,72 +92,65 @@ export class DetailPanel {
     });
 
     eventBus.on('discussion:ended', (data: { groupId: string }) => {
-      if (data.groupId === this.currentGroupId) {
-        this.currentGroupId = null;
-        this.turns = [];
-        // 恢复到选中策略的详情
-        const sel = this.store.getSelectedStrategy();
-        if (sel) this.showDetail(sel);
-        else this.showPlaceholder();
-      }
+      if (data.groupId !== this.currentGroupId) return;
+      this.currentGroupId = null;
+      this.turns = [];
+      this.showPlaceholder();
     });
   }
 
-  /** 切换到讨论实况视图 */
   showDiscussion(group: DiscussionGroup): void {
     this.currentGroupId = group.id;
     this.refreshDiscussion();
   }
 
   private refreshDiscussion(): void {
-    if (!this.currentGroupId) return;
+    if (!this.currentGroupId) {
+      this.showPlaceholder();
+      return;
+    }
 
-    const group = this.turns.length > 0 ? '' : '<div style="font-size:9px;color:var(--text2);margin-bottom:4px">讨论进行中...</div>';
+    const status = this.turns.length > 0
+      ? '<div class="detail-note">讨论进行中，新的推演会实时追加。</div>'
+      : '<div class="detail-note">讨论进行中...</div>';
 
-    const lines = this.turns.map(t =>
-      `<div style="margin:2px 0"><b style="color:var(--blue)">${t.agentName}</b>: <span style="color:var(--text2)">${t.text}</span></div>`
-    ).join('');
-
-    this.el.innerHTML = `
-      <div style="margin-bottom:4px">
-        <span class="tag tag-emrg">讨论</span>
-        <b style="color:var(--text)">讨论实况</b>
+    const lines = this.turns.map((turn) => `
+      <div class="detail-turn">
+        <b>${escapeHtml(turn.agentName)}</b>
+        <span>${escapeHtml(turn.text)}</span>
       </div>
-      ${group}
-      <div style="font-size:9px;max-height:200px;overflow-y:auto">${lines}</div>
-    `;
-  }
-
-  private showDetail(s: Strategy): void {
-    this.currentGroupId = null;
-    const tag = this.getTag(s.category);
-    const rc = s.returnPct >= 0 ? 'pos' : 'neg';
-    const prefix = s.returnPct >= 0 ? '+' : '';
+    `).join('');
 
     this.el.innerHTML = `
-      <div style="margin-bottom:3px">${tag} <b style="color:var(--text)">${s.name}</b></div>
-      <div style="font-size:9px;margin-bottom:3px">${s.description}</div>
-      <div class="row"><span>收益率</span><span class="bold ${rc}">${prefix}${s.returnPct}%</span></div>
-      <div class="row"><span>回撤</span><span class="bold neg">-${s.maxDrawdownPct}%</span></div>
-      <div class="row"><span>交易数</span><span class="bold">${s.totalTrades}</span></div>
-      <div class="row"><span>胜率</span><span class="bold">${s.winRate}%</span></div>
-      <div class="row"><span>均笔收益</span><span class="bold ${s.avgReturnPct >= 0 ? 'pos' : 'neg'}">${s.avgReturnPct}%</span></div>
-      <div class="row"><span>资金</span><span class="bold">¥${s.capital.toLocaleString()}</span></div>
-      <div class="row"><span>状态</span><span class="bold">${STATE_LABELS[s.state]}</span></div>
-      ${s.parents ? `<div style="margin-top:3px;color:var(--purple);font-size:9px">← ${s.relation}: ${s.parents.join('+')}</div>` : ''}
+      <div class="detail-discussion-head">
+        <span class="tag tag-emrg">讨论</span>
+        <b>讨论实况</b>
+      </div>
+      ${status}
+      <div class="detail-turns">${lines}</div>
     `;
   }
 
   private showPlaceholder(): void {
-    this.currentGroupId = null;
-    this.el.innerHTML = '<div style="text-align:center;padding:8px;color:var(--text2)">点击角色查看</div>';
+    this.el.innerHTML = `
+      <div class="detail-placeholder">
+        人物查看已改为弹窗<br />
+        讨论开始后会在这里显示实况
+      </div>
+    `;
   }
+}
 
-  private getTag(category: string): string {
-    switch (category) {
-      case 'hot': return '<span class="tag tag-hot">热度</span>';
-      case 'emerged': return '<span class="tag tag-emrg">涌现</span>';
-      default: return '<span class="tag tag-norm">普通</span>';
-    }
-  }
+function safeNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char] ?? char));
 }

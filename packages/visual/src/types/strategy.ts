@@ -27,6 +27,11 @@ export interface Strategy {
   state: AgentState;
   parents?: string[];
   relation?: string;
+  buildingId?: string;
+  placement?: 'world' | 'indoor-only';
+  role?: string;
+  sourceWorkspace?: string;
+  mode?: string;
 }
 
 /** 策略模板 (来自 template.json) */

@@ -23,6 +23,7 @@ import { BUILDINGS } from '../data/BuildingData';
 import { getNearbyIndoorInteractable } from '../content/IndoorInteractables';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
 import { PlayerAppearanceOverlay } from '../ui/PlayerAppearanceOverlay';
+import type { StrategyNPC } from '../entities/StrategyNPC';
 import {
   resetPlayerAppearanceTuning,
   setPlayerAppearanceTuning,
@@ -385,6 +386,19 @@ export class WorldScene extends Phaser.Scene {
           this.entitySystem.addAgent(this.charMeta, s);
         }
       }
+      const currentBuildingId = this.sceneManager.getCurrentBuildingId();
+      if (this.sceneManager.isIndoor() && currentBuildingId) {
+        const indoorMap = this.cache.json.get(BUILDINGS.find((b) => b.id === currentBuildingId)?.indoorMapKey ?? '');
+        if (indoorMap) {
+          this.entitySystem.createStrategyNPCs(currentBuildingId, strategies, indoorMap.cx, indoorMap.cy);
+          this.entitySystem.setStrategyNpcsVisible(false);
+          for (const npc of this.entitySystem.strategyNpcs.values()) {
+            this.mapRenderer.addIndoorChild(npc.container);
+          }
+          this.entitySystem.syncEntityScreenPositions(this.entitySystem.player.mapX, this.entitySystem.player.mapY);
+          this.entitySystem.setStrategyNpcsVisible(true);
+        }
+      }
       this.entitySystem.setWorldAgentsVisible(false);
     });
 
@@ -532,7 +546,7 @@ export class WorldScene extends Phaser.Scene {
 
     // 对话/聊天面板打开时：只处理关闭和对话推进
     if (this.convOpen) {
-      this.updateInteractHint(null);
+      this.updateInteractHint(null, null);
       if (this.inputController.isCancelPressed()) {
         _eventBus.emit('conv:close');
       }
@@ -549,7 +563,7 @@ export class WorldScene extends Phaser.Scene {
 
     // 过渡状态：锁定玩家移动
     if (this.sceneManager.isPlayerLocked()) {
-      this.updateInteractHint(null);
+      this.updateInteractHint(null, null);
       return;
     }
 
@@ -620,7 +634,14 @@ export class WorldScene extends Phaser.Scene {
     const nearbyIndoorInteractable = this.sceneManager.isIndoor() && buildingId
       ? getNearbyIndoorInteractable(buildingId, px, py, NPC_INTERACT_DIST)
       : null;
-    this.updateInteractHint(nearbyIndoorInteractable);
+    const nearbyStrategyNpc = this.getNearbyInspectableStrategyNpc(px, py);
+    this.updateInteractHint(nearbyIndoorInteractable, nearbyStrategyNpc);
+
+    if (this.inputController.isInspectPressed() && nearbyStrategyNpc) {
+      _store.selectStrategy(nearbyStrategyNpc.strategy);
+      this.entitySystem.showBubble(nearbyStrategyNpc.strategy.id, `查看 ${nearbyStrategyNpc.strategy.name}`);
+      return;
+    }
 
     // 空格键交互检测
     if (this.inputController.isInteractPressed()) {
@@ -631,7 +652,7 @@ export class WorldScene extends Phaser.Scene {
       }
 
       // 室内策略 NPC：每个策略在所属门派内固定站位，复用 Agent 聊天上下文。
-      const strategyNpc = this.entitySystem.getNearbyStrategyNPC(px, py, WorldScene.AGENT_INTERACT_DIST);
+      const strategyNpc = nearbyStrategyNpc;
       if (strategyNpc) {
         _store.selectStrategy(strategyNpc.strategy);
         this.openAgentChat(strategyNpc.strategy);
@@ -690,16 +711,31 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  private updateInteractHint(interactable: IndoorInteractableDef | null): void {
+  private updateInteractHint(
+    interactable: IndoorInteractableDef | null,
+    strategyNpc: StrategyNPC | null,
+  ): void {
     if (!this.interactHintText) return;
-    if (!interactable) {
+    const prompts: string[] = [];
+    if (interactable) {
+      prompts.push(interactable.prompt ?? `空格：互动 ${interactable.name}`);
+    }
+    if (strategyNpc) {
+      prompts.push(`T：查看 ${strategyNpc.strategy.name}`);
+    }
+    if (prompts.length === 0) {
       this.interactHintText.setVisible(false);
       return;
     }
 
     this.interactHintText
-      .setText(interactable.prompt ?? `空格：互动 ${interactable.name}`)
+      .setText(prompts.join('  ·  '))
       .setVisible(true);
+  }
+
+  private getNearbyInspectableStrategyNpc(playerX: number, playerY: number): StrategyNPC | null {
+    if (!this.sceneManager.isIndoor()) return null;
+    return this.entitySystem.getNearbyStrategyNPC(playerX, playerY, WorldScene.AGENT_INTERACT_DIST);
   }
 
   private executeIndoorInteractable(interactable: IndoorInteractableDef): void {

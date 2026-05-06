@@ -8,6 +8,7 @@ export class InputController {
   private cursors: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd: Record<string, Phaser.Input.Keyboard.Key>;
   private interactKey: Phaser.Input.Keyboard.Key;
+  private inspectKey: Phaser.Input.Keyboard.Key;
   private cancelKey: Phaser.Input.Keyboard.Key;
   private battleKey: Phaser.Input.Keyboard.Key;
 
@@ -16,6 +17,7 @@ export class InputController {
     this.cursors = keyboard.createCursorKeys();
     this.wasd = keyboard.addKeys('W,A,S,D') as Record<string, Phaser.Input.Keyboard.Key>;
     this.interactKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE) as Phaser.Input.Keyboard.Key;
+    this.inspectKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T) as Phaser.Input.Keyboard.Key;
     this.cancelKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC) as Phaser.Input.Keyboard.Key;
     this.battleKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B) as Phaser.Input.Keyboard.Key;
   }
@@ -41,6 +43,11 @@ export class InputController {
   /** 空格键是否刚按下（交互键） */
   isInteractPressed(): boolean {
     return Phaser.Input.Keyboard.JustDown(this.interactKey);
+  }
+
+  /** T 键是否刚按下（查看角色） */
+  isInspectPressed(): boolean {
+    return Phaser.Input.Keyboard.JustDown(this.inspectKey);
   }
 
   /** ESC 键是否刚按下（取消键） */

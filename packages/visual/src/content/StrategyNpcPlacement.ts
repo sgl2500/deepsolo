@@ -44,15 +44,28 @@ const BUILDING_STRATEGY_SLOTS: Record<string, StrategyNpcSlot[]> = {
     { mapX: 24, mapY: 26, direction: Direction.Down },
     { mapX: 28, mapY: 26, direction: Direction.Down },
   ],
+  digital_sect: [
+    { mapX: 26, mapY: 17, direction: Direction.Down },
+    { mapX: 20, mapY: 28, direction: Direction.Down },
+    { mapX: 16, mapY: 28, direction: Direction.Down },
+    { mapX: 24, mapY: 28, direction: Direction.Down },
+  ],
 };
 
 export function getStrategyBuildingId(strategy: Strategy): string {
+  if (strategy.buildingId) {
+    return strategy.buildingId;
+  }
   if (STRATEGY_BUILDING_OVERRIDES[strategy.id]) {
     return STRATEGY_BUILDING_OVERRIDES[strategy.id];
   }
   if (strategy.category === 'hot') return 'teahouse';
   if (strategy.category === 'normal') return 'exchange';
   return 'teahouse';
+}
+
+export function shouldCreateWorldAgent(strategy: Strategy): boolean {
+  return strategy.placement !== 'indoor-only';
 }
 
 export function getStrategyNpcPlacements(buildingId: string, strategies: Strategy[]): StrategyNpcPlacement[] {

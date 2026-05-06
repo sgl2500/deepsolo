@@ -58,6 +58,34 @@ export const INDOOR_CHARACTER_DEFS: IndoorCharacterDef[] = [
     scale: 0.54,
     collider: { minLocalX: 19.4, maxLocalX: 20.6, minLocalY: 23.4, maxLocalY: 24.6 },
   },
+  // --- 数字门派：复用 Token 中心人物与站位 ---
+  {
+    buildingId: 'digital_sect',
+    id: 'digital_sect_dashixiong',
+    textureKey: 'token_center_dashixiong',
+    localX: 20,
+    localY: 12,
+    scale: 0.54,
+    collider: { minLocalX: 19.4, maxLocalX: 20.6, minLocalY: 11.4, maxLocalY: 12.6 },
+  },
+  {
+    buildingId: 'digital_sect',
+    id: 'digital_sect_guihai_yidao',
+    textureKey: 'token_center_guihai_yidao',
+    localX: 14,
+    localY: 17,
+    scale: 0.54,
+    collider: { minLocalX: 13.4, maxLocalX: 14.6, minLocalY: 16.4, maxLocalY: 17.6 },
+  },
+  {
+    buildingId: 'digital_sect',
+    id: 'digital_sect_sun_daniang',
+    textureKey: 'token_center_sun_daniang',
+    localX: 20,
+    localY: 24,
+    scale: 0.54,
+    collider: { minLocalX: 19.4, maxLocalX: 20.6, minLocalY: 23.4, maxLocalY: 24.6 },
+  },
 ];
 
 export function getIndoorCharacterDefs(buildingId: string | null): IndoorCharacterDef[] {

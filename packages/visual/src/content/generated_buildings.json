@@ -1,1 +1,81 @@
-[]
+[
+  {
+    "id": "digital_sect",
+    "name": "数字",
+    "entryX": 50,
+    "entryY": 45,
+    "entryRadius": 2,
+    "indoorMapKey": "indoor_digital_sect",
+    "spawnX": 20,
+    "spawnY": 20,
+    "doorSpawnX": 20,
+    "doorSpawnY": 34,
+    "exitX": 20,
+    "exitY": 37,
+    "returnX": 50,
+    "returnY": 48,
+    "worldVisual": {
+      "textureKey": "world_building_token_center",
+      "originY": 0.9,
+      "offsetY": 0,
+      "labelY": -130,
+      "scale": 1
+    },
+    "roomTemplate": {
+      "localOrigin": {
+        "x": 3,
+        "y": 3
+      },
+      "editableFloor": {
+        "rowStart": 4,
+        "rowEnd": 36,
+        "colStart": 4,
+        "colEnd": 36,
+        "brushAssetIds": [
+          "tile_floor_token_center_0514",
+          "tile_rug_0309",
+          "tile_rug_0313",
+          "tile_rug_0330"
+        ],
+        "description": "数字默认地板装修区"
+      }
+    },
+    "furniture": [
+      {
+        "id": "boss_portrait",
+        "textureKey": "token_center_boss",
+        "localX": 17,
+        "localY": 2,
+        "scale": 0.7,
+        "depthLocalX": 17,
+        "depthLocalY": 0,
+        "collider": {
+          "minLocalX": 15.5,
+          "maxLocalX": 18.5,
+          "minLocalY": 0.5,
+          "maxLocalY": 3.5
+        }
+      },
+      {
+        "id": "sect_backdrop",
+        "textureKey": "token_center_sect_backdrop",
+        "renderLayer": "wall",
+        "localX": 17,
+        "localY": 3,
+        "scale": 0.9,
+        "depthBias": 0.1
+      },
+      {
+        "id": "left_wall_decor",
+        "textureKey": "token_center_left_wall_decor",
+        "renderLayer": "wall",
+        "localX": 5.2,
+        "localY": 12.6,
+        "scale": 0.9,
+        "depthLocalX": 1,
+        "depthLocalY": 12,
+        "depthBias": -0.25
+      }
+    ]
+  }
+]

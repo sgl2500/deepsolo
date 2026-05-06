@@ -44,6 +44,21 @@ def build_system_prompt(data_dir: Path, agent_id: str) -> str:
             f"- 回测区间：{account.summary.start_date} ~ {account.summary.end_date}",
         ])
 
+    live_state = _load_live_state(data_dir, agent_id)
+    if live_state:
+        last_decision = live_state.get("lastDecision", {}) if isinstance(live_state.get("lastDecision"), dict) else {}
+        parts.extend([
+            "",
+            "## 当前实盘/模拟状态",
+            f"- 模式：{live_state.get('mode', 'unknown')}",
+            f"- 标的：{live_state.get('symbol', '未配置')}",
+            f"- 策略版本：{live_state.get('strategyVersion', 'unknown')}",
+            f"- 当前权益：{live_state.get('equity', 0):,.2f}",
+            f"- 持仓数量：{live_state.get('positionsCount', 0)}",
+            f"- 持仓摘要：{live_state.get('positionSummary', '空仓')}",
+            f"- 最近决策：{last_decision.get('action', 'observe')} / {last_decision.get('reason', '等待信号')}",
+        ])
+
     # 经验记忆
     experiences = _load_experiences(data_dir, agent_id)
     if experiences:
@@ -97,6 +112,15 @@ def _load_experiences(data_dir: Path, agent_id: str) -> list[dict]:
     if not path.exists():
         return []
     return _read_json(path)
+
+
+def _load_live_state(data_dir: Path, agent_id: str) -> dict:
+    """加载外部工作区同步来的实时状态。"""
+    path = _agent_dir(data_dir, agent_id) / "strategy" / "live_state.json"
+    if not path.exists():
+        return {}
+    payload = _read_json(path)
+    return payload if isinstance(payload, dict) else {}
 
 
 def _load_recent_conversations(data_dir: Path, agent_id: str, limit: int = 3) -> list[dict]:

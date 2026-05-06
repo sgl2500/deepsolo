@@ -7,7 +7,7 @@ import { Agent } from '../entities/Agent';
 import { NPC } from '../entities/NPC';
 import { StrategyNPC } from '../entities/StrategyNPC';
 import { NPC_DEFS } from '../data/NPCData';
-import { getStrategyNpcPlacements } from '../content/StrategyNpcPlacement';
+import { getStrategyNpcPlacements, shouldCreateWorldAgent } from '../content/StrategyNpcPlacement';
 import type { BubbleHandle } from '../ui/BubbleFactory';
 import { BubbleFactory } from '../ui/BubbleFactory';
 import type { MapData, CharMeta, Strategy, BubbleConfig } from '../types';
@@ -34,6 +34,7 @@ export class EntitySystem {
 
   createAgents(charMeta: CharMeta, strategies: Strategy[]): void {
     strategies.forEach((s, idx) => {
+      if (!shouldCreateWorldAgent(s)) return;
       const agent = new Agent(this.scene, this.mapData, charMeta, s, idx);
       this.agents.set(s.id, agent);
     });
@@ -41,6 +42,7 @@ export class EntitySystem {
 
   /** 动态添加单个 Agent（衍生 NPC 用） */
   addAgent(charMeta: CharMeta, strategy: Strategy): void {
+    if (!shouldCreateWorldAgent(strategy)) return;
     if (this.agents.has(strategy.id)) return;
     const idx = this.agents.size;
     const agent = new Agent(this.scene, this.mapData, charMeta, strategy, idx);
@@ -100,6 +102,12 @@ export class EntitySystem {
     this.strategyNpcs.clear();
   }
 
+  setStrategyNpcsVisible(visible: boolean): void {
+    for (const npc of this.strategyNpcs.values()) {
+      npc.container.setVisible(visible);
+    }
+  }
+
   /** 获取玩家附近的 NPC */
   getNearbyNPC(playerX: number, playerY: number, threshold: number): NPC | null {
     for (const npc of this.npcs.values()) {
@@ -136,6 +144,23 @@ export class EntitySystem {
     for (const npc of this.strategyNpcs.values()) {
       const dx = npc.mapX - playerX;
       const dy = npc.mapY - playerY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= threshold && dist < nearestDist) {
+        nearest = npc;
+        nearestDist = dist;
+      }
+    }
+    return nearest;
+  }
+
+  getStrategyNpcAtScreenPoint(screenX: number, screenY: number, threshold: number): StrategyNPC | null {
+    let nearest: StrategyNPC | null = null;
+    let nearestDist = Infinity;
+    for (const npc of this.strategyNpcs.values()) {
+      if (!npc.container.visible) continue;
+      if (!npc.containsScreenPoint(screenX, screenY)) continue;
+      const dx = npc.container.x - screenX;
+      const dy = npc.container.y - screenY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist <= threshold && dist < nearestDist) {
         nearest = npc;

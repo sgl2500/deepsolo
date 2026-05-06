@@ -222,6 +222,23 @@ export const LS_KEY_TRANSACTIONS = 'deepsolo_transactions';
 
 /** 初始策略数据 (后续从 JSON 加载) */
 export const INITIAL_STRATEGIES = [
+  {
+    id: 'digital_master',
+    name: '数字掌门',
+    category: 'emerged' as const,
+    returnPct: 0,
+    maxDrawdownPct: 0,
+    totalTrades: 0,
+    winRate: 0,
+    avgReturnPct: 0,
+    capital: 500,
+    description: '外部 crypto 工作区映射进来的掌门策略，负责 BTC 策略心跳、复盘与进化。',
+    buildingId: 'digital_sect',
+    placement: 'indoor-only' as const,
+    role: '掌门',
+    sourceWorkspace: 'crypto',
+    mode: 'dry_run',
+  },
   { id: 'hv1', name: '人气追涨', category: 'hot' as const, returnPct: 20.25, maxDrawdownPct: 13.17, totalTrades: 218, winRate: 47.25, avgReturnPct: 0.608, capital: 120250, description: '相对竞价>1.5%, 竞价涨幅<5%, 0931涨幅>-5%, 次日收盘卖出' },
   { id: 'hv2', name: '妖股追涨', category: 'hot' as const, returnPct: -3.2, maxDrawdownPct: 25.0, totalTrades: 225, winRate: 44.4, avgReturnPct: -0.01, capital: 96800, description: '信号生成时按相对竞价排序取前5只' },
   { id: 'hv3', name: '上影线追涨', category: 'hot' as const, returnPct: 4.7, maxDrawdownPct: 20.4, totalTrades: 81, winRate: 43.2, avgReturnPct: 0.118, capital: 104700, description: '竞价涨幅<0.5%, 次日开盘卖出' },

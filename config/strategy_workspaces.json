@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "workspaces": [
+    {
+      "id": "crypto",
+      "name": "数字门派",
+      "provider": "crypto_live_heartbeat",
+      "path": "/Users/sunguanlong/Desktop/AIGC/crypto",
+      "agents": [
+        {
+          "agentId": "digital_master",
+          "name": "数字掌门",
+          "role": "掌门",
+          "category": "emerged",
+          "buildingId": "digital_sect",
+          "placement": "indoor-only",
+          "description": "外部 crypto 工作区映射进来的掌门策略，负责 BTC 策略心跳、复盘与进化。",
+          "persona": {
+            "personality": "数据驱动，谨慎执行，重视风控与复盘",
+            "speaking_style": "简洁直接，优先引用当前策略状态和风险数据",
+            "background": "数字门派掌门，长期驻守外部 crypto 工作区，负责 BTC 策略心跳与门内演化。"
+          },
+          "live": {
+            "configPath": "live/config.json",
+            "positionsPath": "live/state/positions.json",
+            "tradesPath": "live/state/trades.json"
+          },
+          "sourceFiles": {
+            "identityPath": "IDENTITY.md",
+            "soulPath": "SOUL.md",
+            "memoryPath": "MEMORY.md"
+          }
+        }
+      ]
+    }
+  ]
+}

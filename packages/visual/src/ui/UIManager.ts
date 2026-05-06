@@ -12,6 +12,7 @@ import { HeaderBar } from './HeaderBar';
 import { ConversationPanel } from './ConversationPanel';
 import { TokenCenterUI } from './TokenCenterUI';
 import { PlayerPanel } from './PlayerPanel';
+import { StrategyProfileOverlay } from './StrategyProfileOverlay';
 import type { ChatService } from '../services/ChatService';
 import './styles.css';
 
@@ -20,6 +21,7 @@ export class UIManager {
   private strategyList: StrategyListPanel;
   private eventLog: EventLogPanel;
   private detailPanel: DetailPanel;
+  private strategyProfileOverlay: StrategyProfileOverlay;
   private playerPanel: PlayerPanel;
   conversationPanel: ConversationPanel;
   tokenCenterUI: TokenCenterUI;
@@ -79,7 +81,7 @@ export class UIManager {
     this.panel.appendChild(eventSection);
 
     const detailSection = document.createElement('div');
-    detailSection.innerHTML = '<h3>📋 详情</h3>';
+    detailSection.innerHTML = '<h3>🗣️ 实况</h3>';
     const detailContainer = document.createElement('div');
     detailContainer.className = 'detail';
     detailContainer.appendChild(this.createPlaceholder());
@@ -90,6 +92,7 @@ export class UIManager {
     this.strategyList = new StrategyListPanel(listContainer, eventBus, store);
     this.eventLog = new EventLogPanel(eventContainer, eventBus, store);
     this.detailPanel = new DetailPanel(detailContainer, eventBus, store);
+    this.strategyProfileOverlay = new StrategyProfileOverlay(eventBus, store);
     this.conversationPanel = new ConversationPanel(eventBus);
     this.tokenCenterUI = new TokenCenterUI(this.tokenPanel, eventBus, tokenStore);
     this.playerPanel = new PlayerPanel(eventBus, store);
@@ -122,6 +125,13 @@ export class UIManager {
         this.tokenCenterUI.show();
         this.headerBar.setVisible(true);
         this.hideGameContainerOverlays(true);
+      } else if (state === 'indoor' && buildingId === 'digital_sect') {
+        this.panel.style.display = 'block';
+        this.tokenPanel.style.display = 'none';
+        this.tokenCenterUI.hide();
+        this.headerBar.setVisible(true);
+        this.hideGameContainerOverlays(true);
+        store.selectStrategy(null);
       } else if (state === 'indoor') {
         this.panel.style.display = 'none';
         this.tokenPanel.style.display = 'none';
@@ -141,7 +151,7 @@ export class UIManager {
   private createPlaceholder(): HTMLElement {
     const el = document.createElement('div');
     el.style.cssText = 'text-align:center;padding:8px;color:var(--text2)';
-    el.textContent = '点击角色查看';
+    el.textContent = '讨论开始后会在这里显示实况';
     return el;
   }
 

@@ -48,7 +48,7 @@ def generate_strategies_json(base_path: Path) -> list[dict]:
             avg_return = 0
             capital = 0
 
-        strategies.append({
+        strategy = {
             "id": profile.id,
             "name": profile.name,
             "category": profile.category,
@@ -62,7 +62,9 @@ def generate_strategies_json(base_path: Path) -> list[dict]:
             "state": _derive_state(return_pct),
             "parents": profile.parents,
             "relation": profile.relation,
-        })
+        }
+        strategy.update(_load_workspace_projection_meta(base_path, agent_id))
+        strategies.append(strategy)
 
     return strategies
 
@@ -80,7 +82,7 @@ def generate_world_json(base_path: Path) -> dict:
     }
 
 
-def write_frontend_json(base_path: Path) -> None:
+def write_frontend_json(base_path: Path, visual_data_dir: Path | None = None) -> None:
     """将 strategies.json 和 world.json 写入 frontend/ 目录"""
     frontend_dir = base_path / "frontend"
     frontend_dir.mkdir(parents=True, exist_ok=True)
@@ -98,7 +100,7 @@ def write_frontend_json(base_path: Path) -> None:
     )
 
     # 同步到前端 Vite 静态目录
-    visual_data = base_path.parent / "packages" / "visual" / "public" / "data"
+    visual_data = visual_data_dir or (base_path.parent / "packages" / "visual" / "public" / "data")
     if visual_data.exists():
         import shutil
         shutil.copy2(frontend_dir / "strategies.json", visual_data / "strategies.json")
@@ -127,6 +129,22 @@ def _read_json_safe(path: Path):
         return json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, FileNotFoundError):
         return None
+
+
+def _load_workspace_projection_meta(base_path: Path, agent_id: str) -> dict:
+    """读取外部工作区投影的额外前端字段。"""
+    path = base_path / "agents" / agent_id / "strategy" / "workspace_projection.json"
+    payload = _read_json_safe(path)
+    if not isinstance(payload, dict):
+        return {}
+    meta = {
+        "buildingId": payload.get("buildingId"),
+        "placement": payload.get("placement"),
+        "role": payload.get("role"),
+        "sourceWorkspace": payload.get("sourceWorkspace"),
+        "mode": payload.get("mode"),
+    }
+    return {key: value for key, value in meta.items() if value not in (None, "")}
 
 
 def _save_events(base_path: Path, events: list[dict]) -> None:
