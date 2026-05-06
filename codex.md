@@ -1933,3 +1933,21 @@ python scripts/trigger_heaven.py
 - 新增 `GeneratedIndoorLayouts.ts`，重新进入室内时先应用源码 generated layout，再叠加 localStorage 草稿；清空本地草稿后会回到源码保存状态。
 - Vite dev server 新增 `/api/save-indoor-layout`，与大地图 `/api/save-world-layout` 形成同一套“自动保存草稿 / 手动保存源码”语义。
 - `packages/visual/docs/indoor_asset_library_editor.md` 和 `packages/visual/docs/world_building_automation.md` 已同步说明，更新时间为 `2026-05-06 09:53:23 CST`。
+
+### 2026-05-06 10:15 CST 玩家人物编辑模式
+
+- 新增 `PlayerAppearanceCatalog.ts`，集中注册玩家可选行走 spritesheet、帧宽高、方向行、帧数、缩放、原点和室内/室外偏移。
+- 新增 `PlayerAppearanceStore.ts`，当前外观保存到 localStorage，并提供订阅机制让玩家实体实时换装。
+- 新增 `PlayerSpriteAnimator.ts`，从 `Player.ts` 抽离主角行走帧计算和 sprite 应用逻辑。
+- `Player.ts` 不再硬编码 `player_walk`，改为读取当前外观；切换外观后大地图和室内地图即时生效。
+- `BootScene` 改为遍历 `getPlayerAppearanceAssets()` 预加载玩家外观 spritesheet。
+- 新增 `PlayerAppearanceOverlay.ts` 和 `F4` 人物编辑模式，当前支持默认观察者道袍和 LPC 游侠两套外观。
+- 新增 `packages/visual/docs/player_appearance_editor.md`，更新时间为 `2026-05-06 10:15:16 CST`。
+
+### 2026-05-06 12:24 CST player3 单帧行走图合成
+
+- 检查 `packages/visual/public/assets/characters/player3/` 下 12 张 `22x50` 单帧图，识别为 4 方向、每方向 3 帧。
+- 合成新 spritesheet：`packages/visual/public/assets/characters/player3/player3_walk.png`，尺寸 `66x200`。
+- `PlayerAppearanceCatalog.ts` 新增外观 `player3_white_swordsman / 白衣少侠`。
+- `PlayerAppearanceDef` 新增 `frameSequence`，`PlayerSpriteAnimator` 支持 `[0, 1, 0, 2]` 这类循环序列，让 3 帧行走图更平滑。
+- `packages/visual/docs/player_appearance_editor.md` 已同步说明，更新时间为 `2026-05-06 12:24:09 CST`。

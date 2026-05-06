@@ -22,6 +22,8 @@ import { WorldMapEditor } from '../systems/WorldMapEditor';
 import { BUILDINGS } from '../data/BuildingData';
 import { getNearbyIndoorInteractable } from '../content/IndoorInteractables';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
+import { PlayerAppearanceOverlay } from '../ui/PlayerAppearanceOverlay';
+import { setSelectedPlayerAppearance } from '../systems/player/PlayerAppearanceStore';
 import type { IndoorInteractableDef } from '../types';
 import type { ChatService, ChatMessage } from '../services/ChatService';
 
@@ -51,6 +53,7 @@ export class WorldScene extends Phaser.Scene {
   private battleSystem!: BattleSystem;
   private storySystem!: StorySystem;
   private worldMapEditor!: WorldMapEditor;
+  private playerAppearanceOverlay!: PlayerAppearanceOverlay;
   private buildingMarkers!: Phaser.GameObjects.Container[];
 
   private mapData!: MapData;
@@ -122,6 +125,13 @@ export class WorldScene extends Phaser.Scene {
 
     // 大地图入口/碰撞/新增建筑编辑器。
     this.worldMapEditor = new WorldMapEditor(this, this.buildingMarkers);
+    this.playerAppearanceOverlay = new PlayerAppearanceOverlay({
+      onSelectAppearance: (id) => {
+        const appearance = setSelectedPlayerAppearance(id);
+        this.entitySystem.showBubble('player', `已换装：${appearance.name}`);
+      },
+      onExit: () => this.playerAppearanceOverlay.setActive(false),
+    });
 
     this.sceneManager = new SceneManager(
       this, this.mapRenderer, this.entitySystem,
@@ -248,6 +258,14 @@ export class WorldScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-F3', () => {
       if (this.sceneManager?.isIndoor()) return;
       this.worldMapEditor.toggle();
+    });
+    this.input.keyboard!.on('keydown-F4', () => {
+      this.playerAppearanceOverlay.toggle();
+    });
+    this.input.keyboard!.on('keydown-ESC', () => {
+      if (this.playerAppearanceOverlay.isActive()) {
+        this.playerAppearanceOverlay.setActive(false);
+      }
     });
     this.input.keyboard!.on('keydown-OPEN_BRACKET', () => {
       this.worldMapEditor.adjustEntryRadius(-0.5);

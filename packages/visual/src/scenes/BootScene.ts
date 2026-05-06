@@ -9,6 +9,7 @@ import { EFT_FRAME_COUNTS } from '../data/BattleData';
 import { preloadAgentProfiles } from '../data/agents';
 import { ASSET_CATALOG } from '../content/AssetCatalog';
 import { getAutomatedWorldBuildingAssets } from '../content/AutomatedBuildingRegistry';
+import { getPlayerAppearanceAssets } from '../content/PlayerAppearanceCatalog';
 
 const WORLD_BUILDING_ASSETS = [
   { key: 'world_building_player_house', file: 'npc_1371.png' },
@@ -92,9 +93,13 @@ export class BootScene extends Phaser.Scene {
     this.load.json('map', 'assets/maps/world/map_data.json');
     this.load.json('tmeta', 'assets/core/tile_meta.json');
     this.load.atlas('chars', 'assets/core/char_atlas.png?v=3', 'assets/core/char_atlas.json?v=3');
-    this.load.spritesheet('player_walk', 'assets/characters/player/player_walk1.png', { frameWidth: 28, frameHeight: 45 });
     this.load.json('charmeta', 'assets/core/char_meta.json?v=3');
-    this.load.spritesheet('lpc_e2', 'assets/characters/lpc/char01-walk-4dir.png', { frameWidth: 64, frameHeight: 64 });
+    for (const appearance of getPlayerAppearanceAssets()) {
+      this.load.spritesheet(appearance.textureKey, appearance.src, {
+        frameWidth: appearance.frameWidth,
+        frameHeight: appearance.frameHeight,
+      });
+    }
 
     // === 室内地图数据 ===
     for (const b of BUILDINGS) {

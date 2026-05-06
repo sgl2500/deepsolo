@@ -3,7 +3,7 @@
 // ============================================================
 
 import { Direction, type MapData } from '../types';
-import { MOVE_SPEED, MAP_BORDER, SCREEN_WIDTH, SCREEN_HEIGHT, TILE_HALF_W, TILE_HALF_H, INDOOR_SCALE, WALK_FRAME_INTERVAL, WALK_FRAME_COUNT, INDOOR_ACTOR_DEPTH_BASE } from '../config';
+import { MOVE_SPEED, MAP_BORDER, SCREEN_WIDTH, SCREEN_HEIGHT, TILE_HALF_W, TILE_HALF_H, INDOOR_SCALE, INDOOR_ACTOR_DEPTH_BASE } from '../config';
 import { Entity } from './Entity';
 import { clamp } from '../utils/MathUtils';
 import { getTile } from '../utils/IsoProjection';
@@ -11,15 +11,13 @@ import { isBlockedByIndoorCharacter } from '../content/IndoorCharacterCollision'
 import { isBlockedByIndoorFurniture } from '../content/IndoorFurnitureCollision';
 import { isBlockedByWorldBuildingCollision } from '../content/WorldBuildingCollision';
 import type { InputController } from '../systems/InputController';
-
-/** 方向 → player_walk 精灵图行号 (Row0=右上, Row1=右下, Row2=左上, Row3=左下) */
-const DIR_ROW: Record<number, number> = {
-  [Direction.Up]: 0,
-  [Direction.Right]: 1,
-  [Direction.Left]: 2,
-  [Direction.Down]: 3,
-};
-const WALK_COLS = 7;
+import type { PlayerAppearanceDef } from '../content/PlayerAppearanceCatalog';
+import { getSelectedPlayerAppearance, subscribePlayerAppearance } from '../systems/player/PlayerAppearanceStore';
+import {
+  applyPlayerAppearanceSprite,
+  getPlayerAppearanceFrame,
+  updatePlayerAppearanceWalkFrame,
+} from '../systems/player/PlayerSpriteAnimator';
 
 export class Player extends Entity {
   private inputController: InputController;
@@ -29,6 +27,8 @@ export class Player extends Entity {
   private indoorCx = 0;
   private indoorCy = 0;
   private indoorBuildingId: string | null = null;
+  private appearance: PlayerAppearanceDef = getSelectedPlayerAppearance();
+  private unsubscribeAppearance: (() => void) | null = null;
 
   constructor(scene: Phaser.Scene, mapData: MapData, inputController: InputController) {
     super(scene, mapData, 'player', mapData.width / 2, mapData.height / 2);
@@ -37,15 +37,17 @@ export class Player extends Entity {
     this.mapHeight = mapData.height;
     this.direction = Direction.Down;
     this.createSprite();
+    this.unsubscribeAppearance = subscribePlayerAppearance((appearance) => {
+      this.appearance = appearance;
+      if (this.sprite) applyPlayerAppearanceSprite(this.sprite, appearance, this.direction, this.indoorMode);
+    });
   }
 
   private createSprite(): void {
-    const row = DIR_ROW[this.direction] ?? 0;
-    const frameIdx = row * WALK_COLS + 0;
+    const frameIdx = getPlayerAppearanceFrame(this.appearance, this.direction, 0);
 
-    this.sprite = this.scene.add.image(0, 14, 'player_walk', frameIdx)
-      .setOrigin(0.5, 1.0)
-      .setScale(3.0);
+    this.sprite = this.scene.add.image(0, this.appearance.worldOffsetY, this.appearance.textureKey, frameIdx);
+    applyPlayerAppearanceSprite(this.sprite, this.appearance, this.direction, this.indoorMode);
     this.container.add(this.sprite);
 
     this.label = this.scene.add.text(5, 20, '观察者', {
@@ -58,20 +60,16 @@ export class Player extends Entity {
     this.container.add(this.label);
   }
 
-  /** 覆写：使用 player_walk 精灵图编号帧 */
+  /** 覆写：使用当前选择的人物外观配置驱动行走帧 */
   protected updateWalkAnimation(time: number, moving: boolean, _phaseOffset = 0, _overrideCharKey?: string): void {
     if (!this.sprite) return;
-    if (moving) {
-      this.frameIndex = Math.floor(time / WALK_FRAME_INTERVAL) % WALK_FRAME_COUNT;
-    } else {
-      this.frameIndex = 0;
-    }
-    const row = DIR_ROW[this.direction] ?? 0;
-    const frameIdx = row * WALK_COLS + this.frameIndex;
-    const name = String(frameIdx);
-    if (this.sprite.frame.name !== name) {
-      this.sprite.setTexture('player_walk', frameIdx);
-    }
+    this.frameIndex = updatePlayerAppearanceWalkFrame(
+      this.sprite,
+      this.appearance,
+      this.direction,
+      moving,
+      time,
+    );
   }
 
   update(time: number, delta: number, playerX: number, playerY: number): void {
@@ -111,12 +109,12 @@ export class Player extends Entity {
       this.container.x = TILE_HALF_W * s * ((this.mapX - this.indoorCx) - (this.mapY - this.indoorCy)) + SCREEN_WIDTH / 2;
       this.container.y = TILE_HALF_H * s * ((this.mapX - this.indoorCx) + (this.mapY - this.indoorCy)) + SCREEN_HEIGHT / 2;
       this.container.setDepth(INDOOR_ACTOR_DEPTH_BASE + this.mapX + this.mapY);
-      if (this.sprite) this.sprite.y = 0;
+      if (this.sprite) this.sprite.y = this.appearance.indoorOffsetY;
     } else {
       this.container.x = SCREEN_WIDTH / 2;
       this.container.y = SCREEN_HEIGHT / 2;
       this.container.setDepth(this.mapX + this.mapY);
-      if (this.sprite) this.sprite.y = 14;
+      if (this.sprite) this.sprite.y = this.appearance.worldOffsetY;
     }
 
     this.updateWalkAnimation(time, this.moving);
@@ -176,7 +174,12 @@ export class Player extends Entity {
   /** 立即应用室内模式的视觉状态（淡入前调用，避免过渡期间显示世界模式外观） */
   applyIndoorVisual(time: number): void {
     this.container.setDepth(INDOOR_ACTOR_DEPTH_BASE + this.mapX + this.mapY);
-    if (this.sprite) this.sprite.y = 0;
+    if (this.sprite) this.sprite.y = this.appearance.indoorOffsetY;
     this.updateWalkAnimation(time, false);
+  }
+
+  override destroy(): void {
+    this.unsubscribeAppearance?.();
+    super.destroy();
   }
 }
