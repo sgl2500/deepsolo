@@ -163,6 +163,20 @@ export class WorldScene extends Phaser.Scene {
       event.preventDefault();
       this.mapRenderer.exportIndoorSceneSnapshot();
     });
+    this.input.keyboard!.on('keydown-Z', (event: KeyboardEvent) => {
+      if (!this.mapRenderer.isFurnitureEditorActive() || (!event.metaKey && !event.ctrlKey)) return;
+      event.preventDefault();
+      if (event.shiftKey) {
+        this.mapRenderer.redoIndoorEditorChange();
+      } else {
+        this.mapRenderer.undoIndoorEditorChange();
+      }
+    });
+    this.input.keyboard!.on('keydown-Y', (event: KeyboardEvent) => {
+      if (!this.mapRenderer.isFurnitureEditorActive() || (!event.metaKey && !event.ctrlKey)) return;
+      event.preventDefault();
+      this.mapRenderer.redoIndoorEditorChange();
+    });
     this.input.keyboard!.on('keydown-D', (event: KeyboardEvent) => {
       if (!event.metaKey && !event.ctrlKey && !event.shiftKey) return;
       event.preventDefault();

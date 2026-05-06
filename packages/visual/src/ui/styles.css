@@ -1140,7 +1140,9 @@ body {
 }
 
 
-.build-tools button:disabled {
+.build-tools button:disabled,
+.build-statusbar button:disabled,
+.build-inline-actions button:disabled {
   opacity: 0.58;
   cursor: default;
   transform: none;
@@ -1173,11 +1175,30 @@ body {
   background:
     linear-gradient(180deg, rgba(19, 30, 28, 0.92), rgba(9, 16, 17, 0.86)),
     repeating-linear-gradient(135deg, rgba(214, 168, 79, 0.035) 0 1px, transparent 1px 9px);
-  overflow: hidden;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(214, 168, 79, 0.34) rgba(9, 16, 17, 0.28);
 }
 
 .build-assets { left: 14px; }
 .build-inspector { right: 14px; }
+
+.build-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.build-sidebar::-webkit-scrollbar-track {
+  background: rgba(9, 16, 17, 0.28);
+  border-radius: 999px;
+}
+
+.build-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(214, 168, 79, 0.34);
+  border-radius: 999px;
+}
 
 .build-panel-head {
   display: flex;
@@ -1444,6 +1465,29 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 7px;
+}
+
+.build-inline-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.build-inline-actions button {
+  border: 1px solid rgba(214, 168, 79, 0.22);
+  border-radius: 10px;
+  color: #f7edcf;
+  background: rgba(9, 16, 17, 0.58);
+  padding: 7px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: 'PingFang SC', sans-serif;
+}
+
+.build-inline-actions button.danger {
+  color: #ffe0d8;
+  border-color: rgba(199, 101, 79, 0.46);
+  background: rgba(105, 42, 32, 0.42);
 }
 
 .build-meta-list {

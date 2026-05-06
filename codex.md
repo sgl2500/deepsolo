@@ -1861,3 +1861,14 @@ python scripts/trigger_heaven.py
 - `packages/visual/src/content/IndoorRoomTemplates.ts` 的 `editableLayers.floor` 支持 `brushAssetIds`，Token 中心 floor brush 改为引用注册资产。
 - `packages/visual/src/ui/BuildModeOverlay.ts` 瓦片笔刷支持从 catalog 读取正确缩略图路径，避免 `smap_9309` 这类自定义瓦片误指向 `jy-runtime/10_smap`。
 - 新增 `packages/visual/docs/indoor_asset_registry.md`，记录目录规范、注册规范和当前边界；更新时间为 `2026-05-06 00:17:51 CST`。
+
+### 2026-05-06 00:43 CST 室内编辑撤销与碰撞交互
+
+- 室内 `F2` 建造模式新增快照式撤销/重做：
+  - `Cmd/Ctrl+Z` 撤销。
+  - `Cmd/Ctrl+Shift+Z` 或 `Cmd/Ctrl+Y` 重做。
+  - 底部状态条也提供“撤销 / 重做”按钮。
+- 撤销快照覆盖家具/墙贴、人物、交互区、地板 override、当前选中对象和遮挡 Mask 编辑状态；先保障单机编辑安全网，后续多人装修再升级为 command 系统。
+- 右侧 inspector 将“碰撞框”文案明确为“实体碰撞框”，和顶部“遮挡Mask”分离。
+- 碰撞框支持未启用时直接输入坐标并自动创建，新增“重置 1x1”和“清除碰撞”按钮。
+- `packages/visual/docs/indoor_asset_library_editor.md` 已补充建造模式 UI v6，更新时间为 `2026-05-06 00:43:23 CST`。

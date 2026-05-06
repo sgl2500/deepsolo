@@ -18,6 +18,8 @@ export type BuildModeOverlayState = {
   tileBrushes: BuildTileBrush[];
   selectedTileBrush: string | null;
   floorOverrideCount: number;
+  canUndo: boolean;
+  canRedo: boolean;
 };
 
 export type BuildEditorMode = 'object' | 'tile';
@@ -62,6 +64,10 @@ export type BuildModeOverlayActions = {
   onToggleMask(): void;
   onTogglePreview(): void;
   onSelectMode(): void;
+  onUndo(): void;
+  onRedo(): void;
+  onResetCollider(): void;
+  onClearCollider(): void;
   onUpdateSelectedField(field: BuildEditableField, value: BuildFieldValue): void;
   onExit(): void;
 };
@@ -118,7 +124,7 @@ export class BuildModeOverlay {
           </div>
           <button class="${!state.pendingAssetId && isObjectMode ? 'is-active' : ''}" data-action="select" ${isObjectMode ? '' : 'disabled'}>选择</button>
           <button class="${state.pendingAssetId && isObjectMode ? 'is-active' : ''}" disabled>放置</button>
-          <button class="${state.maskActive ? 'is-active' : ''}" data-action="mask">碰撞</button>
+          <button class="${state.maskActive ? 'is-active' : ''}" data-action="mask">遮挡Mask</button>
           <button class="${state.previewMode ? 'is-active' : ''}" data-action="preview">预览</button>
           <button data-action="export">导出</button>
           <button class="ghost" data-action="advanced">${state.advanced ? '收起调试' : '调试'}</button>
@@ -160,6 +166,8 @@ export class BuildModeOverlay {
             : state.selectedTileBrush ? `地板笔刷：${escapeHtml(tileBrushLabel(state.tileBrushes, state.selectedTileBrush))}` : '地板橡皮：点击恢复默认瓦片'}</strong>
         <span>自动保存 ${escapeHtml(draftTime)}</span>
         <span>${isObjectMode ? `${objectCount} 个对象` : `${state.floorOverrideCount} 个地板覆盖`}</span>
+        <button data-action="undo" ${state.canUndo ? '' : 'disabled'}>撤销</button>
+        <button data-action="redo" ${state.canRedo ? '' : 'disabled'}>重做</button>
         <button data-action="duplicate" ${isObjectMode ? '' : 'disabled'}>复制</button>
         <button data-action="delete" ${isObjectMode ? '' : 'disabled'}>删除</button>
         <button data-action="reset">恢复默认</button>
@@ -268,6 +276,7 @@ export class BuildModeOverlay {
     const depthY = depthPoint?.y ?? object.position.y;
     const rotation = object.transform?.rotation ?? 0;
     const collider = rectColliderBounds(object);
+    const editableCollider = collider ?? defaultColliderBounds(object);
     const interaction = rectInteractionBounds(object);
     return `
       <section class="build-current-card">
@@ -312,31 +321,35 @@ export class BuildModeOverlay {
             </select>
           </label>
           <label class="build-check">
-            <span>碰撞</span>
+            <span>启用实体碰撞</span>
             <input data-field="colliderEnabled" type="checkbox" ${object.collider ? 'checked' : ''} ${supportsCollider ? '' : 'disabled'} />
           </label>
           ${supportsCollider ? `
             <div class="build-form-section">
               <div class="build-section-title">
-                <span>碰撞框</span>
-                <small>${collider ? '本地格坐标' : '打开碰撞后可编辑'}</small>
+                <span>实体碰撞框</span>
+                <small>${collider ? '可拖画面角点，也可输入坐标' : '输入坐标或点重置会自动启用'}</small>
+              </div>
+              <div class="build-inline-actions">
+                <button data-action="collider-reset">重置 1x1</button>
+                <button data-action="collider-clear" class="danger" ${collider ? '' : 'disabled'}>清除碰撞</button>
               </div>
               <div class="build-collider-grid">
                 <label>
                   <span>minX</span>
-                  <input data-field="colliderMinX" type="number" step="0.1" value="${fmt(collider?.minX ?? NaN)}" ${collider ? '' : 'disabled'} />
+                  <input data-field="colliderMinX" type="number" step="0.1" value="${fmt(editableCollider.minX)}" />
                 </label>
                 <label>
                   <span>maxX</span>
-                  <input data-field="colliderMaxX" type="number" step="0.1" value="${fmt(collider?.maxX ?? NaN)}" ${collider ? '' : 'disabled'} />
+                  <input data-field="colliderMaxX" type="number" step="0.1" value="${fmt(editableCollider.maxX)}" />
                 </label>
                 <label>
                   <span>minY</span>
-                  <input data-field="colliderMinY" type="number" step="0.1" value="${fmt(collider?.minY ?? NaN)}" ${collider ? '' : 'disabled'} />
+                  <input data-field="colliderMinY" type="number" step="0.1" value="${fmt(editableCollider.minY)}" />
                 </label>
                 <label>
                   <span>maxY</span>
-                  <input data-field="colliderMaxY" type="number" step="0.1" value="${fmt(collider?.maxY ?? NaN)}" ${collider ? '' : 'disabled'} />
+                  <input data-field="colliderMaxY" type="number" step="0.1" value="${fmt(editableCollider.maxY)}" />
                 </label>
               </div>
             </div>
@@ -556,6 +569,10 @@ export class BuildModeOverlay {
         if (action === 'advanced') this.actions.onToggleAdvanced();
         if (action === 'mask') this.actions.onToggleMask();
         if (action === 'preview') this.actions.onTogglePreview();
+        if (action === 'undo') this.actions.onUndo();
+        if (action === 'redo') this.actions.onRedo();
+        if (action === 'collider-reset') this.actions.onResetCollider();
+        if (action === 'collider-clear') this.actions.onClearCollider();
         if (action === 'exit') this.actions.onExit();
       });
     });
@@ -609,6 +626,15 @@ function rectColliderBounds(object: PlacedSceneObject): { minX: number; maxX: nu
     maxX: object.collider.x + object.collider.width,
     minY: object.collider.y,
     maxY: object.collider.y + object.collider.height,
+  };
+}
+
+function defaultColliderBounds(object: PlacedSceneObject): { minX: number; maxX: number; minY: number; maxY: number } {
+  return {
+    minX: object.position.x - 0.5,
+    maxX: object.position.x + 0.5,
+    minY: object.position.y - 0.5,
+    maxY: object.position.y + 0.5,
   };
 }
 
