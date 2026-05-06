@@ -1951,3 +1951,17 @@ python scripts/trigger_heaven.py
 - `PlayerAppearanceCatalog.ts` 新增外观 `player3_white_swordsman / 白衣少侠`。
 - `PlayerAppearanceDef` 新增 `frameSequence`，`PlayerSpriteAnimator` 支持 `[0, 1, 0, 2]` 这类循环序列，让 3 帧行走图更平滑。
 - `packages/visual/docs/player_appearance_editor.md` 已同步说明，更新时间为 `2026-05-06 12:24:09 CST`。
+
+### 2026-05-06 12:37 CST 玩家外观调帧与对齐
+
+- `PlayerAppearanceStore` 新增 per-appearance tuning override，保存方向行、行走序列、缩放、脚底锚点和室内/室外 Y 偏移。
+- `F4` 人物编辑面板新增“调帧 / 对齐 / 朝向”区域，可实时调整：
+  - `scale`
+  - `originY`
+  - `worldOffsetY`
+  - `indoorOffsetY`
+  - 上/下/左/右方向取用的 spritesheet 行号
+  - `frameSequence`
+- 调参保存到 `localStorage: deepsolo_player_appearance`，不会直接改源码注册表；“恢复默认”可清掉当前外观本地调参。
+- 玩家实体继续订阅外观 store，调参后大地图/室内玩家 sprite 即时刷新。
+- `packages/visual/docs/player_appearance_editor.md` 已同步说明，更新时间为 `2026-05-06 12:37:11 CST`。

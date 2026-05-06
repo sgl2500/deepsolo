@@ -571,6 +571,7 @@ body {
   gap: 10px;
   padding: 12px;
   overflow-y: auto;
+  max-height: 280px;
 }
 
 .player-appearance-card {
@@ -632,6 +633,85 @@ body {
   border-top: 1px solid rgba(218, 169, 84, 0.15);
   color: rgba(247, 235, 208, 0.68);
   font-size: 11px;
+  font-family: 'PingFang SC', sans-serif;
+}
+
+.player-appearance-tuning {
+  padding: 12px;
+  border-top: 1px solid rgba(218, 169, 84, 0.15);
+  background: rgba(3, 8, 9, 0.22);
+}
+
+.player-appearance-tuning-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.player-appearance-tuning-head strong {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.player-appearance-tuning-head button {
+  border: 1px solid rgba(218, 169, 84, 0.22);
+  border-radius: 999px;
+  color: #f7ebd0;
+  background: rgba(9, 16, 17, 0.48);
+  padding: 5px 9px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.player-appearance-tuning-grid,
+.player-appearance-direction-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.player-appearance-direction-grid {
+  margin-top: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.player-appearance-tuning label,
+.player-appearance-sequence {
+  display: grid;
+  gap: 4px;
+  color: rgba(247, 235, 208, 0.68);
+  font-size: 10px;
+  font-family: 'PingFang SC', sans-serif;
+}
+
+.player-appearance-tuning input {
+  min-width: 0;
+  border: 1px solid rgba(218, 169, 84, 0.2);
+  border-radius: 10px;
+  color: #f7ebd0;
+  background: rgba(8, 14, 15, 0.68);
+  padding: 7px 8px;
+  outline: none;
+  font-family: 'JetBrains Mono', 'SFMono-Regular', monospace;
+  font-size: 11px;
+}
+
+.player-appearance-tuning input:focus {
+  border-color: rgba(100, 210, 148, 0.72);
+  box-shadow: 0 0 0 2px rgba(100, 210, 148, 0.12);
+}
+
+.player-appearance-sequence {
+  margin-top: 8px;
+}
+
+.player-appearance-tuning-note {
+  display: block;
+  margin-top: 8px;
+  color: rgba(247, 235, 208, 0.5);
+  font-size: 10px;
   font-family: 'PingFang SC', sans-serif;
 }
 

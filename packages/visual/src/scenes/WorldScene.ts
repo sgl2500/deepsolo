@@ -23,7 +23,11 @@ import { BUILDINGS } from '../data/BuildingData';
 import { getNearbyIndoorInteractable } from '../content/IndoorInteractables';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
 import { PlayerAppearanceOverlay } from '../ui/PlayerAppearanceOverlay';
-import { setSelectedPlayerAppearance } from '../systems/player/PlayerAppearanceStore';
+import {
+  resetPlayerAppearanceTuning,
+  setPlayerAppearanceTuning,
+  setSelectedPlayerAppearance,
+} from '../systems/player/PlayerAppearanceStore';
 import type { IndoorInteractableDef } from '../types';
 import type { ChatService, ChatMessage } from '../services/ChatService';
 
@@ -129,6 +133,14 @@ export class WorldScene extends Phaser.Scene {
       onSelectAppearance: (id) => {
         const appearance = setSelectedPlayerAppearance(id);
         this.entitySystem.showBubble('player', `已换装：${appearance.name}`);
+      },
+      onUpdateTuning: (id, tuning) => {
+        const appearance = setPlayerAppearanceTuning(id, tuning);
+        this.entitySystem.showBubble('player', `已调参：${appearance.name}`);
+      },
+      onResetTuning: (id) => {
+        const appearance = resetPlayerAppearanceTuning(id);
+        this.entitySystem.showBubble('player', `已恢复默认：${appearance.name}`);
       },
       onExit: () => this.playerAppearanceOverlay.setActive(false),
     });

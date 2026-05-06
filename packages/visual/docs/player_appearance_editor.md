@@ -1,6 +1,6 @@
 # 玩家人物编辑模式
 
-更新时间：2026-05-06 12:24:09 CST
+更新时间：2026-05-06 12:37:11 CST
 
 ## 目标
 
@@ -12,6 +12,12 @@
 - 点击面板中的人物卡片，会立即替换当前玩家在大地图和室内地图上的行走精灵图。
 - 选择会自动保存到浏览器 localStorage，刷新后保留。
 - `Esc` 可关闭人物编辑面板。
+- 面板下半部分提供调参：
+  - `缩放`：控制角色显示大小。
+  - `脚底锚点`：控制 `originY`，用于对齐脚底落点。
+  - `大地图Y / 室内Y`：分别控制世界/室内的 sprite y 偏移。
+  - `上/下/左/右 行`：控制每个朝向取 spritesheet 的哪一行。
+  - `行走序列`：控制走路时按哪些帧循环，例如 `0,1,0,2`。
 
 当前内置两个外观：
 
@@ -29,6 +35,7 @@
   - 管理当前选择的人物外观。
   - 写入 localStorage。
   - 提供订阅机制，让玩家实体实时换装。
+  - 保存每套外观的本地 tuning override：方向行、行走序列、缩放、锚点和偏移。
 - `src/systems/player/PlayerSpriteAnimator.ts`
   - 根据当前外观、方向和移动状态计算行走帧。
   - 支持 `frameSequence`，例如 3 帧走路图可用 `[0, 1, 0, 2]` 形成更自然的循环。
@@ -52,6 +59,32 @@
 6. 如果单方向只有 3 帧，建议配置 `frameSequence: [0, 1, 0, 2]`，让站立帧穿插在左右脚之间。
 
 `BootScene` 会遍历 `getPlayerAppearanceAssets()` 自动预加载所有人物外观 spritesheet。
+
+## F4 调参草稿
+
+F4 面板里的调参不会直接改 `PlayerAppearanceCatalog.ts`，而是写入：
+
+```txt
+localStorage: deepsolo_player_appearance
+```
+
+这样可以在游戏里先试效果，避免一边改源码一边刷新。调满意后，再把这些参数抄回对应 `PlayerAppearanceDef`：
+
+```ts
+frameSequence: [0, 1, 0, 2],
+directionRows: {
+  [Direction.Up]: 1,
+  [Direction.Right]: 3,
+  [Direction.Left]: 2,
+  [Direction.Down]: 0,
+},
+scale: 2.6,
+originY: 0.95,
+worldOffsetY: 10,
+indoorOffsetY: 0,
+```
+
+“恢复默认”会清掉当前外观的本地调参草稿，回到源码注册表里的默认值。
 
 ## player3 合成记录
 

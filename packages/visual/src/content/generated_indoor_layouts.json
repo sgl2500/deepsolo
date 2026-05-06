@@ -1,24 +1,24 @@
 {
   "version": 1,
-  "savedAt": 1778033216925,
+  "savedAt": 1778042609671,
   "scenes": {
     "birth_house": {
       "sceneId": "birth_house",
-      "savedAt": 1778033216925,
+      "savedAt": 1778042609671,
       "furniture": [
         {
           "id": "bed",
           "textureKey": "birth_house_decor_bed",
-          "localX": 2.3,
-          "localY": 10.4,
+          "localX": 2,
+          "localY": 13.1,
           "scale": 0.5,
-          "depthLocalX": 1.5,
-          "depthLocalY": 9.3,
+          "depthLocalX": 1.2,
+          "depthLocalY": 12,
           "collider": {
-            "minLocalX": 0,
-            "maxLocalX": 2.5,
-            "minLocalY": 7.3,
-            "maxLocalY": 11.2
+            "minLocalX": -0.3,
+            "maxLocalX": 2.2,
+            "minLocalY": 10,
+            "maxLocalY": 13.9
           }
         },
         {
@@ -129,7 +129,7 @@
         "sceneId": "birth_house",
         "sceneType": "indoor",
         "templateId": "birth_house",
-        "savedAt": 1778033216920,
+        "savedAt": 1778042609668,
         "objects": [
           {
             "id": "bed",
@@ -139,8 +139,8 @@
             "kind": "indoorFurniture",
             "layer": "object",
             "position": {
-              "x": 2.3,
-              "y": 10.4
+              "x": 2,
+              "y": 13.1
             },
             "transform": {
               "scale": 0.5
@@ -148,16 +148,16 @@
             "depth": {
               "mode": "ySort",
               "point": {
-                "x": 1.5,
-                "y": 9.3
+                "x": 1.2,
+                "y": 12
               }
             },
             "collider": {
               "type": "rect",
-              "x": 0,
-              "y": 7.3,
+              "x": -0.3,
+              "y": 10,
               "width": 2.5,
-              "height": 3.8999999999999995
+              "height": 3.9000000000000004
             },
             "metadata": {
               "legacyType": "IndoorFurnitureDef",
