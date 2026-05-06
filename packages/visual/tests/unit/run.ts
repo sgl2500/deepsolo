@@ -6,6 +6,7 @@ import { tests as indoorCoordinateMapperTests } from './indoor_coordinate_mapper
 import { tests as indoorEditorPersistenceTests } from './indoor_editor_persistence.test';
 import { tests as indoorRoomTemplateTests } from './indoor_room_templates.test';
 import { tests as playerAppearanceTests } from './player_appearance.test';
+import { tests as playerLocationPersistenceTests } from './player_location_persistence.test';
 import { tests as strategyNpcPlacementTests } from './strategy_npc_placement.test';
 import { tests as strategyNpcVisualsTests } from './strategy_npc_visuals.test';
 import { tests as detailPanelLiveStateTests } from './detail_panel_live_state.test';
@@ -19,6 +20,7 @@ export async function run(): Promise<void> {
     { suite: 'IndoorEditorPersistence', tests: indoorEditorPersistenceTests },
     { suite: 'IndoorRoomTemplates', tests: indoorRoomTemplateTests },
     { suite: 'PlayerAppearance', tests: playerAppearanceTests },
+    { suite: 'PlayerLocationPersistence', tests: playerLocationPersistenceTests },
     { suite: 'StrategyNpcPlacement', tests: strategyNpcPlacementTests },
     { suite: 'StrategyNpcVisuals', tests: strategyNpcVisualsTests },
     { suite: 'DetailPanelLiveState', tests: detailPanelLiveStateTests },

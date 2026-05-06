@@ -190,6 +190,9 @@ export const LS_KEY_WORLD_MAP_EDITOR_LAYOUTS = 'deepsolo_world_map_editor_layout
 /** 玩家生命/内力/物品进度 localStorage key */
 export const LS_KEY_PLAYER_PROGRESS = 'deepsolo_player_progress';
 
+/** 玩家所在场景和坐标 localStorage key */
+export const LS_KEY_PLAYER_LOCATION = 'deepsolo_player_location';
+
 // --- Token 中心 ---
 /** Token 中心初始数据路径 */
 export const TOKEN_ACCOUNT_URL = './data/token_center/account.json';

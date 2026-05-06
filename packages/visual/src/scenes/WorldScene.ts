@@ -73,6 +73,18 @@ export class WorldScene extends Phaser.Scene {
   private chatAgentId: string | null = null;
   /** 室内交互提示 */
   private interactHintText: Phaser.GameObjects.Text | null = null;
+  /** 上次持久化玩家位置的时间，避免每帧写 localStorage */
+  private lastLocationPersistTime = 0;
+  private locationPersistenceCleaned = false;
+  private readonly handleBeforeUnload = (): void => {
+    this.persistCurrentPlayerLocation(Date.now(), true);
+  };
+  private readonly cleanupLocationPersistence = (): void => {
+    if (this.locationPersistenceCleaned) return;
+    this.locationPersistenceCleaned = true;
+    this.persistCurrentPlayerLocation(Date.now(), true);
+    window.removeEventListener('beforeunload', this.handleBeforeUnload);
+  };
 
   constructor() {
     super('WorldScene');
@@ -153,8 +165,13 @@ export class WorldScene extends Phaser.Scene {
     );
     this.sceneManager.saveWorldContext(this.mapData, this.tileMeta);
 
-    // ── 初始进入出生小屋（屏幕直接黑屏，无过渡） ──
-    this.sceneManager.startInstant('birth_house');
+    this.locationPersistenceCleaned = false;
+    window.addEventListener('beforeunload', this.handleBeforeUnload);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.cleanupLocationPersistence);
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.cleanupLocationPersistence);
+
+    // ── 优先恢复上次退出前的稳定场景；新号仍进入出生小屋 ──
+    this.restoreInitialPlayerLocation();
 
     this.input.keyboard!.on('keydown-F2', () => {
       this.mapRenderer.toggleFurnitureEditor();
@@ -628,6 +645,7 @@ export class WorldScene extends Phaser.Scene {
     }
 
     // 场景管理更新（检测建筑进出）
+    this.persistCurrentPlayerLocation(time);
     this.sceneManager.update(time, delta, this.entitySystem.player);
 
     const buildingId = this.sceneManager.getCurrentBuildingId();
@@ -736,6 +754,48 @@ export class WorldScene extends Phaser.Scene {
   private getNearbyInspectableStrategyNpc(playerX: number, playerY: number): StrategyNPC | null {
     if (!this.sceneManager.isIndoor()) return null;
     return this.entitySystem.getNearbyStrategyNPC(playerX, playerY, WorldScene.AGENT_INTERACT_DIST);
+  }
+
+  private restoreInitialPlayerLocation(): void {
+    const savedLocation = _store.getSavedPlayerLocation();
+    if (!savedLocation) {
+      this.sceneManager.startInstant('birth_house');
+      return;
+    }
+
+    if (savedLocation.scene === SceneState.WorldMap) {
+      this.sceneManager.restoreWorldAt(savedLocation.x, savedLocation.y);
+      return;
+    }
+
+    const restored = this.sceneManager.restoreIndoorAt(
+      savedLocation.buildingId ?? '',
+      savedLocation.x,
+      savedLocation.y,
+      savedLocation.worldX,
+      savedLocation.worldY,
+    );
+    if (!restored) this.sceneManager.startInstant('birth_house');
+  }
+
+  private persistCurrentPlayerLocation(time: number, force = false): void {
+    if (!this.sceneManager || !this.entitySystem?.player) return;
+    if (!force && time - this.lastLocationPersistTime < 800) return;
+
+    const state = this.sceneManager.getState();
+    const player = this.entitySystem.player;
+    if (state === SceneState.WorldMap) {
+      _store.saveWorldPlayerLocation(player.mapX, player.mapY);
+      this.lastLocationPersistTime = time;
+      return;
+    }
+
+    if (state === SceneState.Indoor) {
+      const buildingId = this.sceneManager.getCurrentBuildingId();
+      const worldPosition = this.sceneManager.getSavedWorldPosition();
+      _store.saveIndoorPlayerLocation(buildingId, player.mapX, player.mapY, worldPosition.x, worldPosition.y);
+      this.lastLocationPersistTime = time;
+    }
   }
 
   private executeIndoorInteractable(interactable: IndoorInteractableDef): void {

@@ -84,6 +84,53 @@ export class SceneManager {
     this.forceEnterBuildingInstant(buildingId);
   }
 
+  /** 恢复到上次退出前所在的世界地图坐标 */
+  restoreWorldAt(x: number, y: number): void {
+    const player = this.entitySystem.getPlayer();
+    this.state = SceneState.WorldMap;
+    this.currentBuildingId = null;
+    this.savedPlayerX = x;
+    this.savedPlayerY = y;
+    this.fadeOverlay.setAlpha(0);
+
+    player.setMapPosition(x, y);
+    player.setIndoorMode(false, 0, 0);
+    if (this.savedWorldMap) {
+      player.switchMapData(this.savedWorldMap);
+    }
+    if (this.savedWorldMap && this.worldTileMeta) {
+      this.mapRenderer.renderBuffer(x, y);
+      this.mapRenderer.blitToScreen(x, y);
+    }
+
+    this.entitySystem.clearNPCs();
+    this.entitySystem.clearStrategyNPCs();
+    this.entitySystem.setWorldAgentsVisible(false);
+    this.worldAgentsVisible = false;
+    this.entitySystem.syncEntityScreenPositions(x, y);
+    this.minimapSystem.setVisible(true);
+    updateBuildingMarkers(this.buildingMarkers, x, y);
+    setBuildingMarkersVisible(this.buildingMarkers, true);
+    this.reentryBlocked = true;
+
+    this.store.saveWorldPlayerLocation(x, y);
+    this.eventBus.emit('scene:state-changed', { state: SceneState.WorldMap });
+  }
+
+  /** 恢复到上次退出前所在的室内坐标 */
+  restoreIndoorAt(buildingId: string, x: number, y: number, worldX?: number, worldY?: number): boolean {
+    const building = BUILDINGS.find(b => b.id === buildingId);
+    if (!building) return false;
+
+    this.fadeOverlay.setAlpha(1);
+    this.state = SceneState.TransitionOut;
+    this.currentBuildingId = building.id;
+    this.savedPlayerX = Number.isFinite(worldX) ? worldX! : building.returnX;
+    this.savedPlayerY = Number.isFinite(worldY) ? worldY! : building.returnY;
+    this.onEnterMidpoint(building, false, { x, y });
+    return true;
+  }
+
   /** 保存世界地图引用，在 init 之后调用一次 */
   saveWorldContext(mapData: MapData, tileMeta: TileMeta): void {
     this.savedWorldMap = mapData;
@@ -96,6 +143,10 @@ export class SceneManager {
 
   getCurrentBuildingId(): string | null {
     return this.currentBuildingId;
+  }
+
+  getSavedWorldPosition(): { x: number; y: number } {
+    return { x: this.savedPlayerX, y: this.savedPlayerY };
   }
 
   isIndoor(): boolean {
@@ -214,7 +265,11 @@ export class SceneManager {
   /** 进入建筑 — 中间点（切换地图）
    *  @param fromOutside true=从外部重新进入(门口出生), false=初始出生(中心)
    */
-  private onEnterMidpoint(building: typeof BUILDINGS[0], fromOutside: boolean): void {
+  private onEnterMidpoint(
+    building: typeof BUILDINGS[0],
+    fromOutside: boolean,
+    spawnOverride?: { x: number; y: number },
+  ): void {
     // 加载室内地图
     const indoorMap = this.scene.cache.json.get(building.indoorMapKey);
     if (!indoorMap) {
@@ -227,7 +282,9 @@ export class SceneManager {
 
     // 移动玩家到室内出生点（必须在切地图之前，确保渲染中心正确）
     const player = this.entitySystem.getPlayer();
-    if (fromOutside) {
+    if (spawnOverride) {
+      player.setMapPosition(spawnOverride.x, spawnOverride.y);
+    } else if (fromOutside) {
       // 从外部重新进入 → 门口出生点
       const dx = building.doorSpawnX ?? building.exitX;
       const dy = building.doorSpawnY ?? building.exitY - 3;
@@ -287,6 +344,13 @@ export class SceneManager {
         duration: TRANSITION_FADE_MS,
         onComplete: () => {
           this.state = SceneState.Indoor;
+          this.store.saveIndoorPlayerLocation(
+            building.id,
+            player.mapX,
+            player.mapY,
+            this.savedPlayerX,
+            this.savedPlayerY,
+          );
         },
       });
 
@@ -368,6 +432,7 @@ export class SceneManager {
       duration: TRANSITION_FADE_MS,
       onComplete: () => {
         this.state = SceneState.WorldMap;
+        this.store.saveWorldPlayerLocation(rx, ry);
       },
     });
 

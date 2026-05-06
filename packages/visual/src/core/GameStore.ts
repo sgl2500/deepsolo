@@ -14,12 +14,19 @@ import {
   type PlayerVitals,
   type Strategy,
 } from '../types';
-import { INITIAL_STRATEGIES, STRATEGIES_URL, EVENTS_URL, POLL_INTERVAL, LS_KEY_STORY, LS_KEY_PLAYER_PROGRESS } from '../config';
+import { INITIAL_STRATEGIES, STRATEGIES_URL, EVENTS_URL, POLL_INTERVAL, LS_KEY_STORY, LS_KEY_PLAYER_PROGRESS, LS_KEY_PLAYER_LOCATION } from '../config';
 import { EventBus } from './EventBus';
 import { getPlayerItemDef } from '../content/PlayerItems';
 import { getPlayerManualDef, getPlayerManualDefByItemId } from '../content/PlayerManuals';
 import { MARTIAL_LEVEL_MAX, getMartialPowerMultiplier, getMartialRequiredExp } from '../content/PlayerMartialArts';
 import { buildPlayerCombatProfile, getStrategyExistenceTier } from '../data/CombatProfile';
+import {
+  createIndoorPlayerLocation,
+  createWorldPlayerLocation,
+  getPlayerLocationSignature,
+  normalizePlayerLocation,
+  type PlayerLocation,
+} from './PlayerLocationPersistence';
 
 const DEFAULT_PLAYER_PROGRESS: PlayerProgress = {
   version: 2,
@@ -65,16 +72,20 @@ export class GameStore {
   tutorialCompleted = false;
   /** 玩家生命/内力/秘籍等长期状态 */
   playerProgress: PlayerProgress = structuredClone(DEFAULT_PLAYER_PROGRESS);
+  /** 玩家上次所在稳定场景和坐标 */
+  playerLocation: PlayerLocation | null = null;
 
   private eventBus: EventBus;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private processedEvents: Set<string> = new Set();
   private prevStrategyIds: Set<string> = new Set();
+  private lastPlayerLocationSignature = '';
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
     this.initStoryState();
     this.initPlayerProgress();
+    this.initPlayerLocation();
     this.ensurePlayerCombatBaseline();
     // 同步加载 fallback 数据，确保 WorldScene.create 有数据可用
     this.strategies = INITIAL_STRATEGIES.map((s) => this.normalizeStrategy(s));
@@ -262,6 +273,26 @@ export class GameStore {
     this.playerPosition.x = x;
     this.playerPosition.y = y;
     this.eventBus.emit('player:moved', { x, y });
+  }
+
+  getSavedPlayerLocation(): PlayerLocation | null {
+    return this.playerLocation ? { ...this.playerLocation } : null;
+  }
+
+  saveWorldPlayerLocation(x: number, y: number): void {
+    const location = createWorldPlayerLocation(x, y);
+    if (location) this.persistPlayerLocation(location);
+  }
+
+  saveIndoorPlayerLocation(
+    buildingId: string | null | undefined,
+    x: number,
+    y: number,
+    worldX?: number,
+    worldY?: number,
+  ): void {
+    const location = createIndoorPlayerLocation(buildingId, x, y, worldX, worldY);
+    if (location) this.persistPlayerLocation(location);
   }
 
   hasPlayerFlag(flag: string): boolean {
@@ -523,6 +554,30 @@ export class GameStore {
       if (!saved) return;
       this.playerProgress = this.normalizePlayerProgress(JSON.parse(saved));
     } catch { /* ignore */ }
+  }
+
+  private initPlayerLocation(): void {
+    try {
+      const saved = localStorage.getItem(LS_KEY_PLAYER_LOCATION);
+      if (!saved) return;
+      const location = normalizePlayerLocation(JSON.parse(saved));
+      if (!location) return;
+      this.playerLocation = location;
+      this.playerPosition = { x: location.x, y: location.y };
+      this.lastPlayerLocationSignature = getPlayerLocationSignature(location);
+    } catch { /* ignore */ }
+  }
+
+  private persistPlayerLocation(location: PlayerLocation): void {
+    const normalized = normalizePlayerLocation(location);
+    if (!normalized) return;
+    const signature = getPlayerLocationSignature(normalized);
+    if (signature === this.lastPlayerLocationSignature) return;
+    this.playerLocation = normalized;
+    this.playerPosition = { x: normalized.x, y: normalized.y };
+    this.lastPlayerLocationSignature = signature;
+    localStorage.setItem(LS_KEY_PLAYER_LOCATION, JSON.stringify(normalized));
+    this.eventBus.emit('player:moved', { x: normalized.x, y: normalized.y });
   }
 
   persistPlayerProgress(): void {
