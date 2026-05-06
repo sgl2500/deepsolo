@@ -32,6 +32,7 @@ export interface Strategy {
   role?: string;
   sourceWorkspace?: string;
   mode?: string;
+  existenceTier?: number;
 }
 
 /** 策略模板 (来自 template.json) */

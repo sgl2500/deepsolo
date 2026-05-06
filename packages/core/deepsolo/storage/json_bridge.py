@@ -143,6 +143,7 @@ def _load_workspace_projection_meta(base_path: Path, agent_id: str) -> dict:
         "role": payload.get("role"),
         "sourceWorkspace": payload.get("sourceWorkspace"),
         "mode": payload.get("mode"),
+        "existenceTier": payload.get("existenceTier"),
     }
     return {key: value for key, value in meta.items() if value not in (None, "")}
 

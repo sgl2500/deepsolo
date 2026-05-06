@@ -14,12 +14,15 @@ function person(id: string, team: 'red' | 'blue', x: number, y: number, alive = 
     id,
     name: id,
     team,
+    existenceTier: 1,
     hp: alive ? 100 : 0,
     maxHp: 100,
     mp: 50,
     maxMp: 50,
     attack: 100,
     defense: 50,
+    hitRate: 10,
+    dodgeRate: 10,
     speed: 10,
     moveRange: 3,
     pos: { x, y },
@@ -70,11 +73,18 @@ export const tests: TestCase[] = [
     const attack = skill('strike', 1);
     const rolls = [0.1, 0.5];
     const result = calcBattleDamage(attacker, defender, attack, 100, () => rolls.shift() ?? 0);
-    assert.deepEqual(result, { damage: 50, hit: true });
+    assert.deepEqual(result, { damage: 170, hit: true });
   }),
 
   test('calcBattleDamage can miss before damage roll', () => {
     const result = calcBattleDamage(person('a', 'red', 0, 0), person('d', 'blue', 0, 1), skill('strike', 1), 100, () => 0.99);
+    assert.deepEqual(result, { damage: 0, hit: false });
+  }),
+
+  test('calcBattleDamage lets dodge offset hit chance', () => {
+    const attacker = { ...person('a', 'red', 0, 0), hitRate: 10 };
+    const defender = { ...person('d', 'blue', 0, 1), dodgeRate: 20 };
+    const result = calcBattleDamage(attacker, defender, skill('strike', 1), 100, () => 0.75);
     assert.deepEqual(result, { damage: 0, hit: false });
   }),
 

@@ -19,17 +19,18 @@ import { EventBus } from './EventBus';
 import { getPlayerItemDef } from '../content/PlayerItems';
 import { getPlayerManualDef, getPlayerManualDefByItemId } from '../content/PlayerManuals';
 import { MARTIAL_LEVEL_MAX, getMartialPowerMultiplier, getMartialRequiredExp } from '../content/PlayerMartialArts';
+import { buildPlayerCombatProfile, getStrategyExistenceTier } from '../data/CombatProfile';
 
 const DEFAULT_PLAYER_PROGRESS: PlayerProgress = {
-  version: 1,
+  version: 2,
   identity: { name: '无名少侠', title: '观察者' },
-  vitals: { hp: 72, maxHp: 100, mp: 18, maxMp: 50 },
+  vitals: { hp: 200, maxHp: 200, mp: 200, maxMp: 200 },
   attributes: {
-    attack: 8,
-    defense: 6,
-    speed: 7,
-    understanding: 5,
-    fortune: 5,
+    attack: 10,
+    defense: 10,
+    speed: 10,
+    understanding: 10,
+    fortune: 10,
   },
   inventory: [],
   manuals: [],
@@ -47,6 +48,8 @@ export interface MartialUseResult {
   leveledUp: boolean;
   levelsGained: number;
 }
+
+type StrategyLike = Omit<Strategy, 'state' | 'existenceTier'> & Partial<Pick<Strategy, 'state' | 'existenceTier'>>;
 
 export class GameStore {
   strategies: Strategy[] = [];
@@ -72,11 +75,9 @@ export class GameStore {
     this.eventBus = eventBus;
     this.initStoryState();
     this.initPlayerProgress();
+    this.ensurePlayerCombatBaseline();
     // 同步加载 fallback 数据，确保 WorldScene.create 有数据可用
-    this.strategies = INITIAL_STRATEGIES.map(s => {
-      const state = this.deriveState(s.returnPct);
-      return { ...s, state } as Strategy;
-    });
+    this.strategies = INITIAL_STRATEGIES.map((s) => this.normalizeStrategy(s));
     this.prevStrategyIds = new Set(this.strategies.map(s => s.id));
     // 异步尝试从后端 JSON 加载真实数据
     this.fetchFromBackend();
@@ -95,10 +96,7 @@ export class GameStore {
       if (resp.ok) {
         const data: Strategy[] = await resp.json();
         if (Array.isArray(data) && data.length > 0) {
-          this.strategies = data.map(s => {
-            const state = this.deriveState(s.returnPct);
-            return { ...s, state } as Strategy;
-          });
+          this.strategies = data.map((s) => this.normalizeStrategy(s));
           this.prevStrategyIds = new Set(this.strategies.map(s => s.id));
           this.eventBus.emit('strategy:loaded', this.strategies);
           this.startPolling();
@@ -127,8 +125,7 @@ export class GameStore {
       const data: Strategy[] = await resp.json();
       if (Array.isArray(data) && data.length > 0) {
         const newStrategies = data.map(s => {
-          const state = this.deriveState(s.returnPct);
-          return { ...s, state } as Strategy;
+          return this.normalizeStrategy(s);
         });
         const newIds = new Set(newStrategies.map(s => s.id));
 
@@ -243,8 +240,9 @@ export class GameStore {
   }
 
   selectStrategy(strategy: Strategy | null): void {
-    this.selectedStrategyId = strategy?.id ?? null;
-    this.eventBus.emit('strategy:selected', strategy);
+    const normalized = strategy ? this.normalizeStrategy(strategy) : null;
+    this.selectedStrategyId = normalized?.id ?? null;
+    this.eventBus.emit('strategy:selected', normalized);
   }
 
   getSelectedStrategy(): Strategy | undefined {
@@ -450,11 +448,52 @@ export class GameStore {
     this.persistPlayerProgress();
   }
 
-  setPlayerVitals(hp: number, mp: number): void {
+  setPlayerVitals(hp: number, mp: number, maxHp?: number, maxMp?: number): void {
     const vitals = this.playerProgress.vitals;
+    if (typeof maxHp === 'number' && Number.isFinite(maxHp)) {
+      vitals.maxHp = Math.max(1, Math.round(maxHp));
+    }
+    if (typeof maxMp === 'number' && Number.isFinite(maxMp)) {
+      vitals.maxMp = Math.max(0, Math.round(maxMp));
+    }
     vitals.hp = Math.max(0, Math.min(vitals.maxHp, Math.round(hp)));
     vitals.mp = Math.max(0, Math.min(vitals.maxMp, Math.round(mp)));
     this.persistPlayerProgress();
+  }
+
+  private normalizeStrategy(strategy: StrategyLike): Strategy {
+    return {
+      ...strategy,
+      state: strategy.state ?? this.deriveState(strategy.returnPct),
+      existenceTier: getStrategyExistenceTier(strategy),
+    };
+  }
+
+  private ensurePlayerCombatBaseline(): void {
+    const attrs = this.playerProgress.attributes;
+    attrs.attack = Math.max(10, attrs.attack);
+    attrs.defense = Math.max(10, attrs.defense);
+    attrs.speed = Math.max(10, attrs.speed);
+    attrs.understanding = Math.max(10, attrs.understanding);
+    attrs.fortune = Math.max(10, attrs.fortune);
+
+    const vitals = this.playerProgress.vitals;
+    const oldMaxHp = Math.max(1, vitals.maxHp);
+    const oldMaxMp = Math.max(1, vitals.maxMp);
+    const hpRatio = vitals.hp / oldMaxHp;
+    const mpRatio = vitals.mp / oldMaxMp;
+    const baseline = buildPlayerCombatProfile(this.playerProgress);
+    const nextMaxHp = Math.max(oldMaxHp, baseline.maxHp);
+    const nextMaxMp = Math.max(oldMaxMp, baseline.maxMp);
+
+    if (nextMaxHp !== oldMaxHp) {
+      vitals.maxHp = nextMaxHp;
+      vitals.hp = Math.max(1, Math.round(nextMaxHp * hpRatio));
+    }
+    if (nextMaxMp !== oldMaxMp) {
+      vitals.maxMp = nextMaxMp;
+      vitals.mp = Math.max(0, Math.round(nextMaxMp * mpRatio));
+    }
   }
 
   addEvent(agentName: string, text: string): void {
@@ -487,6 +526,7 @@ export class GameStore {
   }
 
   persistPlayerProgress(): void {
+    this.ensurePlayerCombatBaseline();
     localStorage.setItem(LS_KEY_PLAYER_PROGRESS, JSON.stringify(this.playerProgress));
     this.eventBus.emit('player:progress-changed', this.playerProgress);
     this.eventBus.emit('ui:refresh');
@@ -503,7 +543,7 @@ export class GameStore {
     const vitals = this.normalizeVitals(data.vitals);
 
     return {
-      version: 1,
+      version: defaultProgress.version,
       identity: {
         name: typeof data.identity?.name === 'string' ? data.identity.name : defaultProgress.identity.name,
         title: typeof data.identity?.title === 'string' ? data.identity.title : defaultProgress.identity.title,

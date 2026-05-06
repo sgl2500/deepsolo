@@ -2,6 +2,7 @@ import { STATE_LABELS, type EventEntry, type Strategy } from '../types';
 import type { EventBus } from '../core/EventBus';
 import type { GameStore } from '../core/GameStore';
 import { renderStrategyLiveState, type StrategyLiveState } from './DetailPanel';
+import { buildStrategyCombatDisplayModel, renderCombatCardGrid, renderCombatNotes } from './CombatDisplay';
 
 type StrategyProfileTab = 'profile' | 'strategy' | 'history';
 
@@ -184,6 +185,7 @@ export class StrategyProfileOverlay {
   }
 
   private renderProfileTab(strategy: Strategy): string {
+    const combat = buildStrategyCombatDisplayModel(strategy);
     return `
       <section class="player-profile">
         <div class="player-avatar strategy-avatar">${escapeHtml(getSealText(strategy))}</div>
@@ -210,6 +212,17 @@ export class StrategyProfileOverlay {
         </div>
       </section>
 
+      <section class="player-section">
+        <h4>规则锚点</h4>
+        ${renderCombatCardGrid(combat.anchorCards, 'is-compact')}
+        ${renderCombatNotes(combat.notes)}
+      </section>
+
+      <section class="player-section">
+        <h4>人物四维</h4>
+        ${renderCombatCardGrid(combat.attributeCards, 'is-compact')}
+      </section>
+
       ${strategy.parents?.length ? `
         <section class="player-section">
           <h4>传承关系</h4>
@@ -230,6 +243,7 @@ export class StrategyProfileOverlay {
   }
 
   private renderStrategyTab(strategy: Strategy, liveState: StrategyLiveState | null, loading: boolean): string {
+    const combat = buildStrategyCombatDisplayModel(strategy);
     return `
       <section class="player-profile">
         <div class="player-avatar strategy-avatar">${escapeHtml(getSealText(strategy))}</div>
@@ -249,6 +263,11 @@ export class StrategyProfileOverlay {
           ${renderStatCard('均笔收益', `${strategy.avgReturnPct}%`, strategy.avgReturnPct >= 0 ? 'is-pos' : 'is-neg')}
           ${renderStatCard('资金规模', `¥${strategy.capital.toLocaleString()}`)}
         </div>
+      </section>
+
+      <section class="player-section">
+        <h4>统一战斗属性</h4>
+        ${renderCombatCardGrid(combat.battleCards, 'is-wide')}
       </section>
 
       <section class="player-section">

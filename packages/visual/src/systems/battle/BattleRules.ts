@@ -105,13 +105,12 @@ export function calcBattleDamage(
   effectiveSkillPower: number,
   random = Math.random,
 ): { damage: number; hit: boolean } {
+  const hitChance = clamp(skill.hitRate + (attacker.hitRate - defender.dodgeRate) * 2, 20, 98);
   const hitRoll = random() * 100;
-  if (hitRoll >= skill.hitRate) return { damage: 0, hit: false };
+  if (hitRoll >= hitChance) return { damage: 0, hit: false };
 
-  const atk = attacker.attack;
-  const def = defender.defense;
-  const base = effectiveSkillPower * atk / (atk + def + 50);
-  const randomMod = 0.85 + random() * 0.30;
+  const base = effectiveSkillPower + attacker.attack - defender.defense * 0.6;
+  const randomMod = 0.9 + random() * 0.2;
   return { damage: Math.max(1, Math.round(base * randomMod)), hit: true };
 }
 
@@ -158,4 +157,8 @@ function isOccupied(pos: BattleGridPos, persons: BattlePerson[], exceptPersonId?
 
 function posKey(pos: BattleGridPos): string {
   return `${pos.x},${pos.y}`;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }

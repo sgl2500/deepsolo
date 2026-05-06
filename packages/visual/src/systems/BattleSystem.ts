@@ -115,8 +115,10 @@ export class BattleSystem {
   start(redId: string, blueId: string): void {
     if (this.phase !== 'idle') return;
 
-    const red = createBattlePerson(redId, 'red', { x: 5, y: 8 });
-    const blue = createBattlePerson(blueId, 'blue', { x: 3, y: 1 });
+    const redStrategy = this.store.getStrategy(redId);
+    const blueStrategy = this.store.getStrategy(blueId);
+    const red = createBattlePerson(redId, 'red', { x: 5, y: 8 }, redStrategy?.name, redStrategy);
+    const blue = createBattlePerson(blueId, 'blue', { x: 3, y: 1 }, blueStrategy?.name, blueStrategy);
     this.startWithPersons(red, blue, null, true);
   }
 
@@ -125,7 +127,8 @@ export class BattleSystem {
     if (this.phase !== 'idle') return;
 
     const player = createPlayerBattlePerson(this.store.playerProgress, 'red', { x: 5, y: 8 });
-    const enemy = createBattlePerson(agentId, 'blue', { x: 3, y: 1 }, agentName);
+    const enemyStrategy = this.store.getStrategy(agentId);
+    const enemy = createBattlePerson(agentId, 'blue', { x: 3, y: 1 }, agentName, enemyStrategy);
     this.startWithPersons(player, enemy, 'player', false);
   }
 
@@ -1105,7 +1108,7 @@ export class BattleSystem {
     if (!player) return;
     const hp = player.hp <= 0 ? 1 : Math.ceil(player.hp);
     const mp = Math.ceil(player.mp);
-    this.store.setPlayerVitals(hp, mp);
+    this.store.setPlayerVitals(hp, mp, Math.ceil(player.maxHp), Math.ceil(player.maxMp));
   }
 
   // ============================================================

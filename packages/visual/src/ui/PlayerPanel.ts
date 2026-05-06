@@ -9,6 +9,7 @@ import {
   getMartialPowerMultiplier,
   getMartialRequiredExp,
 } from '../content/PlayerMartialArts';
+import { buildPlayerCombatDisplayModel, renderCombatCardGrid, renderCombatNotes } from './CombatDisplay';
 
 type PlayerPanelTab = 'attributes' | 'martial' | 'items';
 
@@ -167,6 +168,7 @@ export class PlayerPanel {
     const progress = this.store.playerProgress;
     const vitals = progress.vitals;
     const equipment = progress.equipment;
+    const combat = buildPlayerCombatDisplayModel(progress);
     return `
       <section class="player-profile">
         <div class="player-avatar">侠</div>
@@ -185,7 +187,23 @@ export class PlayerPanel {
       </section>
 
       <section class="player-section">
-        <h4>基础属性</h4>
+        <h4>规则锚点</h4>
+        ${renderCombatCardGrid(combat.anchorCards, 'is-compact')}
+        ${renderCombatNotes(combat.notes)}
+      </section>
+
+      <section class="player-section">
+        <h4>人物四维</h4>
+        ${renderCombatCardGrid(combat.attributeCards, 'is-compact')}
+      </section>
+
+      <section class="player-section">
+        <h4>统一战斗属性</h4>
+        ${renderCombatCardGrid(combat.battleCards, 'is-wide')}
+      </section>
+
+      <section class="player-section">
+        <h4>成长底盘</h4>
         <div class="player-attrs">
           ${Object.entries(ATTRIBUTE_LABELS).map(([key, label]) => `
             <div><span>${label}</span><b>${progress.attributes[key as keyof typeof ATTRIBUTE_LABELS]}</b></div>

@@ -265,6 +265,64 @@ body {
 }
 .player-equipment b { font-size: 13px; }
 
+.combat-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+}
+
+.combat-grid.is-wide {
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+}
+
+.combat-card {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(251, 191, 36, 0.12);
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.combat-card span {
+  display: block;
+  color: #b9a77f;
+  font-size: 11px;
+}
+
+.combat-card b {
+  display: block;
+  margin-top: 3px;
+  color: #fef3c7;
+  font-size: 15px;
+}
+
+.combat-card small {
+  display: block;
+  margin-top: 5px;
+  color: #8f9aad;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.combat-card.tone-pos b { color: #86efac; }
+.combat-card.tone-neg b { color: #fca5a5; }
+.combat-card.tone-accent b { color: #93c5fd; }
+
+.combat-notes {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.combat-note {
+  padding: 9px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(251, 191, 36, 0.1);
+  background: rgba(255, 255, 255, 0.035);
+  color: #b9a77f;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
 .player-list {
   display: grid;
   gap: 8px;
@@ -477,6 +535,10 @@ body {
   .player-layout { grid-template-columns: 1fr; }
   .player-tabs { grid-template-columns: repeat(3, 1fr); }
   .player-tabs span { display: none; }
+  .combat-grid,
+  .combat-grid.is-wide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .player-vitals,
   .player-attrs,
   .player-equipment { grid-template-columns: 1fr 1fr; }
@@ -1129,6 +1191,8 @@ body {
     min-height: 0;
   }
 
+  .combat-grid,
+  .combat-grid.is-wide,
   .strategy-meta-grid,
   .strategy-stat-grid {
     grid-template-columns: 1fr;

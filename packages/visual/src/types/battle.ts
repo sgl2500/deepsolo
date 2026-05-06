@@ -37,12 +37,15 @@ export interface BattlePerson {
   id: string;
   name: string;
   team: 'red' | 'blue';
+  existenceTier: number;
   hp: number;
   maxHp: number;
   mp: number;
   maxMp: number;
   attack: number;
   defense: number;
+  hitRate: number;
+  dodgeRate: number;
   speed: number;
   moveRange: number;
   wugong: WugongDef;

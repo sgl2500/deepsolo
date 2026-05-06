@@ -251,6 +251,7 @@ def build_crypto_projection(
         "sourceWorkspace": workspace.workspace_id,
         "mode": mode,
         "symbol": symbol,
+        "existenceTier": 10,
     }
 
     return StrategyAgentProjection(
