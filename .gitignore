@@ -29,6 +29,8 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 data/
+!packages/visual/src/data/
+!packages/visual/src/data/**
 *.log
 
 # Generated frontend data (from seed script)
