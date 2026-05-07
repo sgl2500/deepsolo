@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": 1778030885987,
+  "savedAt": 1778131050323,
   "items": [
     {
       "id": "birth_house",
@@ -8,8 +8,8 @@
       "visualY": 55,
       "depthX": 48.4,
       "depthY": 53.3,
-      "entryX": 50,
-      "entryY": 55,
+      "entryX": 51,
+      "entryY": 49.9,
       "entryRadius": 2,
       "collisionX": 50,
       "collisionY": 55,
@@ -163,13 +163,13 @@
       "entryX": 53.5,
       "entryY": 59.9,
       "entryRadius": 2.5,
-      "collisionX": 54.1,
-      "collisionY": 66.3,
-      "collisionRadius": 2.8,
+      "collisionX": 54,
+      "collisionY": 66.1,
+      "collisionRadius": 3,
       "collisionPolygon": [
         {
-          "x": 51.5,
-          "y": 65.2
+          "x": 51.3,
+          "y": 64.7
         },
         {
           "x": 53.3,
@@ -229,7 +229,126 @@
           "y": 51.4
         }
       ]
+    },
+    {
+      "id": "digital_sect",
+      "visualX": 50,
+      "visualY": 45,
+      "depthX": 48.9,
+      "depthY": 40.5,
+      "entryX": 49.5,
+      "entryY": 39,
+      "entryRadius": 2,
+      "collisionX": 49.7,
+      "collisionY": 44.5,
+      "collisionRadius": 4.7,
+      "collisionPolygon": [
+        {
+          "x": 45.8,
+          "y": 41.8
+        },
+        {
+          "x": 49.2,
+          "y": 42.6
+        },
+        {
+          "x": 52.2,
+          "y": 43.4
+        },
+        {
+          "x": 52.7,
+          "y": 45.7
+        },
+        {
+          "x": 50.8,
+          "y": 47.3
+        },
+        {
+          "x": 47.6,
+          "y": 46.4
+        }
+      ]
     }
   ],
-  "automatedBuildings": []
+  "automatedBuildings": [
+    {
+      "id": "digital_sect",
+      "name": "数字",
+      "entryX": 50,
+      "entryY": 45,
+      "entryRadius": 2,
+      "indoorMapKey": "indoor_digital_sect",
+      "spawnX": 20,
+      "spawnY": 20,
+      "doorSpawnX": 20,
+      "doorSpawnY": 34,
+      "exitX": 20,
+      "exitY": 37,
+      "returnX": 50,
+      "returnY": 48,
+      "worldVisual": {
+        "textureKey": "world_building_token_center",
+        "originY": 0.9,
+        "offsetY": 0,
+        "labelY": -130,
+        "scale": 1
+      },
+      "roomTemplate": {
+        "localOrigin": {
+          "x": 3,
+          "y": 3
+        },
+        "editableFloor": {
+          "rowStart": 4,
+          "rowEnd": 36,
+          "colStart": 4,
+          "colEnd": 36,
+          "brushAssetIds": [
+            "tile_floor_token_center_0514",
+            "tile_rug_0309",
+            "tile_rug_0313",
+            "tile_rug_0330"
+          ],
+          "description": "数字默认地板装修区"
+        }
+      },
+      "furniture": [
+        {
+          "id": "boss_portrait",
+          "textureKey": "token_center_boss",
+          "localX": 17,
+          "localY": 2,
+          "scale": 0.7,
+          "depthLocalX": 17,
+          "depthLocalY": 0,
+          "collider": {
+            "minLocalX": 15.5,
+            "maxLocalX": 18.5,
+            "minLocalY": 0.5,
+            "maxLocalY": 3.5
+          }
+        },
+        {
+          "id": "sect_backdrop",
+          "textureKey": "token_center_sect_backdrop",
+          "renderLayer": "wall",
+          "localX": 17,
+          "localY": 3,
+          "scale": 0.9,
+          "depthBias": 0.1
+        },
+        {
+          "id": "left_wall_decor",
+          "textureKey": "token_center_left_wall_decor",
+          "renderLayer": "wall",
+          "localX": 5.2,
+          "localY": 12.6,
+          "scale": 0.9,
+          "depthLocalX": 1,
+          "depthLocalY": 12,
+          "depthBias": -0.25
+        }
+      ]
+    }
+  ]
 }

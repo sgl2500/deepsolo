@@ -8,6 +8,7 @@ import { createBattlePerson, createPlayerBattlePerson, NORMAL_ATTACK } from '../
 import type { EventBus } from '../../core/EventBus';
 import type { GameStore } from '../../core/GameStore';
 import { getBattleCharacterTextureKey, type BattleCharacterStance } from '../../content/BattleAssetCatalog';
+import { getBattleSkillEffect, type BattleSkillEffectDef } from '../../content/BattleSkillEffectCatalog';
 import { BattleAnimator } from '../BattleAnimator';
 import {
   applyDefense,
@@ -142,7 +143,12 @@ export class SideBattleSystem {
       return;
     }
 
-    clearTurnDefense(actor);
+    if (actor.defending) {
+      clearTurnDefense(actor);
+      this.setActorStance(actor, 'idle');
+    } else {
+      clearTurnDefense(actor);
+    }
     this.currentActor = actor;
     this.highlightActor(actor);
 
@@ -196,59 +202,71 @@ export class SideBattleSystem {
     this.phase = 'animating';
     this.clearMenu();
     this.setHint('');
-
-    const actorSprite = this.sprites.get(actor.id);
-    const targetSprite = this.sprites.get(target.id);
-    const actorAnchor = this.getAnchor(actor);
-    const targetAnchor = this.getAnchor(target);
-    const isRangedSkill = skill.type === 'strategy' || skill.type === 'inner' || skill.type === 'martial';
-    const strikeX = isRangedSkill
-      ? actorAnchor.x + (actor.side === 'left' ? 72 : -72)
-      : this.getMeleeStrikeX(actor, target);
-    const impactX = this.getImpactX(target);
-
     this.addLog(`${actor.name} 使出 ${skill.name}`);
     this.showSkillBanner(actor, skill);
-    this.setActorStance(actor, 'attack', 720);
+
+    const effect = getBattleSkillEffect(skill);
+    if (effect.presentation === 'ranged_strategy') {
+      this.performRangedStrategyAttack(actor, target, skill, effect);
+      return;
+    }
+    this.performMeleeAttack(actor, target, skill, effect);
+  }
+
+  private performMeleeAttack(
+    actor: SideBattleActor,
+    target: SideBattleActor,
+    skill: SideBattleSkill,
+    effect: BattleSkillEffectDef,
+  ): void {
+    const actorSprite = this.sprites.get(actor.id);
+    const actorAnchor = this.getAnchor(actor);
+    const strikeX = this.getMeleeStrikeX(actor, target);
+
+    this.setActorStance(actor, 'attack');
     actorSprite?.setDepth(9280);
     this.scene.tweens.add({
       targets: actorSprite,
       x: strikeX,
-      duration: skill.type === 'normal' ? 220 : 320,
+      duration: effect.presentation === 'melee_normal' ? 220 : 280,
       ease: 'Sine.easeOut',
       onComplete: () => {
         this.flashAttack(actor, skill);
-        this.playSkillImpact(actor, target, skill, () => {
-          const damage = resolveSideBattleDamage(actor, target, skill);
-          this.refreshBars();
-          if (damage.hit) {
-            this.shakeTarget(targetSprite);
-            if (skill.type === 'normal') this.showImpactBurst(impactX, targetAnchor.y - 104, 0xf97316);
-            this.showDamageNumber(impactX, targetAnchor.y - 126, damage.damage, damage.crit, damage.shieldDamage);
-            const shieldText = damage.shieldDamage > 0 ? `，护盾抵消 ${damage.shieldDamage}` : '';
-            this.addLog(`${target.name} 受到 ${damage.damage} 点伤害${shieldText}${damage.crit ? '（会心）' : ''}`);
-          } else {
-            this.showDamageNumber(impactX, targetAnchor.y - 126, 0, false, 0);
-            this.addLog(`${target.name} 闪开了攻击。`);
-          }
+        const resolve = () => {
+          this.resolveAnimatedHit(actor, target, skill, effect);
+          this.finishAttack(actor, actorAnchor);
+        };
+        if (effect.presentation === 'melee_wugong') {
+          this.playMeleeWugongEffect(actor, target, effect, resolve);
+        } else {
+          resolve();
+        }
+      },
+    });
+  }
 
-          if (!target.alive) this.playDeath(target);
+  private performRangedStrategyAttack(
+    actor: SideBattleActor,
+    target: SideBattleActor,
+    skill: SideBattleSkill,
+    effect: BattleSkillEffectDef,
+  ): void {
+    const actorSprite = this.sprites.get(actor.id);
+    const actorAnchor = this.getAnchor(actor);
+    const readyX = actorAnchor.x + (actor.side === 'left' ? 58 : -58);
 
-          this.scene.time.delayedCall(420, () => {
-            this.scene.tweens.add({
-              targets: actorSprite,
-              x: actorAnchor.x,
-              duration: 240,
-              ease: 'Sine.easeInOut',
-              onComplete: () => {
-                actorSprite?.setDepth(9200);
-                this.refreshBars();
-                const result = checkSideBattleEnd(this.actors, this.round);
-                if (result) this.endBattle(result);
-                else this.nextTurn();
-              },
-            });
-          });
+    this.setActorStance(actor, 'attack');
+    actorSprite?.setDepth(9280);
+    this.scene.tweens.add({
+      targets: actorSprite,
+      x: readyX,
+      duration: 220,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        this.flashAttack(actor, skill);
+        this.playRangedStrategyEffect(actor, target, effect, () => {
+          this.resolveAnimatedHit(actor, target, skill, effect);
+          this.finishAttack(actor, actorAnchor);
         });
       },
     });
@@ -300,6 +318,7 @@ export class SideBattleSystem {
       hitRate: person.hitRate,
       dodgeRate: person.dodgeRate,
       evolutionStacks: 0,
+      visualState: 'idle',
       skills: this.createSkills(person),
       defending: false,
       alive: person.alive,
@@ -773,6 +792,7 @@ ${skill.flavor ?? ''}`.trim();
 
   private setActorStance(actor: SideBattleActor, stance: BattleCharacterStance, restoreDelay = 0): void {
     const sprite = this.sprites.get(actor.id);
+    actor.visualState = stance;
     const key = this.getActorBattleTexture(actor, stance);
     if (!key || !(sprite instanceof Phaser.GameObjects.Image)) return;
 
@@ -780,9 +800,10 @@ ${skill.flavor ?? ''}`.trim();
     sprite.setDisplaySize(this.getActorBattleWidth(actor, stance), this.getActorBattleHeight(actor));
     if (restoreDelay > 0) {
       this.scene.time.delayedCall(restoreDelay, () => {
-        if (this.phase === 'idle' || !actor.alive) return;
+        if (this.phase === 'idle' || !actor.alive || actor.defending || actor.visualState !== stance) return;
         const idleKey = this.getActorBattleTexture(actor, 'idle');
         if (!idleKey) return;
+        actor.visualState = 'idle';
         sprite.setTexture(idleKey);
         sprite.setDisplaySize(this.getActorBattleWidth(actor, 'idle'), this.getActorBattleHeight(actor));
       });
@@ -818,36 +839,123 @@ ${skill.flavor ?? ''}`.trim();
     });
   }
 
-  private playSkillImpact(
+  private resolveAnimatedHit(
     actor: SideBattleActor,
     target: SideBattleActor,
     skill: SideBattleSkill,
+    effect: BattleSkillEffectDef,
+  ): void {
+    const targetSprite = this.sprites.get(target.id);
+    const targetAnchor = this.getAnchor(target);
+    const impactX = this.getImpactX(target);
+    const wasDefending = target.defending;
+    const damage = resolveSideBattleDamage(actor, target, skill);
+
+    this.refreshBars();
+    if (damage.hit) {
+      this.shakeTarget(targetSprite, !wasDefending);
+      this.showImpactBurst(impactX, targetAnchor.y - 104, 0xf97316, effect.hitBurstScale);
+      this.showDamageNumber(impactX, targetAnchor.y - 126, damage.damage, damage.crit, damage.shieldDamage);
+      const shieldText = damage.shieldDamage > 0 ? `，护盾抵消 ${damage.shieldDamage}` : '';
+      this.addLog(`${target.name} 受到 ${damage.damage} 点伤害${shieldText}${damage.crit ? '（会心）' : ''}`);
+    } else {
+      this.showDamageNumber(impactX, targetAnchor.y - 126, 0, false, 0);
+      this.addLog(`${target.name} 闪开了攻击。`);
+    }
+
+    if (!target.alive) this.playDeath(target);
+    if (wasDefending) this.releaseDefenseAfterHit(target);
+  }
+
+  private finishAttack(actor: SideBattleActor, actorAnchor: { x: number; y: number }): void {
+    const actorSprite = this.sprites.get(actor.id);
+    this.scene.time.delayedCall(420, () => {
+      this.scene.tweens.add({
+        targets: actorSprite,
+        x: actorAnchor.x,
+        duration: 240,
+        ease: 'Sine.easeInOut',
+        onComplete: () => {
+          actorSprite?.setDepth(9200);
+          if (actor.alive) this.setActorStance(actor, 'idle');
+          this.refreshBars();
+          const result = checkSideBattleEnd(this.actors, this.round);
+          if (result) this.endBattle(result);
+          else this.nextTurn();
+        },
+      });
+    });
+  }
+
+  private playMeleeWugongEffect(
+    actor: SideBattleActor,
+    target: SideBattleActor,
+    effect: BattleSkillEffectDef,
     onComplete: () => void,
   ): void {
-    if (skill.type === 'normal') {
+    const targetAnchor = this.getAnchor(target);
+    const x = this.getImpactX(target) + (actor.side === 'left' ? -38 : 38);
+    const y = targetAnchor.y - 104;
+
+    if (!effect.textureKey || !this.scene.textures.exists(effect.textureKey)) {
+      this.scene.time.delayedCall(effect.durationMs, onComplete);
+      return;
+    }
+
+    const wugong = this.scene.add.image(x, y, effect.textureKey)
+      .setDepth(9580)
+      .setAlpha(0)
+      .setScale(0.72);
+    wugong.setDisplaySize(effect.width, effect.height);
+    wugong.setFlipX(actor.side === 'right');
+    wugong.setScrollFactor(0);
+    this.container!.add(wugong);
+    this.scene.tweens.add({
+      targets: wugong,
+      x: x + (actor.side === 'left' ? 46 : -46),
+      alpha: 1,
+      scaleX: 1.05,
+      scaleY: 1.05,
+      duration: Math.round(effect.durationMs * 0.58),
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: wugong,
+          alpha: 0,
+          scaleX: 1.18,
+          scaleY: 1.18,
+          duration: Math.round(effect.durationMs * 0.42),
+          ease: 'Sine.easeOut',
+          onComplete: () => {
+            wugong.destroy();
+            onComplete();
+          },
+        });
+      },
+    });
+  }
+
+  private playRangedStrategyEffect(
+    actor: SideBattleActor,
+    target: SideBattleActor,
+    effect: BattleSkillEffectDef,
+    onComplete: () => void,
+  ): void {
+    if (!effect.textureKey || !this.scene.textures.exists(effect.textureKey)) {
       onComplete();
       return;
     }
 
     const from = this.getAnchor(actor);
     const to = this.getAnchor(target);
-    const color = skill.type === 'strategy' ? 0x60a5fa : skill.type === 'inner' ? 0xfbbf24 : 0xf97316;
-    const effectKey = skill.type === 'strategy' ? 'battle_effect_strategy_projectile' : 'battle_effect_martial_palm';
-    const projectile = this.scene.textures.exists(effectKey)
-      ? this.scene.add.image(from.x + (actor.side === 'left' ? 112 : -112), from.y - 98, effectKey)
-        .setDepth(9580)
-        .setAlpha(0.98)
-      : this.scene.add.circle(
-        from.x + (actor.side === 'left' ? 112 : -112),
-        from.y - 98,
-        skill.type === 'strategy' ? 13 : 10,
-        color,
-        0.95,
-      ).setDepth(9580);
-    if (projectile instanceof Phaser.GameObjects.Image) {
-      projectile.setDisplaySize(skill.type === 'strategy' ? 148 : 168, skill.type === 'strategy' ? 78 : 92);
-      projectile.setFlipX(actor.side === 'right');
-    }
+    const color = 0x60a5fa;
+    const projectile = this.scene.add.image(
+      from.x + (actor.side === 'left' ? 112 : -112),
+      from.y - 98,
+      effect.textureKey,
+    ).setDepth(9580).setAlpha(0.98);
+    projectile.setDisplaySize(effect.width, effect.height);
+    projectile.setFlipX(actor.side === 'right');
     const tail = this.scene.add.rectangle(projectile.x, projectile.y, 72, 5, color, 0.32)
       .setOrigin(actor.side === 'left' ? 1 : 0, 0.5)
       .setDepth(9570);
@@ -857,9 +965,9 @@ ${skill.flavor ?? ''}`.trim();
 
     this.scene.tweens.add({
       targets: projectile,
-      x: to.x + (target.side === 'left' ? 42 : -42),
+      x: this.getImpactX(target),
       y: to.y - 102,
-      duration: 360,
+      duration: effect.durationMs,
       ease: 'Cubic.easeIn',
       onUpdate: () => {
         tail.setPosition(projectile.x, projectile.y);
@@ -867,23 +975,22 @@ ${skill.flavor ?? ''}`.trim();
       onComplete: () => {
         projectile.destroy();
         tail.destroy();
-        this.showImpactBurst(to.x, to.y - 98, color);
         onComplete();
       },
     });
   }
 
-  private showImpactBurst(x: number, y: number, color: number): void {
+  private showImpactBurst(x: number, y: number, color: number, scale = 0.34): void {
     if (this.scene.textures.exists('battle_effect_hit_burst')) {
       const burstImage = this.scene.add.image(x, y, 'battle_effect_hit_burst')
         .setDepth(9590)
         .setAlpha(0.9)
-        .setScale(0.18);
+        .setScale(Math.max(0.12, scale * 0.52));
       burstImage.setScrollFactor(0);
       this.container!.add(burstImage);
       this.scene.tweens.add({
         targets: burstImage,
-        scale: 0.34,
+        scale,
         alpha: 0,
         angle: 18,
         duration: 360,
@@ -946,7 +1053,7 @@ ${skill.flavor ?? ''}`.trim();
 
   private showDefenseEffect(actor: SideBattleActor): void {
     const anchor = this.getAnchor(actor);
-    this.setActorStance(actor, 'defense', 720);
+    this.setActorStance(actor, 'defense');
     if (actor.maxShield > 0 && this.scene.textures.exists('battle_effect_strategy_shield')) {
       const shield = this.scene.add.image(anchor.x, anchor.y - 96, 'battle_effect_strategy_shield')
         .setDepth(9350)
@@ -982,7 +1089,15 @@ ${skill.flavor ?? ''}`.trim();
     });
   }
 
-  private shakeTarget(target: Phaser.GameObjects.Image | Phaser.GameObjects.Container | undefined): void {
+  private releaseDefenseAfterHit(actor: SideBattleActor): void {
+    this.scene.time.delayedCall(520, () => {
+      if (!actor.alive) return;
+      clearTurnDefense(actor);
+      this.setActorStance(actor, 'idle');
+    });
+  }
+
+  private shakeTarget(target: Phaser.GameObjects.Image | Phaser.GameObjects.Container | undefined, showHitStance = true): void {
     if (!target) return;
     this.scene.tweens.add({
       targets: target,
@@ -996,7 +1111,7 @@ ${skill.flavor ?? ''}`.trim();
       this.scene.time.delayedCall(120, () => (target as Phaser.GameObjects.Image).clearTint());
     }
     const actor = this.actors.find(item => this.sprites.get(item.id) === target);
-    if (actor) this.setActorStance(actor, 'hit', 300);
+    if (actor && showHitStance) this.setActorStance(actor, 'hit', 300);
   }
 
   private showDamageNumber(x: number, y: number, damage: number, crit: boolean, shieldDamage: number): void {
@@ -1047,6 +1162,7 @@ ${skill.flavor ?? ''}`.trim();
   private playDeath(actor: SideBattleActor): void {
     const sprite = this.sprites.get(actor.id);
     if (!sprite) return;
+    actor.visualState = 'dead';
     this.scene.tweens.add({
       targets: sprite,
       alpha: 0.2,

@@ -3,6 +3,7 @@ import type { BattleResult } from '../../types';
 export type SideBattleSide = 'left' | 'right';
 
 export type SideBattleSkillType = 'normal' | 'martial' | 'inner' | 'strategy' | 'defense';
+export type SideBattleActorVisualState = 'idle' | 'attack' | 'hit' | 'defense' | 'dead';
 
 export interface SideBattleSkill {
   id: string;
@@ -32,6 +33,7 @@ export interface SideBattleActor {
   hitRate: number;
   dodgeRate: number;
   evolutionStacks: number;
+  visualState: SideBattleActorVisualState;
   skills: SideBattleSkill[];
   defending: boolean;
   alive: boolean;

@@ -1,6 +1,7 @@
 import { runTests } from './test_utils';
 import { tests as authStoreTests } from './auth_store.test';
 import { tests as battleRulesTests } from './battle_rules.test';
+import { tests as battleSkillEffectCatalogTests } from './battle_skill_effect_catalog.test';
 import { tests as combatProfileTests } from './combat_profile.test';
 import { tests as combatDisplayTests } from './combat_display.test';
 import { tests as indoorCoordinateMapperTests } from './indoor_coordinate_mapper.test';
@@ -18,6 +19,7 @@ export async function run(): Promise<void> {
   await runTests([
     { suite: 'AuthStore', tests: authStoreTests },
     { suite: 'BattleRules', tests: battleRulesTests },
+    { suite: 'BattleSkillEffectCatalog', tests: battleSkillEffectCatalogTests },
     { suite: 'CombatDisplay', tests: combatDisplayTests },
     { suite: 'CombatProfile', tests: combatProfileTests },
     { suite: 'IndoorCoordinateMapper', tests: indoorCoordinateMapperTests },

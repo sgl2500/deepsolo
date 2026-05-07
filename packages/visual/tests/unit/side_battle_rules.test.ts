@@ -35,6 +35,7 @@ function actor(id: string, side: 'left' | 'right', speed = 10): SideBattleActor 
     hitRate: 100,
     dodgeRate: 0,
     evolutionStacks: 0,
+    visualState: 'idle',
     skills: [SKILL],
     defending: false,
     alive: true,
