@@ -698,8 +698,289 @@ body {
 #game-container { position: relative; }
 
 #game-container.world-editor-active .panel,
-#game-container.world-editor-active #minimap-canvas {
+#game-container.world-editor-active #minimap-canvas,
+#game-container.world-editor-active .shop-dock {
   display: none !important;
+}
+
+/* --- Strategy Shop --- */
+.shop-dock {
+  position: absolute;
+  top: 8px;
+  right: 254px;
+  z-index: 1120;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid rgba(218, 169, 84, 0.32);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgba(24, 18, 10, 0.9), rgba(6, 15, 20, 0.86)),
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 8px);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255,255,255,0.08);
+  backdrop-filter: blur(8px);
+}
+
+.shop-dock-coin {
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #d6a64d;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 11px;
+}
+.shop-dock-coin b {
+  margin-left: 4px;
+  color: #fef3c7;
+}
+.shop-dock button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  color: #241304;
+  background: linear-gradient(135deg, #fef3c7, #f59e0b 62%, #b45309);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+.shop-dock:hover { border-color: rgba(251, 191, 36, 0.72); }
+
+.shop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1240;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 22% 20%, rgba(218, 169, 84, 0.18), transparent 28%),
+    radial-gradient(circle at 78% 70%, rgba(59, 130, 246, 0.14), transparent 32%),
+    rgba(3, 7, 18, 0.68);
+  backdrop-filter: blur(4px);
+}
+
+.shop-card {
+  width: min(880px, 100%);
+  height: min(660px, 90vh);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border: 1px solid rgba(218, 169, 84, 0.42);
+  border-radius: 24px;
+  background:
+    linear-gradient(145deg, rgba(27, 20, 12, 0.98), rgba(8, 18, 24, 0.98)),
+    repeating-linear-gradient(135deg, rgba(255,255,255,0.025) 0 1px, transparent 1px 10px);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.shop-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid rgba(218, 169, 84, 0.18);
+  background: linear-gradient(90deg, rgba(120, 53, 15, 0.34), rgba(15, 23, 42, 0.12));
+}
+.shop-kicker {
+  color: #d6a64d;
+  font-size: 10px;
+  letter-spacing: 0.24em;
+}
+.shop-card h2,
+.shop-detail h3 {
+  color: #fef3c7;
+  font-family: 'Songti SC', 'STSong', 'PingFang SC', serif;
+}
+.shop-card h2 {
+  margin-top: 4px;
+  font-size: 28px;
+}
+.shop-card-head p {
+  margin-top: 6px;
+  color: #b9a77f;
+  font-size: 12px;
+}
+.shop-head-side {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.shop-balance {
+  padding: 9px 12px;
+  border: 1px solid rgba(251, 191, 36, 0.22);
+  border-radius: 14px;
+  color: #d6a64d;
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+}
+.shop-balance b { color: #fef3c7; font-size: 16px; }
+.shop-close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: 50%;
+  color: #fef3c7;
+  background: rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.shop-body {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr);
+  gap: 18px;
+  padding: 18px;
+}
+.shop-list {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  overflow-y: auto;
+}
+.shop-product {
+  display: grid;
+  grid-template-columns: 50px 1fr;
+  gap: 2px 12px;
+  min-height: 90px;
+  padding: 12px;
+  border: 1px solid rgba(218, 169, 84, 0.18);
+  border-radius: 18px;
+  color: #f7ebd0;
+  background: rgba(15, 23, 42, 0.44);
+  text-align: left;
+  cursor: pointer;
+}
+.shop-product:hover,
+.shop-product.is-selected {
+  border-color: rgba(251, 191, 36, 0.68);
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.42), rgba(15, 23, 42, 0.48));
+}
+.shop-product-mark {
+  grid-row: 1 / span 3;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  align-self: center;
+  border-radius: 14px;
+  color: #241304;
+  background: linear-gradient(145deg, #fef3c7, #d97706);
+  font-size: 12px;
+  font-weight: 900;
+}
+.shop-product strong { font-size: 15px; }
+.shop-product em {
+  color: #b9a77f;
+  font-size: 11px;
+  font-style: normal;
+}
+.shop-product small {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.shop-product i,
+.shop-tags span {
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #dbeafe;
+  background: rgba(96, 165, 250, 0.12);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.shop-detail {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid rgba(218, 169, 84, 0.16);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 88% 0%, rgba(251, 191, 36, 0.12), transparent 34%),
+    rgba(255, 255, 255, 0.035);
+}
+.shop-detail-art {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.shop-manual-icon {
+  width: 76px;
+  height: 94px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px 16px 10px 10px;
+  color: #241304;
+  background: linear-gradient(145deg, #fef3c7, #d97706 72%, #78350f);
+  box-shadow: inset -8px 0 0 rgba(120, 53, 15, 0.22);
+  font-family: 'Songti SC', 'STSong', serif;
+  font-size: 34px;
+  font-weight: 900;
+}
+.shop-detail-art span {
+  color: #d6a64d;
+  font-size: 12px;
+}
+.shop-detail h3 { margin-top: 5px; font-size: 27px; }
+.shop-detail-copy,
+.shop-effect span {
+  color: #d1d5db;
+  font-size: 13px;
+  line-height: 1.75;
+}
+.shop-detail-copy { margin-top: 18px; }
+.shop-effect {
+  display: grid;
+  gap: 7px;
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.48);
+  border: 1px solid rgba(96, 165, 250, 0.18);
+}
+.shop-effect b { color: #93c5fd; }
+.shop-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+.shop-buy {
+  width: 100%;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 14px;
+  color: #241304;
+  background: linear-gradient(135deg, #fef3c7, #f59e0b);
+  cursor: pointer;
+  font-weight: 900;
+}
+.shop-buy:disabled {
+  color: #64748b;
+  background: rgba(15, 23, 42, 0.72);
+  cursor: not-allowed;
+}
+.shop-message {
+  min-height: 18px;
+  margin-top: 10px;
+  color: #b9a77f;
+  font-size: 12px;
+}
+.shop-message.is-ok { color: #86efac; }
+.shop-message.is-error { color: #fca5a5; }
+.shop-foot {
+  padding: 11px 24px;
+  border-top: 1px solid rgba(218, 169, 84, 0.14);
+  color: #b9a77f;
+  font-size: 11px;
+}
+
+@media (max-width: 760px) {
+  .shop-dock { right: 8px; }
+  .shop-card { height: calc(100vh - 28px); }
+  .shop-body { grid-template-columns: 1fr; overflow-y: auto; }
 }
 
 /* --- Player Appearance Editor --- */

@@ -27,6 +27,14 @@ export const PLAYER_ITEMS: Record<string, PlayerItemDef> = {
     stackable: false,
     iconPath: 'assets/jy-runtime/08_thing/0079.png',
   },
+  manual_strategy_deduction_notes: {
+    id: 'manual_strategy_deduction_notes',
+    name: '实盘推演札记',
+    type: 'manual',
+    description: '一本记录实盘复盘与策略推演的札记，适合提升策略理解。',
+    stackable: false,
+    iconPath: 'assets/jy-runtime/08_thing/0079.png',
+  },
 };
 
 export function getPlayerItemDef(itemId: string): PlayerItemDef | undefined {

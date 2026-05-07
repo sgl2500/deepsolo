@@ -65,6 +65,10 @@ export type GiftYuanbaoResult =
   | { ok: true; npcId: string; amount: number; favorBefore: number; favorAfter: number; yuanbaoBalance: number }
   | { ok: false; message: string };
 
+export type PurchaseManualResult =
+  | { ok: true; productId: string; manualId: string; price: number; learned: boolean; yuanbaoBalance: number }
+  | { ok: false; message: string };
+
 type StrategyLike = Omit<Strategy, 'state' | 'existenceTier'> & Partial<Pick<Strategy, 'state' | 'existenceTier'>>;
 
 export class GameStore {
@@ -380,6 +384,37 @@ export class GameStore {
       amount: safeAmount,
       favorBefore,
       favorAfter: affinity.favor,
+      yuanbaoBalance: this.playerProgress.currencies.yuanbao,
+    };
+  }
+
+  purchaseManualWithYuanbao(productId: string, manualId: string, price: number, learnImmediately = true): PurchaseManualResult {
+    const safePrice = Math.max(0, Math.floor(price));
+    const manualDef = getPlayerManualDef(manualId);
+    if (!manualDef) return { ok: false, message: '秘籍不存在' };
+    if (this.hasManual(manualId)) return { ok: false, message: '已拥有该秘籍' };
+    if (this.playerProgress.currencies.yuanbao < safePrice) return { ok: false, message: '元宝不足' };
+
+    if (safePrice > 0 && !this.spendYuanbao(safePrice, `shop:${productId}`)) {
+      return { ok: false, message: '元宝不足' };
+    }
+
+    const discovered = this.discoverManual(manualId);
+    if (!discovered) return { ok: false, message: '购买失败' };
+    const learned = learnImmediately ? this.learnManual(manualId) : false;
+    this.eventBus.emit('shop:purchase', {
+      productId,
+      manualId,
+      price: safePrice,
+      learned,
+    });
+
+    return {
+      ok: true,
+      productId,
+      manualId,
+      price: safePrice,
+      learned,
       yuanbaoBalance: this.playerProgress.currencies.yuanbao,
     };
   }

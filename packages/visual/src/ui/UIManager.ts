@@ -12,6 +12,7 @@ import { HeaderBar } from './HeaderBar';
 import { ConversationPanel } from './ConversationPanel';
 import { TokenCenterUI } from './TokenCenterUI';
 import { PlayerPanel } from './PlayerPanel';
+import { ShopOverlay } from './ShopOverlay';
 import { StrategyProfileOverlay } from './StrategyProfileOverlay';
 import type { AuthStore } from '../core/AuthStore';
 import type { ChatService } from '../services/ChatService';
@@ -24,6 +25,7 @@ export class UIManager {
   private detailPanel: DetailPanel;
   private strategyProfileOverlay: StrategyProfileOverlay;
   private playerPanel: PlayerPanel;
+  private shopOverlay: ShopOverlay;
   conversationPanel: ConversationPanel;
   tokenCenterUI: TokenCenterUI;
 
@@ -97,6 +99,7 @@ export class UIManager {
     this.conversationPanel = new ConversationPanel(eventBus);
     this.tokenCenterUI = new TokenCenterUI(this.tokenPanel, eventBus, tokenStore);
     this.playerPanel = new PlayerPanel(eventBus, store);
+    this.shopOverlay = new ShopOverlay(gameContainer, eventBus, store);
     this.headerBar.refresh();
 
     // Subscribe to refresh events
@@ -120,18 +123,21 @@ export class UIManager {
         this.tokenPanel.style.display = 'none';
         this.headerBar.setVisible(false);
         this.hideGameContainerOverlays(true);
+        this.shopOverlay.setDockVisible(false);
       } else if (state === 'indoor' && buildingId === 'token_center') {
         this.panel.style.display = 'none';
         this.tokenPanel.style.display = 'block';
         this.tokenCenterUI.show();
         this.headerBar.setVisible(true);
         this.hideGameContainerOverlays(true);
+        this.shopOverlay.setDockVisible(false);
       } else if (state === 'indoor' && buildingId === 'digital_sect') {
         this.panel.style.display = 'block';
         this.tokenPanel.style.display = 'none';
         this.tokenCenterUI.hide();
         this.headerBar.setVisible(true);
         this.hideGameContainerOverlays(true);
+        this.shopOverlay.setDockVisible(false);
         store.selectStrategy(null);
       } else if (state === 'indoor') {
         this.panel.style.display = 'none';
@@ -139,12 +145,14 @@ export class UIManager {
         this.tokenCenterUI.hide();
         this.headerBar.setVisible(true);
         this.hideGameContainerOverlays(true);
+        this.shopOverlay.setDockVisible(false);
       } else {
         this.panel.style.display = 'block';
         this.tokenPanel.style.display = 'none';
         this.tokenCenterUI.hide();
         this.headerBar.setVisible(true);
         this.hideGameContainerOverlays(false);
+        this.shopOverlay.setDockVisible(true);
       }
     });
   }

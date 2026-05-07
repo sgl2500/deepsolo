@@ -25,6 +25,14 @@ export const PLAYER_MANUALS: Record<string, PlayerManualDef> = {
     attributeBonus: { defense: 2, understanding: 1 },
     vitalsBonus: { maxMp: 20 },
   },
+  manual_strategy_deduction_notes: {
+    id: 'manual_strategy_deduction_notes',
+    name: '实盘推演札记',
+    itemId: 'manual_strategy_deduction_notes',
+    description: '记录实盘复盘、回撤控制与行情心跳的策略札记。研读后可提升悟性与内力上限。',
+    attributeBonus: { understanding: 2 },
+    vitalsBonus: { maxMp: 15 },
+  },
 };
 
 export function getPlayerManualDef(manualId: string): PlayerManualDef | undefined {

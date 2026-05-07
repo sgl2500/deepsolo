@@ -16,6 +16,7 @@ export interface GameEvents {
   'player:moved': { x: number; y: number };
   'player:progress-changed': PlayerProgress;
   'player:currency-changed': { currency: 'yuanbao'; amount: number; balance: number; reason?: string };
+  'shop:purchase': { productId: string; manualId: string; price: number; learned: boolean };
   'npc:favor-changed': { npcId: string; favorBefore: number; favorAfter: number; amount: number };
   'day:tick': number;
   'bubble:show': { entityId: string; text: string };
