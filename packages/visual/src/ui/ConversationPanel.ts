@@ -6,6 +6,8 @@
 import type { EventBus } from '../core/EventBus';
 import type { Conversation, ConvMessage, ConvChoice, ConvInputMode } from '../types';
 
+const PORTRAIT_ASSET_VERSION = '20260507-rpg-dialogue';
+
 export class ConversationPanel {
   private overlay: HTMLElement;
   private panel: HTMLElement;
@@ -17,6 +19,7 @@ export class ConversationPanel {
   private eventBus: EventBus;
   private _isOpen = false;
   private currentConvId: string | null = null;
+  private isRpgMode = false;
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
@@ -65,7 +68,7 @@ export class ConversationPanel {
     // Subscribe to events
     eventBus.on('conv:open', (conv) => this.open(conv));
     eventBus.on('conv:message', (msg) => this.addMessage(msg));
-    eventBus.on('conv:update-last', (data) => this.updateLastMessage(data.text, data.choices));
+    eventBus.on('conv:update-last', (data) => this.updateLastMessage(data.text, data.choices, data.inputMode));
     eventBus.on('conv:close', () => this.close());
   }
 
@@ -73,6 +76,10 @@ export class ConversationPanel {
 
   open(conv: Conversation): void {
     this.currentConvId = conv.id;
+    this.isRpgMode = conv.inputMode !== 'text';
+    this.overlay.classList.toggle('is-rpg-dialogue', this.isRpgMode);
+
+    this.clearHeaderDynamicContent();
 
     // Header
     const titleEl = document.createElement('span');
@@ -84,7 +91,7 @@ export class ConversationPanel {
     if (conv.portraitKey) {
       const portraitEl = document.createElement('img');
       portraitEl.className = 'conv-portrait';
-      portraitEl.src = `assets/jy-runtime/14_head/${conv.portraitKey}.png`;
+      portraitEl.src = getPortraitSrc(conv.portraitKey);
       portraitEl.alt = conv.title;
       this.headerEl.insertBefore(portraitEl, titleEl);
     }
@@ -104,11 +111,10 @@ export class ConversationPanel {
     if (!this._isOpen) return;
     this._isOpen = false;
     this.currentConvId = null;
+    this.isRpgMode = false;
+    this.overlay.classList.remove('is-rpg-dialogue');
     this.hide();
-    // 清理 header 中动态添加的元素（保留 closeBtn）
-    while (this.headerEl.firstChild !== this.closeBtn) {
-      this.headerEl.removeChild(this.headerEl.firstChild!);
-    }
+    this.clearHeaderDynamicContent();
     this.eventBus.emit('conv:close');
   }
 
@@ -117,13 +123,16 @@ export class ConversationPanel {
     this.scrollToBottom();
   }
 
-  updateLastMessage(text: string, choices?: ConvChoice[]): void {
+  updateLastMessage(text: string, choices?: ConvChoice[], inputMode?: ConvInputMode): void {
     const last = this.messagesEl.lastElementChild as HTMLElement | null;
     if (!last) return;
     const textEl = last.querySelector('.conv-msg-text') as HTMLElement;
     if (textEl) textEl.textContent = text;
     if (choices) {
       this.renderChoicesInMessage(last, choices);
+    }
+    if (inputMode) {
+      this.renderInputArea(inputMode);
     }
   }
 
@@ -145,11 +154,23 @@ export class ConversationPanel {
     this.overlay.style.display = 'none';
   }
 
+  private clearHeaderDynamicContent(): void {
+    // 清理 header 中动态添加的标题/头像，保留关闭按钮，避免重复 open 时残留旧头像。
+    while (this.headerEl.firstChild && this.headerEl.firstChild !== this.closeBtn) {
+      this.headerEl.removeChild(this.headerEl.firstChild);
+    }
+  }
+
   private scrollToBottom(): void {
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
   }
 
   private appendMessage(msg: ConvMessage): void {
+    if (this.isRpgMode && msg.role === 'npc') {
+      this.messagesEl.innerHTML = '';
+      this.renderInputArea('none');
+    }
+
     const el = document.createElement('div');
     el.className = `conv-msg conv-msg-${msg.role}`;
     el.dataset.msgId = msg.id;
@@ -159,7 +180,7 @@ export class ConversationPanel {
       if (msg.portraitKey) {
         const img = document.createElement('img');
         img.className = 'conv-msg-portrait';
-        img.src = `assets/jy-runtime/14_head/${msg.portraitKey}.png`;
+        img.src = getPortraitSrc(msg.portraitKey);
         el.appendChild(img);
       }
       const body = document.createElement('div');
@@ -212,7 +233,9 @@ export class ConversationPanel {
       });
       choicesEl.appendChild(btn);
     });
-    container.appendChild(choicesEl);
+
+    const body = container.querySelector('.conv-msg-body');
+    (body ?? container).appendChild(choicesEl);
   }
 
   private renderInputArea(mode: ConvInputMode, placeholder?: string, inputType?: 'text' | 'number'): void {
@@ -261,4 +284,15 @@ export class ConversationPanel {
     input.value = '';
     this.eventBus.emit('conv:send', text);
   }
+}
+
+function getPortraitSrc(portraitKey: string): string {
+  return portraitKey.includes('/')
+    ? withCacheBust(portraitKey)
+    : `assets/jy-runtime/14_head/${portraitKey}.png`;
+}
+
+function withCacheBust(src: string): string {
+  const separator = src.includes('?') ? '&' : '?';
+  return `${src}${separator}v=${PORTRAIT_ASSET_VERSION}`;
 }

@@ -46,6 +46,7 @@ export class SceneManager {
   private reentryBlocked = false;
   // 启动保护：前 2 秒不检测建筑入口，防止出生在建筑位置立刻进入
   private startupBlocked = true;
+  private lastBirthHouseExitHintAt = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -207,6 +208,14 @@ export class SceneManager {
     const dy = player.mapY - building.exitY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist <= 2.0) {
+      if (building.id === 'birth_house' && !this.store.storyFlags['story.observer_awake']) {
+        const now = this.scene.time.now;
+        if (now - this.lastBirthHouseExitHintAt > 1800) {
+          this.entitySystem.showBubble('player', '门外雾气很重。我连这里是哪都不知道，还是先问问屋里那个人。');
+          this.lastBirthHouseExitHintAt = now;
+        }
+        return;
+      }
       this.exitBuilding(building);
     }
   }

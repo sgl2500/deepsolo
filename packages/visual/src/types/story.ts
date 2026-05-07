@@ -36,6 +36,10 @@ export interface StoryAction {
 /** 触发器：定义故事何时可以被激活 */
 export type StoryTrigger =
   | {
+      event: 'manual';
+      conditions: StoryCondition[];
+    }
+  | {
       sceneState: 'indoor';
       buildingId: string;
       conditions: StoryCondition[];

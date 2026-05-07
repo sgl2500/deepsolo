@@ -29,7 +29,7 @@ import {
   normalizePlayerLocation,
   type PlayerLocation,
 } from './PlayerLocationPersistence';
-import { readUserScopedStorage, writeUserScopedStorage } from './UserScopedStorage';
+import { readUserScopedStorage, removeUserScopedStorage, writeUserScopedStorage } from './UserScopedStorage';
 
 const DEFAULT_PLAYER_PROGRESS: PlayerProgress = {
   version: 3,
@@ -421,6 +421,25 @@ export class GameStore {
 
   getSavedPlayerLocation(): PlayerLocation | null {
     return this.playerLocation ? { ...this.playerLocation } : null;
+  }
+
+  resetObserverIntroDebugState(): void {
+    for (const flag of [
+      'story.observer_awake',
+      'story.has_observer_journal',
+      'story.gushen_hub_unlocked',
+      'objective.visit_teahouse',
+      'objective.visit_sect',
+    ]) {
+      delete this.storyFlags[flag];
+    }
+    this.completedStories.delete('observer_house_intro_wakeup');
+    this.persistStoryState();
+
+    this.playerLocation = null;
+    this.playerPosition = { x: 0, y: 0 };
+    this.lastPlayerLocationSignature = '';
+    removeUserScopedStorage(LS_KEY_PLAYER_LOCATION, this.storageUsername);
   }
 
   saveWorldPlayerLocation(x: number, y: number): void {

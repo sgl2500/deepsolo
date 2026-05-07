@@ -7,6 +7,7 @@ import { DIALOGUE_TYPE_SPEED } from '../config';
 import { DIALOGUE_SCRIPTS } from '../data/DialogueScripts';
 import { EXTRA_DIALOGUE_SCRIPTS } from '../content/ExtraDialogueScripts';
 import type { EventBus } from '../core/EventBus';
+import { paginateDialogueText } from '../utils/DialogueText';
 
 let msgCounter = 0;
 function nextMsgId(): string {
@@ -19,6 +20,8 @@ export class DialogueSystem {
   private currentNode: DialogueNode | null = null;
   private isTyping = false;
   private fullText = '';
+  private textPages: string[] = [];
+  private pageIndex = 0;
   private typedIndex = 0;
   private typeTimer: Phaser.Time.TimerEvent | null = null;
   private scene: Phaser.Scene;
@@ -63,7 +66,16 @@ export class DialogueSystem {
       return;
     }
     this.currentNode = node;
-    this.fullText = node.text;
+    this.textPages = paginateDialogueText(node.text);
+    this.pageIndex = 0;
+    this.showCurrentPage();
+  }
+
+  private showCurrentPage(): void {
+    if (!this.currentNode) return;
+    const node = this.currentNode;
+
+    this.fullText = this.textPages[this.pageIndex] ?? '';
     this.typedIndex = 0;
     this.isTyping = true;
 
@@ -80,6 +92,10 @@ export class DialogueSystem {
 
     // 开始打字效果
     this.startTypewriter();
+  }
+
+  private isLastPage(): boolean {
+    return this.pageIndex >= this.textPages.length - 1;
   }
 
   /** 打字机效果 */
@@ -100,7 +116,7 @@ export class DialogueSystem {
           this.typeTimer?.destroy();
           this.typeTimer = null;
           // 打字完成，如果有选项则显示
-          if (this.currentNode.choices && this.currentNode.choices.length > 0) {
+          if (this.isLastPage() && this.currentNode.choices && this.currentNode.choices.length > 0) {
             const convChoices: ConvChoice[] = this.currentNode.choices.map((c, i) => ({
               text: c.text,
               value: String(i),
@@ -129,7 +145,7 @@ export class DialogueSystem {
       const emitData: { text: string; choices?: ConvChoice[]; inputMode?: 'choices' } = {
         text: this.fullText,
       };
-      if (this.currentNode.choices && this.currentNode.choices.length > 0) {
+      if (this.isLastPage() && this.currentNode.choices && this.currentNode.choices.length > 0) {
         emitData.choices = this.currentNode.choices.map((c, i) => ({
           text: c.text,
           value: String(i),
@@ -137,6 +153,12 @@ export class DialogueSystem {
         emitData.inputMode = 'choices';
       }
       this.eventBus.emit('conv:update-last', emitData);
+      return;
+    }
+
+    if (!this.isLastPage()) {
+      this.pageIndex++;
+      this.showCurrentPage();
       return;
     }
 
@@ -176,6 +198,8 @@ export class DialogueSystem {
   private cleanup(): void {
     this.activeTree = null;
     this.currentNode = null;
+    this.textPages = [];
+    this.pageIndex = 0;
     this.isTyping = false;
     if (this.typeTimer) {
       this.typeTimer.destroy();

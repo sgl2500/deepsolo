@@ -168,6 +168,8 @@ export class BootScene extends Phaser.Scene {
     for (const key of npcCharKeys) {
       // smap_ 前缀的 key 已在上面的 smap 瓦片加载中处理，跳过
       if (key.startsWith('smap_')) continue;
+      // 室内人物贴图由 AssetCatalog 预加载，避免用同名 key 去 17_npc_map 下重复加载。
+      if (key.startsWith('token_center_') || key.startsWith('indoor_character_')) continue;
       this.load.image(key, `assets/jy-runtime/17_npc_map/${key}.png`);
     }
 

@@ -313,6 +313,9 @@ export class WorldScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-EQUALS', () => {
       this.worldMapEditor.adjustCollisionRadius(0.5);
     });
+    this.input.keyboard!.on('keydown-F9', () => {
+      this.resetObserverIntroForDebug();
+    });
 
     // ── 统一对话事件 ──
 
@@ -694,6 +697,10 @@ export class WorldScene extends Phaser.Scene {
 
       // 优先检测室内普通 NPC
       if (nearbyNpc) {
+        if (nearbyNpc.id === 'gushen') {
+          this.startGushenStory();
+          return;
+        }
         this.sceneManager.startDialogue();
         this.dialogueSystem.startDialogue(nearbyNpc.dialogueId);
         return;
@@ -873,6 +880,33 @@ export class WorldScene extends Phaser.Scene {
   private startIndoorDialogue(dialogueId: string): void {
     this.sceneManager.startDialogue();
     this.dialogueSystem.startDialogue(dialogueId);
+  }
+
+  private startGushenStory(): void {
+    const storyId = _store.storyFlags['story.gushen_hub_unlocked']
+      ? 'gushen_hub_default'
+      : 'observer_house_intro_wakeup';
+    const started = this.storySystem.startStoryById(storyId);
+    if (!started) {
+      this.entitySystem.showBubble('player', '股神似乎在等你先看清眼前的一切。');
+    }
+  }
+
+  private resetObserverIntroForDebug(): void {
+    if (typeof location !== 'undefined' && location.hostname && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') return;
+
+    if (this.convOpen) {
+      _eventBus.emit('conv:close');
+    }
+    _store.resetObserverIntroDebugState();
+    this.sceneManager.startInstant('birth_house');
+
+    // 让调试重播更接近真实开场：先黑屏切回小屋，淡入后自动开始主角自言自语。
+    this.time.delayedCall(700, () => {
+      if (!this.storySystem.isActive()) {
+        this.storySystem.startStoryById('observer_house_intro_wakeup');
+      }
+    });
   }
 
   /** 打开 Agent 聊天 (通过 Conversation) */

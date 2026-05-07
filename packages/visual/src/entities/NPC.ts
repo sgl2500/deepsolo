@@ -26,9 +26,10 @@ export class NPC extends Entity {
     const texture = this.scene.textures.get(texKey);
     if (texture && texture.key !== '__MISSING') {
       const isSmap = texKey.startsWith('smap_');
+      const isIndoorCharacter = texKey.startsWith('token_center_') || texKey.startsWith('indoor_character_');
       this.sprite = this.scene.add.image(0, 0, texKey)
         .setOrigin(0.5, 1.0)
-        .setScale(isSmap ? 2.2 : 2.5);
+        .setScale(isIndoorCharacter ? 0.36 : isSmap ? 2.2 : 2.5);
       this.container.add(this.sprite);
     } else {
       // 备用：用彩色图形代替

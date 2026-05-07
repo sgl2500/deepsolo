@@ -10,17 +10,16 @@ import type { NPCDef } from '../types';
  */
 export const NPC_DEFS: NPCDef[] = [
   // --- 观察者小屋 NPC ---
-  // 引路人暂时隐藏
-  // {
-  //   id: 'guide',
-  //   name: '引路人',
-  //   mapId: 'birth_house',
-  //   mapX: 10,
-  //   mapY: 16,
-  //   charKey: 'npc_1001',
-  //   dialogueId: 'birth_guide',
-  //   defaultDir: Direction.Down,
-  // },
+  {
+    id: 'gushen',
+    name: '股神',
+    mapId: 'birth_house',
+    mapX: 10.5,
+    mapY: 12.5,
+    charKey: 'token_center_shishu',
+    dialogueId: 'gushen_story_entry',
+    defaultDir: Direction.Down,
+  },
   // --- 证券交易所 NPC ---
   {
     id: 'broker_wang',

@@ -12,6 +12,7 @@ import { STORY_SCRIPTS } from '../data/StoryScripts';
 import { evaluateAllConditions, executeActions } from '../data/StoryRegistry';
 import type { EventBus } from '../core/EventBus';
 import type { GameStore } from '../core/GameStore';
+import { paginateDialogueText } from '../utils/DialogueText';
 
 let msgCounter = 0;
 function nextMsgId(): string {
@@ -27,6 +28,8 @@ export class StorySystem {
   private currentNode: StoryNode | null = null;
   private isTyping = false;
   private fullText = '';
+  private textPages: string[] = [];
+  private pageIndex = 0;
   private typedIndex = 0;
   private typeTimer: Phaser.Time.TimerEvent | null = null;
 
@@ -116,6 +119,21 @@ export class StorySystem {
     this.showNode(script.firstNode);
   }
 
+  /** 手动启动指定故事，用于 NPC / 物件驱动的剧情入口 */
+  startStoryById(storyId: string): boolean {
+    if (this.activeStory) return false;
+
+    const script = STORY_SCRIPTS.find((item) => item.id === storyId);
+    if (!script) {
+      console.warn('[StorySystem] Story script not found:', storyId);
+      return false;
+    }
+    if (!evaluateAllConditions(script.trigger.conditions, this.store)) return false;
+
+    this.startStory(script);
+    return true;
+  }
+
   /** 显示指定节点 */
   private showNode(nodeId: string): void {
     if (!this.activeStory) return;
@@ -139,7 +157,16 @@ export class StorySystem {
     executeActions(node.onShow, this.store, this.eventBus);
 
     this.currentNode = node;
-    this.fullText = node.text;
+    this.textPages = paginateDialogueText(node.text);
+    this.pageIndex = 0;
+    this.showCurrentPage();
+  }
+
+  private showCurrentPage(): void {
+    if (!this.currentNode) return;
+    const node = this.currentNode;
+
+    this.fullText = this.textPages[this.pageIndex] ?? '';
     this.typedIndex = 0;
     this.isTyping = true;
 
@@ -155,6 +182,10 @@ export class StorySystem {
 
     // 开始打字效果
     this.startTypewriter();
+  }
+
+  private isLastPage(): boolean {
+    return this.pageIndex >= this.textPages.length - 1;
   }
 
   /** 打字机效果 */
@@ -174,7 +205,9 @@ export class StorySystem {
           this.isTyping = false;
           this.typeTimer?.destroy();
           this.typeTimer = null;
-          this.showChoices();
+          if (this.isLastPage()) {
+            this.showChoices();
+          }
         }
       },
       loop: true,
@@ -213,7 +246,7 @@ export class StorySystem {
       const emitData: { text: string; choices?: ConvChoice[]; inputMode?: 'choices' } = {
         text: this.fullText,
       };
-      if (this.currentNode.choices && this.currentNode.choices.length > 0) {
+      if (this.isLastPage() && this.currentNode.choices && this.currentNode.choices.length > 0) {
         const visibleChoices = this.currentNode.choices.filter(c =>
           !c.showCondition || evaluateAllConditions([c.showCondition], this.store),
         );
@@ -226,6 +259,12 @@ export class StorySystem {
         }
       }
       this.eventBus.emit('conv:update-last', emitData);
+      return;
+    }
+
+    if (!this.isLastPage()) {
+      this.pageIndex++;
+      this.showCurrentPage();
       return;
     }
 
@@ -280,6 +319,8 @@ export class StorySystem {
   private cleanup(): void {
     this.activeStory = null;
     this.currentNode = null;
+    this.textPages = [];
+    this.pageIndex = 0;
     this.isTyping = false;
     if (this.typeTimer) {
       this.typeTimer.destroy();
