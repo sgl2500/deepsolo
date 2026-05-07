@@ -193,6 +193,12 @@ export const LS_KEY_PLAYER_PROGRESS = 'deepsolo_player_progress';
 /** 玩家所在场景和坐标 localStorage key */
 export const LS_KEY_PLAYER_LOCATION = 'deepsolo_player_location';
 
+/** 本地账号列表 localStorage key */
+export const LS_KEY_AUTH_USERS = 'deepsolo_auth_users';
+
+/** 当前登录会话 localStorage key */
+export const LS_KEY_AUTH_SESSION = 'deepsolo_auth_session';
+
 // --- Token 中心 ---
 /** Token 中心初始数据路径 */
 export const TOKEN_ACCOUNT_URL = './data/token_center/account.json';

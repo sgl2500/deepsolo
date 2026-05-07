@@ -13,6 +13,7 @@ import { ConversationPanel } from './ConversationPanel';
 import { TokenCenterUI } from './TokenCenterUI';
 import { PlayerPanel } from './PlayerPanel';
 import { StrategyProfileOverlay } from './StrategyProfileOverlay';
+import type { AuthStore } from '../core/AuthStore';
 import type { ChatService } from '../services/ChatService';
 import './styles.css';
 
@@ -29,14 +30,14 @@ export class UIManager {
   private panel: HTMLElement;
   private tokenPanel: HTMLElement;
 
-  constructor(eventBus: EventBus, store: GameStore, chatService: ChatService) {
+  constructor(eventBus: EventBus, store: GameStore, chatService: ChatService, authStore: AuthStore) {
     const app = document.getElementById('app')!;
 
     // Token Store
-    const tokenStore = new TokenStore(eventBus);
+    const tokenStore = new TokenStore(eventBus, authStore.session?.username ?? null);
 
     // Header
-    this.headerBar = new HeaderBar(app, eventBus, store);
+    this.headerBar = new HeaderBar(app, eventBus, store, authStore);
 
     // Game container
     const gameContainer = document.createElement('div');

@@ -1,4 +1,5 @@
 import type { BattleResult } from './battle';
+import type { AuthSession } from './auth';
 import type { ConvChoice, ConvInputMode, Conversation, ConvMessage } from './conversation';
 import type { DiscussionGroup, DiscussionTopic } from './discussion';
 import type { PlayerProgress } from './player';
@@ -21,6 +22,9 @@ export interface GameEvents {
   'discussion:ended': { groupId: string; agents: string[] };
   'discussion:view': DiscussionGroup;
   'ui:refresh': void;
+  'auth:login': AuthSession;
+  'auth:logout': void;
+  'auth:changed': AuthSession | null;
   'scene:state-changed': { state: SceneState; buildingId?: string };
   // ── 统一对话事件 ──
   'conv:open': Conversation;

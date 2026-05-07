@@ -13,3 +13,4 @@ export * from './types/conversation';
 export * from './types/battle';
 export * from './types/story';
 export * from './types/events';
+export * from './types/auth';

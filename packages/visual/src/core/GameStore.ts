@@ -27,6 +27,7 @@ import {
   normalizePlayerLocation,
   type PlayerLocation,
 } from './PlayerLocationPersistence';
+import { readUserScopedStorage, writeUserScopedStorage } from './UserScopedStorage';
 
 const DEFAULT_PLAYER_PROGRESS: PlayerProgress = {
   version: 2,
@@ -80,12 +81,15 @@ export class GameStore {
   private processedEvents: Set<string> = new Set();
   private prevStrategyIds: Set<string> = new Set();
   private lastPlayerLocationSignature = '';
+  private storageUsername: string | null;
 
-  constructor(eventBus: EventBus) {
+  constructor(eventBus: EventBus, storageUsername: string | null = null) {
     this.eventBus = eventBus;
+    this.storageUsername = storageUsername;
     this.initStoryState();
     this.initPlayerProgress();
     this.initPlayerLocation();
+    this.applyUserIdentity();
     this.ensurePlayerCombatBaseline();
     // 同步加载 fallback 数据，确保 WorldScene.create 有数据可用
     this.strategies = INITIAL_STRATEGIES.map((s) => this.normalizeStrategy(s));
@@ -538,7 +542,7 @@ export class GameStore {
   /** 从 localStorage 恢复剧情状态 */
   private initStoryState(): void {
     try {
-      const saved = localStorage.getItem(LS_KEY_STORY);
+      const saved = readUserScopedStorage(LS_KEY_STORY, this.storageUsername);
       if (saved) {
         const data = JSON.parse(saved);
         this.storyFlags = data.flags || {};
@@ -550,7 +554,7 @@ export class GameStore {
 
   private initPlayerProgress(): void {
     try {
-      const saved = localStorage.getItem(LS_KEY_PLAYER_PROGRESS);
+      const saved = readUserScopedStorage(LS_KEY_PLAYER_PROGRESS, this.storageUsername);
       if (!saved) return;
       this.playerProgress = this.normalizePlayerProgress(JSON.parse(saved));
     } catch { /* ignore */ }
@@ -558,7 +562,7 @@ export class GameStore {
 
   private initPlayerLocation(): void {
     try {
-      const saved = localStorage.getItem(LS_KEY_PLAYER_LOCATION);
+      const saved = readUserScopedStorage(LS_KEY_PLAYER_LOCATION, this.storageUsername);
       if (!saved) return;
       const location = normalizePlayerLocation(JSON.parse(saved));
       if (!location) return;
@@ -566,6 +570,12 @@ export class GameStore {
       this.playerPosition = { x: location.x, y: location.y };
       this.lastPlayerLocationSignature = getPlayerLocationSignature(location);
     } catch { /* ignore */ }
+  }
+
+  private applyUserIdentity(): void {
+    const name = this.storageUsername?.trim();
+    if (!name) return;
+    this.playerProgress.identity.name = name;
   }
 
   private persistPlayerLocation(location: PlayerLocation): void {
@@ -576,13 +586,13 @@ export class GameStore {
     this.playerLocation = normalized;
     this.playerPosition = { x: normalized.x, y: normalized.y };
     this.lastPlayerLocationSignature = signature;
-    localStorage.setItem(LS_KEY_PLAYER_LOCATION, JSON.stringify(normalized));
+    writeUserScopedStorage(LS_KEY_PLAYER_LOCATION, JSON.stringify(normalized), this.storageUsername);
     this.eventBus.emit('player:moved', { x: normalized.x, y: normalized.y });
   }
 
   persistPlayerProgress(): void {
     this.ensurePlayerCombatBaseline();
-    localStorage.setItem(LS_KEY_PLAYER_PROGRESS, JSON.stringify(this.playerProgress));
+    writeUserScopedStorage(LS_KEY_PLAYER_PROGRESS, JSON.stringify(this.playerProgress), this.storageUsername);
     this.eventBus.emit('player:progress-changed', this.playerProgress);
     this.eventBus.emit('ui:refresh');
   }
@@ -733,11 +743,11 @@ export class GameStore {
 
   /** 持久化剧情状态到 localStorage */
   persistStoryState(): void {
-    localStorage.setItem(LS_KEY_STORY, JSON.stringify({
+    writeUserScopedStorage(LS_KEY_STORY, JSON.stringify({
       flags: this.storyFlags,
       completed: Array.from(this.completedStories),
       tutorialCompleted: this.tutorialCompleted,
-    }));
+    }), this.storageUsername);
   }
 
   tickDay(): void {

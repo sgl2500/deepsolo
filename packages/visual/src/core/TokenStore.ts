@@ -8,6 +8,7 @@ import {
   LS_KEY_ACCOUNT, LS_KEY_TOKENS, LS_KEY_LISTINGS, LS_KEY_TRANSACTIONS,
 } from '../config';
 import { EventBus } from './EventBus';
+import { readUserScopedStorage, removeUserScopedStorage, writeUserScopedStorage } from './UserScopedStorage';
 
 /** 生成唯一 ID */
 function uid(): string {
@@ -22,9 +23,11 @@ export class TokenStore {
 
   private eventBus: EventBus;
   private loaded = false;
+  private storageUsername: string | null;
 
-  constructor(eventBus: EventBus) {
+  constructor(eventBus: EventBus, storageUsername: string | null = null) {
     this.eventBus = eventBus;
+    this.storageUsername = storageUsername;
     this.init();
   }
 
@@ -32,10 +35,10 @@ export class TokenStore {
 
   private async init(): Promise<void> {
     // 尝试从 localStorage 恢复
-    const savedAccount = localStorage.getItem(LS_KEY_ACCOUNT);
-    const savedTokens = localStorage.getItem(LS_KEY_TOKENS);
-    const savedListings = localStorage.getItem(LS_KEY_LISTINGS);
-    const savedTx = localStorage.getItem(LS_KEY_TRANSACTIONS);
+    const savedAccount = readUserScopedStorage(LS_KEY_ACCOUNT, this.storageUsername);
+    const savedTokens = readUserScopedStorage(LS_KEY_TOKENS, this.storageUsername);
+    const savedListings = readUserScopedStorage(LS_KEY_LISTINGS, this.storageUsername);
+    const savedTx = readUserScopedStorage(LS_KEY_TRANSACTIONS, this.storageUsername);
 
     if (savedAccount && savedTokens) {
       this.account = JSON.parse(savedAccount);
@@ -84,10 +87,10 @@ export class TokenStore {
   }
 
   private persist(): void {
-    if (this.account) localStorage.setItem(LS_KEY_ACCOUNT, JSON.stringify(this.account));
-    localStorage.setItem(LS_KEY_TOKENS, JSON.stringify(this.tokens));
-    localStorage.setItem(LS_KEY_LISTINGS, JSON.stringify(this.listings));
-    localStorage.setItem(LS_KEY_TRANSACTIONS, JSON.stringify(this.transactions));
+    if (this.account) writeUserScopedStorage(LS_KEY_ACCOUNT, JSON.stringify(this.account), this.storageUsername);
+    writeUserScopedStorage(LS_KEY_TOKENS, JSON.stringify(this.tokens), this.storageUsername);
+    writeUserScopedStorage(LS_KEY_LISTINGS, JSON.stringify(this.listings), this.storageUsername);
+    writeUserScopedStorage(LS_KEY_TRANSACTIONS, JSON.stringify(this.transactions), this.storageUsername);
   }
 
   // ── 查询 ──
@@ -183,10 +186,10 @@ export class TokenStore {
 
   /** 重置所有数据 */
   reset(): void {
-    localStorage.removeItem(LS_KEY_ACCOUNT);
-    localStorage.removeItem(LS_KEY_TOKENS);
-    localStorage.removeItem(LS_KEY_LISTINGS);
-    localStorage.removeItem(LS_KEY_TRANSACTIONS);
+    removeUserScopedStorage(LS_KEY_ACCOUNT, this.storageUsername);
+    removeUserScopedStorage(LS_KEY_TOKENS, this.storageUsername);
+    removeUserScopedStorage(LS_KEY_LISTINGS, this.storageUsername);
+    removeUserScopedStorage(LS_KEY_TRANSACTIONS, this.storageUsername);
     this.account = null;
     this.tokens = [];
     this.listings = [];
