@@ -17,6 +17,14 @@ export const PLAYER_MANUALS: Record<string, PlayerManualDef> = {
     description: '基础调息秘籍。研读后可为后续内功体系打底。',
     vitalsBonus: { maxMp: 10 },
   },
+  manual_digital_fumo_intro: {
+    id: 'manual_digital_fumo_intro',
+    name: '金刚伏魔入门',
+    itemId: 'manual_digital_fumo_intro',
+    description: '数字掌门传下的实盘护体心法。研读后可提升防御与内力上限。',
+    attributeBonus: { defense: 2, understanding: 1 },
+    vitalsBonus: { maxMp: 20 },
+  },
 };
 
 export function getPlayerManualDef(manualId: string): PlayerManualDef | undefined {

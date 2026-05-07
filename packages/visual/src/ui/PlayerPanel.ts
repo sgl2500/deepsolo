@@ -2,6 +2,7 @@ import type { EventBus } from '../core/EventBus';
 import type { GameStore } from '../core/GameStore';
 import { getPlayerItemDef } from '../content/PlayerItems';
 import { getPlayerManualDef } from '../content/PlayerManuals';
+import { NPC_DEFS } from '../data/NPCData';
 import {
   MARTIAL_LEVEL_MAX,
   PLAYER_MARTIAL_ARTS,
@@ -187,6 +188,13 @@ export class PlayerPanel {
       </section>
 
       <section class="player-section">
+        <h4>资源</h4>
+        <div class="player-attrs">
+          <div><span>元宝</span><b>${progress.currencies.yuanbao}</b></div>
+        </div>
+      </section>
+
+      <section class="player-section">
         <h4>规则锚点</h4>
         ${renderCombatCardGrid(combat.anchorCards, 'is-compact')}
         ${renderCombatNotes(combat.notes)}
@@ -218,6 +226,11 @@ export class PlayerPanel {
           ${this.renderEquipmentSlot('护具', equipment.armor)}
           ${this.renderEquipmentSlot('饰品', equipment.accessory)}
         </div>
+      </section>
+
+      <section class="player-section">
+        <h4>江湖关系</h4>
+        ${this.renderNpcAffinities()}
       </section>
     `;
   }
@@ -365,6 +378,39 @@ export class PlayerPanel {
   private renderEquipmentSlot(label: string, itemId?: string): string {
     const item = itemId ? getPlayerItemDef(itemId) : undefined;
     return `<div><span>${label}</span><b>${this.escapeHtml(item?.name ?? '未装备')}</b></div>`;
+  }
+
+  private renderNpcAffinities(): string {
+    const affinities = Object.values(this.store.playerProgress.npcAffinities);
+    if (affinities.length === 0) {
+      return '<div class="player-empty">还没有建立明显关系。靠近 NPC 按 G 赠送元宝可提升好感。</div>';
+    }
+
+    return `
+      <div class="player-list">
+        ${affinities.map((affinity) => {
+          const npc = NPC_DEFS.find(item => item.id === affinity.npcId);
+          const strategy = this.store.getStrategy(affinity.npcId);
+          return `
+            <div class="player-list-item">
+              <div>
+                <strong>${this.escapeHtml(npc?.name ?? strategy?.name ?? affinity.npcId)}</strong>
+                <span>${this.escapeHtml(this.getFavorStageLabel(affinity.favor))} · 已赠 ${affinity.giftedYuanbaoTotal} 元宝</span>
+                <p>好感度 ${affinity.favor} · 赠礼 ${affinity.giftCount} 次</p>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  private getFavorStageLabel(favor: number): string {
+    if (favor >= 100) return '传功之交';
+    if (favor >= 80) return '信任';
+    if (favor >= 50) return '赏识';
+    if (favor >= 20) return '点头之交';
+    return '陌生';
   }
 
   private meetsAttributeRequirement(required?: Partial<Record<keyof typeof ATTRIBUTE_LABELS, number>>): boolean {

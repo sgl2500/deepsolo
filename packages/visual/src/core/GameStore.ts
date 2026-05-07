@@ -7,9 +7,11 @@ import {
   type EventEntry,
   type PlayerAttributes,
   type PlayerEquipment,
+  type PlayerCurrencies,
   type PlayerInventoryStack,
   type PlayerMartialProgress,
   type PlayerManualProgress,
+  type PlayerNpcAffinity,
   type PlayerProgress,
   type PlayerVitals,
   type Strategy,
@@ -30,7 +32,7 @@ import {
 import { readUserScopedStorage, writeUserScopedStorage } from './UserScopedStorage';
 
 const DEFAULT_PLAYER_PROGRESS: PlayerProgress = {
-  version: 2,
+  version: 3,
   identity: { name: '无名少侠', title: '观察者' },
   vitals: { hp: 200, maxHp: 200, mp: 200, maxMp: 200 },
   attributes: {
@@ -40,6 +42,8 @@ const DEFAULT_PLAYER_PROGRESS: PlayerProgress = {
     understanding: 10,
     fortune: 10,
   },
+  currencies: { yuanbao: 100 },
+  npcAffinities: {},
   inventory: [],
   manuals: [],
   martials: [{ martialId: 'basic_attack', level: 1, exp: 0, totalUses: 0, hitCount: 0, whiffCount: 0, stack: 0 }],
@@ -56,6 +60,10 @@ export interface MartialUseResult {
   leveledUp: boolean;
   levelsGained: number;
 }
+
+export type GiftYuanbaoResult =
+  | { ok: true; npcId: string; amount: number; favorBefore: number; favorAfter: number; yuanbaoBalance: number }
+  | { ok: false; message: string };
 
 type StrategyLike = Omit<Strategy, 'state' | 'existenceTier'> & Partial<Pick<Strategy, 'state' | 'existenceTier'>>;
 
@@ -277,6 +285,103 @@ export class GameStore {
     this.playerPosition.x = x;
     this.playerPosition.y = y;
     this.eventBus.emit('player:moved', { x, y });
+  }
+
+  getYuanbao(): number {
+    return this.playerProgress.currencies.yuanbao;
+  }
+
+  grantYuanbao(amount: number, reason?: string): void {
+    const safeAmount = Math.max(0, Math.floor(amount));
+    if (safeAmount <= 0) return;
+    this.playerProgress.currencies.yuanbao += safeAmount;
+    this.persistPlayerProgress();
+    this.eventBus.emit('player:currency-changed', {
+      currency: 'yuanbao',
+      amount: safeAmount,
+      balance: this.playerProgress.currencies.yuanbao,
+      reason,
+    });
+  }
+
+  spendYuanbao(amount: number, reason?: string): boolean {
+    const safeAmount = Math.max(0, Math.floor(amount));
+    if (safeAmount <= 0) return false;
+    if (this.playerProgress.currencies.yuanbao < safeAmount) return false;
+    this.playerProgress.currencies.yuanbao -= safeAmount;
+    this.persistPlayerProgress();
+    this.eventBus.emit('player:currency-changed', {
+      currency: 'yuanbao',
+      amount: -safeAmount,
+      balance: this.playerProgress.currencies.yuanbao,
+      reason,
+    });
+    return true;
+  }
+
+  getNpcAffinity(npcId: string): PlayerNpcAffinity {
+    const existing = this.playerProgress.npcAffinities[npcId];
+    if (existing) return existing;
+    const created: PlayerNpcAffinity = {
+      npcId,
+      favor: 0,
+      giftedYuanbaoTotal: 0,
+      giftCount: 0,
+      stage: 0,
+    };
+    this.playerProgress.npcAffinities[npcId] = created;
+    return created;
+  }
+
+  getNpcFavor(npcId: string): number {
+    return this.getNpcAffinity(npcId).favor;
+  }
+
+  addNpcFavor(npcId: string, amount: number): { favorBefore: number; favorAfter: number } {
+    const safeAmount = Math.floor(amount);
+    const affinity = this.getNpcAffinity(npcId);
+    const favorBefore = affinity.favor;
+    affinity.favor = Math.max(0, favorBefore + safeAmount);
+    affinity.stage = this.getNpcFavorStage(affinity.favor);
+    this.persistPlayerProgress();
+    this.eventBus.emit('npc:favor-changed', {
+      npcId,
+      favorBefore,
+      favorAfter: affinity.favor,
+      amount: safeAmount,
+    });
+    return { favorBefore, favorAfter: affinity.favor };
+  }
+
+  giftYuanbaoToNpc(npcId: string, amount: number): GiftYuanbaoResult {
+    const safeAmount = Math.max(1, Math.floor(amount));
+    if (!this.spendYuanbao(safeAmount, `gift:${npcId}`)) {
+      return { ok: false, message: '元宝不足' };
+    }
+
+    const affinity = this.getNpcAffinity(npcId);
+    const favorBefore = affinity.favor;
+    affinity.favor += safeAmount;
+    affinity.giftedYuanbaoTotal += safeAmount;
+    affinity.giftCount += 1;
+    affinity.lastGiftAt = Date.now();
+    affinity.stage = this.getNpcFavorStage(affinity.favor);
+    this.persistPlayerProgress();
+    this.eventBus.emit('npc:favor-changed', {
+      npcId,
+      favorBefore,
+      favorAfter: affinity.favor,
+      amount: safeAmount,
+    });
+
+    return {
+      ok: true,
+      npcId,
+      amount: safeAmount,
+      favorBefore,
+      favorAfter: affinity.favor,
+      yuanbaoBalance: this.playerProgress.currencies.yuanbao,
+    };
   }
 
   getSavedPlayerLocation(): PlayerLocation | null {
@@ -615,6 +720,8 @@ export class GameStore {
       },
       vitals,
       attributes: this.normalizeAttributes(data.attributes),
+      currencies: this.normalizeCurrencies(data.currencies),
+      npcAffinities: this.normalizeNpcAffinities(data.npcAffinities),
       inventory: this.normalizeInventory(data.inventory),
       manuals: this.normalizeManuals(data.manuals),
       martials: this.normalizeMartials(data.martials),
@@ -644,6 +751,33 @@ export class GameStore {
       understanding: this.safeNumber(data.understanding, DEFAULT_PLAYER_PROGRESS.attributes.understanding),
       fortune: this.safeNumber(data.fortune, DEFAULT_PLAYER_PROGRESS.attributes.fortune),
     };
+  }
+
+  private normalizeCurrencies(raw: unknown): PlayerCurrencies {
+    const data = raw && typeof raw === 'object' ? raw as Partial<PlayerCurrencies> : {};
+    return {
+      yuanbao: Math.max(0, Math.floor(this.safeNumber(data.yuanbao, DEFAULT_PLAYER_PROGRESS.currencies.yuanbao))),
+    };
+  }
+
+  private normalizeNpcAffinities(raw: unknown): Record<string, PlayerNpcAffinity> {
+    if (!raw || typeof raw !== 'object') return {};
+    const result: Record<string, PlayerNpcAffinity> = {};
+    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+      if (!key || !value || typeof value !== 'object') continue;
+      const data = value as Partial<PlayerNpcAffinity>;
+      const npcId = typeof data.npcId === 'string' && data.npcId ? data.npcId : key;
+      const favor = Math.max(0, Math.floor(this.safeNumber(data.favor, 0)));
+      result[npcId] = {
+        npcId,
+        favor,
+        giftedYuanbaoTotal: Math.max(0, Math.floor(this.safeNumber(data.giftedYuanbaoTotal, 0))),
+        giftCount: Math.max(0, Math.floor(this.safeNumber(data.giftCount, 0))),
+        lastGiftAt: this.safeNumber(data.lastGiftAt, 0) || undefined,
+        stage: this.getNpcFavorStage(favor),
+      };
+    }
+    return result;
   }
 
   private normalizeInventory(raw: unknown): PlayerInventoryStack[] {
@@ -731,6 +865,14 @@ export class GameStore {
       armor: typeof data.armor === 'string' ? data.armor : undefined,
       accessory: typeof data.accessory === 'string' ? data.accessory : undefined,
     };
+  }
+
+  private getNpcFavorStage(favor: number): number {
+    if (favor >= 100) return 4;
+    if (favor >= 80) return 3;
+    if (favor >= 50) return 2;
+    if (favor >= 20) return 1;
+    return 0;
   }
 
   private normalizeFlags(raw: unknown): Record<string, boolean> {

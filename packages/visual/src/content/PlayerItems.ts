@@ -19,6 +19,14 @@ export const PLAYER_ITEMS: Record<string, PlayerItemDef> = {
     stackable: false,
     iconPath: 'assets/jy-runtime/08_thing/0079.png',
   },
+  manual_digital_fumo_intro: {
+    id: 'manual_digital_fumo_intro',
+    name: '金刚伏魔入门',
+    type: 'manual',
+    description: '数字掌门以实盘心法演化出的护身内功，讲究守住本金、稳住心神。',
+    stackable: false,
+    iconPath: 'assets/jy-runtime/08_thing/0079.png',
+  },
 };
 
 export function getPlayerItemDef(itemId: string): PlayerItemDef | undefined {

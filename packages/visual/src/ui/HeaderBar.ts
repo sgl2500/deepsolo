@@ -46,7 +46,7 @@ export class HeaderBar {
     const actions = document.createElement('div');
     actions.className = 'header-actions';
     actions.innerHTML = `
-      <span class="hint">WASD / 方向键移动 · I 玩家面板 · T 查看人物</span>
+      <span class="hint">WASD / 方向键移动 · I 玩家面板 · T 查看人物 · G 赠送元宝</span>
       <button type="button" class="logout-btn">退出</button>
     `;
     this.el.appendChild(actions);

@@ -125,10 +125,86 @@ const teahouseTransferFollowup: StoryScript = {
   },
 };
 
+/** 好感传功——陈掌柜收下元宝后传授吐纳入门 */
+const masterChenFavorGiftTuna: StoryScript = {
+  id: 'master_chen_favor_gift_tuna',
+  trigger: {
+    event: 'npc_favor_changed',
+    npcId: 'master_chen',
+    conditions: [
+      { type: 'npc_favor_gte', params: { npcId: 'master_chen', favor: 80 } },
+      { type: 'manual_not_owned', params: { manualId: 'manual_tuna_intro' } },
+      { type: 'flag_not_set', params: { flag: 'master_chen_gave_tuna' } },
+    ],
+  },
+  priority: 20,
+  firstNode: 'start',
+  nodes: {
+    start: {
+      id: 'start',
+      speaker: '陈掌柜',
+      portraitKey: '10',
+      text: '客官这些日子的心意，我都记下了。江湖讲缘分，也讲诚意。你既然愿意常来坐坐，我也不能只收你的茶钱。',
+      next: 'teach',
+    },
+    teach: {
+      id: 'teach',
+      speaker: '陈掌柜',
+      portraitKey: '10',
+      text: '这本《吐纳入门》你拿去。它不是什么惊天动地的神功，却能帮你稳住内息。做策略也一样，先学会活得久，再谈赢得多。',
+    },
+  },
+  onComplete: [
+    { type: 'grant_manual', params: { manualId: 'manual_tuna_intro', manualName: '吐纳入门', agentName: '陈掌柜' } },
+    { type: 'set_flag', params: { flag: 'master_chen_gave_tuna', value: true } },
+    { type: 'mark_completed', params: { storyId: 'master_chen_favor_gift_tuna' } },
+    { type: 'add_event_log', params: { agentName: '陈掌柜', text: '因好感深厚传授《吐纳入门》' } },
+  ],
+};
+
+/** 数字门派掌门好感传功 */
+const digitalMasterFavorGiftFumo: StoryScript = {
+  id: 'digital_master_favor_gift_fumo',
+  trigger: {
+    event: 'npc_favor_changed',
+    npcId: 'digital_master',
+    conditions: [
+      { type: 'npc_favor_gte', params: { npcId: 'digital_master', favor: 80 } },
+      { type: 'manual_not_owned', params: { manualId: 'manual_digital_fumo_intro' } },
+      { type: 'flag_not_set', params: { flag: 'digital_master_gave_fumo' } },
+    ],
+  },
+  priority: 30,
+  firstNode: 'start',
+  nodes: {
+    start: {
+      id: 'start',
+      speaker: '数字掌门',
+      portraitKey: '1',
+      text: '你多次以元宝供养本门运行，我已看见。数字门不重虚礼，只看长期投入与真实回撤。你的诚意，够了。',
+      next: 'teach',
+    },
+    teach: {
+      id: 'teach',
+      speaker: '数字掌门',
+      portraitKey: '1',
+      text: '这本《金刚伏魔入门》给你。记住，实盘里的第一神功不是暴利，而是护住本金。心不乱，仓不乱，回撤自然不乱。',
+    },
+  },
+  onComplete: [
+    { type: 'grant_manual', params: { manualId: 'manual_digital_fumo_intro', manualName: '金刚伏魔入门', agentName: '数字掌门' } },
+    { type: 'set_flag', params: { flag: 'digital_master_gave_fumo', value: true } },
+    { type: 'mark_completed', params: { storyId: 'digital_master_favor_gift_fumo' } },
+    { type: 'add_event_log', params: { agentName: '数字掌门', text: '因好感深厚传授《金刚伏魔入门》' } },
+  ],
+};
+
 /** 所有故事脚本（按 priority 降序排列） */
 const TEAHOUSE_ENTRY_STORIES_ENABLED = false;
 
 export const STORY_SCRIPTS: StoryScript[] = [
+  digitalMasterFavorGiftFumo,
+  masterChenFavorGiftTuna,
   // 策略茶馆搭建阶段先关闭“进门自动剧情”，保留靠近 NPC 按空格的手动对话。
   ...(TEAHOUSE_ENTRY_STORIES_ENABLED ? [teahouseSkillTransfer, teahouseTransferFollowup] : []),
 ].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));

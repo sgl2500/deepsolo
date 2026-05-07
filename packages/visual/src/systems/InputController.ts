@@ -11,6 +11,7 @@ export class InputController {
   private inspectKey: Phaser.Input.Keyboard.Key;
   private cancelKey: Phaser.Input.Keyboard.Key;
   private battleKey: Phaser.Input.Keyboard.Key;
+  private giftKey: Phaser.Input.Keyboard.Key;
 
   constructor(scene: Phaser.Scene) {
     const keyboard = scene.input.keyboard!;
@@ -20,6 +21,7 @@ export class InputController {
     this.inspectKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T) as Phaser.Input.Keyboard.Key;
     this.cancelKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ESC) as Phaser.Input.Keyboard.Key;
     this.battleKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.B) as Phaser.Input.Keyboard.Key;
+    this.giftKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.G) as Phaser.Input.Keyboard.Key;
   }
 
   /** 获取移动方向 (-1, 0, 1) */
@@ -58,5 +60,10 @@ export class InputController {
   /** B 键是否刚按下（战斗键） */
   isBattlePressed(): boolean {
     return Phaser.Input.Keyboard.JustDown(this.battleKey);
+  }
+
+  /** G 键是否刚按下（赠送元宝） */
+  isGiftPressed(): boolean {
+    return Phaser.Input.Keyboard.JustDown(this.giftKey);
   }
 }

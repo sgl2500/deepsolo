@@ -48,6 +48,10 @@ export class StorySystem {
       }
     });
 
+    eventBus.on('npc:favor-changed', ({ npcId }) => {
+      this.checkFavorTriggers(npcId);
+    });
+
     // 监听选择事件
     eventBus.on('conv:choice', (value: string) => {
       if (this.activeStory) {
@@ -62,6 +66,7 @@ export class StorySystem {
 
     for (const script of STORY_SCRIPTS) {
       const { trigger } = script;
+      if (!('sceneState' in trigger)) continue;
       if (trigger.buildingId !== buildingId) continue;
       if (trigger.sceneState !== 'indoor') continue;
       if (this.triggeredThisSession.has(script.id)) continue;
@@ -73,6 +78,20 @@ export class StorySystem {
       this.triggeredThisSession.add(script.id);
       this.startStory(script);
       return; // 每次只触发一个
+    }
+  }
+
+  private checkFavorTriggers(npcId: string): void {
+    if (this.activeStory) return;
+
+    for (const script of STORY_SCRIPTS) {
+      const { trigger } = script;
+      if (!('event' in trigger)) continue;
+      if (trigger.event !== 'npc_favor_changed' || trigger.npcId !== npcId) continue;
+      if (!evaluateAllConditions(trigger.conditions, this.store)) continue;
+
+      this.startStory(script);
+      return;
     }
   }
 

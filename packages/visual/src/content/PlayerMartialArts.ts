@@ -32,6 +32,15 @@ export const PLAYER_MARTIAL_ARTS: PlayerMartialArtDef[] = [
     description: '最基础的调息内功，重在稳住气息、打通入门根基。',
     effectText: '研读后内力上限 +10。',
   },
+  {
+    id: 'jingang_fumo_intro',
+    name: '金刚伏魔入门',
+    category: 'inner',
+    requiredManualId: 'manual_digital_fumo_intro',
+    requiredAttributes: { defense: 10, understanding: 10 },
+    description: '数字掌门将实盘风控炼成的护身内功，重在守本金、抗回撤、蓄内力。',
+    effectText: '研读后防御 +2、悟性 +1、内力上限 +20。',
+  },
 ];
 
 export function getMartialCategoryLabel(category: MartialArtCategory): string {

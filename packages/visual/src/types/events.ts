@@ -15,6 +15,8 @@ export interface GameEvents {
   'agent:moved': { id: string; x: number; y: number };
   'player:moved': { x: number; y: number };
   'player:progress-changed': PlayerProgress;
+  'player:currency-changed': { currency: 'yuanbao'; amount: number; balance: number; reason?: string };
+  'npc:favor-changed': { npcId: string; favorBefore: number; favorAfter: number; amount: number };
   'day:tick': number;
   'bubble:show': { entityId: string; text: string };
   'discussion:started': { groupId: string; agents: string[]; topic: DiscussionTopic };

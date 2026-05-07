@@ -23,6 +23,7 @@ import { BUILDINGS } from '../data/BuildingData';
 import { getNearbyIndoorInteractable } from '../content/IndoorInteractables';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
 import { PlayerAppearanceOverlay } from '../ui/PlayerAppearanceOverlay';
+import type { NPC } from '../entities/NPC';
 import type { StrategyNPC } from '../entities/StrategyNPC';
 import {
   resetPlayerAppearanceTuning,
@@ -563,7 +564,7 @@ export class WorldScene extends Phaser.Scene {
 
     // 对话/聊天面板打开时：只处理关闭和对话推进
     if (this.convOpen) {
-      this.updateInteractHint(null, null);
+      this.updateInteractHint(null, null, null);
       if (this.inputController.isCancelPressed()) {
         _eventBus.emit('conv:close');
       }
@@ -580,7 +581,7 @@ export class WorldScene extends Phaser.Scene {
 
     // 过渡状态：锁定玩家移动
     if (this.sceneManager.isPlayerLocked()) {
-      this.updateInteractHint(null, null);
+      this.updateInteractHint(null, null, null);
       return;
     }
 
@@ -653,11 +654,25 @@ export class WorldScene extends Phaser.Scene {
       ? getNearbyIndoorInteractable(buildingId, px, py, NPC_INTERACT_DIST)
       : null;
     const nearbyStrategyNpc = this.getNearbyInspectableStrategyNpc(px, py);
-    this.updateInteractHint(nearbyIndoorInteractable, nearbyStrategyNpc);
+    const nearbyNpc = this.sceneManager.isIndoor()
+      ? this.entitySystem.getNearbyNPC(px, py, NPC_INTERACT_DIST)
+      : null;
+    this.updateInteractHint(nearbyIndoorInteractable, nearbyStrategyNpc, nearbyNpc);
+
+    const giftPressed = this.inputController.isGiftPressed();
 
     if (this.inputController.isInspectPressed() && nearbyStrategyNpc) {
       _store.selectStrategy(nearbyStrategyNpc.strategy);
       this.entitySystem.showBubble(nearbyStrategyNpc.strategy.id, `查看 ${nearbyStrategyNpc.strategy.name}`);
+      return;
+    }
+
+    if (giftPressed && nearbyNpc) {
+      this.giftYuanbaoToNpc(nearbyNpc, 10);
+      return;
+    }
+    if (giftPressed && nearbyStrategyNpc) {
+      this.giftYuanbaoToStrategyNpc(nearbyStrategyNpc, 10);
       return;
     }
 
@@ -678,10 +693,9 @@ export class WorldScene extends Phaser.Scene {
       }
 
       // 优先检测室内普通 NPC
-      const npc = this.entitySystem.getNearbyNPC(px, py, NPC_INTERACT_DIST);
-      if (npc) {
+      if (nearbyNpc) {
         this.sceneManager.startDialogue();
-        this.dialogueSystem.startDialogue(npc.dialogueId);
+        this.dialogueSystem.startDialogue(nearbyNpc.dialogueId);
         return;
       } else {
         // 检测附近的策略 Agent → 打开聊天
@@ -732,6 +746,7 @@ export class WorldScene extends Phaser.Scene {
   private updateInteractHint(
     interactable: IndoorInteractableDef | null,
     strategyNpc: StrategyNPC | null,
+    npc: NPC | null,
   ): void {
     if (!this.interactHintText) return;
     const prompts: string[] = [];
@@ -740,6 +755,11 @@ export class WorldScene extends Phaser.Scene {
     }
     if (strategyNpc) {
       prompts.push(`T：查看 ${strategyNpc.strategy.name}`);
+      prompts.push(`G：赠送10元宝（好感 ${_store.getNpcFavor(strategyNpc.strategy.id)}）`);
+    }
+    if (npc) {
+      prompts.push(`空格：交谈 ${npc.npcDef.name}`);
+      prompts.push(`G：赠送10元宝（好感 ${_store.getNpcFavor(npc.id)}）`);
     }
     if (prompts.length === 0) {
       this.interactHintText.setVisible(false);
@@ -754,6 +774,28 @@ export class WorldScene extends Phaser.Scene {
   private getNearbyInspectableStrategyNpc(playerX: number, playerY: number): StrategyNPC | null {
     if (!this.sceneManager.isIndoor()) return null;
     return this.entitySystem.getNearbyStrategyNPC(playerX, playerY, WorldScene.AGENT_INTERACT_DIST);
+  }
+
+  private giftYuanbaoToNpc(npc: NPC, amount: number): void {
+    const result = _store.giftYuanbaoToNpc(npc.id, amount);
+    if (!result.ok) {
+      this.entitySystem.showBubble('player', result.message);
+      return;
+    }
+
+    this.entitySystem.showBubble('player', `赠予${npc.npcDef.name}${amount}元宝，好感 ${result.favorBefore}→${result.favorAfter}`);
+    this.cameras.main.flash(120, 251, 191, 36, false);
+  }
+
+  private giftYuanbaoToStrategyNpc(npc: StrategyNPC, amount: number): void {
+    const result = _store.giftYuanbaoToNpc(npc.strategy.id, amount);
+    if (!result.ok) {
+      this.entitySystem.showBubble('player', result.message);
+      return;
+    }
+
+    this.entitySystem.showBubble(npc.strategy.id, `多谢。好感 ${result.favorBefore}→${result.favorAfter}`);
+    this.cameras.main.flash(120, 251, 191, 36, false);
   }
 
   private restoreInitialPlayerLocation(): void {

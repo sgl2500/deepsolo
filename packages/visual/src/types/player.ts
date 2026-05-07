@@ -46,11 +46,26 @@ export interface PlayerEquipment {
   accessory?: string;
 }
 
+export interface PlayerCurrencies {
+  yuanbao: number;
+}
+
+export interface PlayerNpcAffinity {
+  npcId: string;
+  favor: number;
+  giftedYuanbaoTotal: number;
+  giftCount: number;
+  lastGiftAt?: number;
+  stage?: number;
+}
+
 export interface PlayerProgress {
   version: number;
   identity: PlayerIdentity;
   vitals: PlayerVitals;
   attributes: PlayerAttributes;
+  currencies: PlayerCurrencies;
+  npcAffinities: Record<string, PlayerNpcAffinity>;
   inventory: PlayerInventoryStack[];
   manuals: PlayerManualProgress[];
   martials: PlayerMartialProgress[];

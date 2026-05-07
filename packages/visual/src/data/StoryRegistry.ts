@@ -30,6 +30,18 @@ conditions.set('strategy_return_gt', (params, store) => {
   return !!s && s.returnPct > (params.threshold as number);
 });
 
+conditions.set('npc_favor_gte', (params, store) => {
+  return store.getNpcFavor(params.npcId as string) >= (params.favor as number);
+});
+
+conditions.set('has_yuanbao_gte', (params, store) => {
+  return store.getYuanbao() >= (params.amount as number);
+});
+
+conditions.set('manual_not_owned', (params, store) => {
+  return !store.hasManual(params.manualId as string);
+});
+
 conditions.set('flag_not_set', (params, store) => {
   return !store.storyFlags[params.flag as string];
 });
@@ -60,6 +72,34 @@ actions.set('mark_completed', (params, store, _eventBus) => {
 
 actions.set('add_event_log', (params, store, _eventBus) => {
   store.addEvent(params.agentName as string, params.text as string);
+  _eventBus.emit('ui:refresh');
+});
+
+actions.set('grant_manual', (params, store, _eventBus) => {
+  const added = store.discoverManual(params.manualId as string);
+  if (added) {
+    store.addEvent(params.agentName as string || '观察者', `获得秘籍《${params.manualName as string || params.manualId}》`);
+    _eventBus.emit('ui:refresh');
+  }
+});
+
+actions.set('grant_yuanbao', (params, store, _eventBus) => {
+  store.grantYuanbao(params.amount as number, params.reason as string | undefined);
+  _eventBus.emit('ui:refresh');
+});
+
+actions.set('spend_yuanbao', (params, store, _eventBus) => {
+  store.spendYuanbao(params.amount as number, params.reason as string | undefined);
+  _eventBus.emit('ui:refresh');
+});
+
+actions.set('add_npc_favor', (params, store, _eventBus) => {
+  store.addNpcFavor(params.npcId as string, params.amount as number);
+  _eventBus.emit('ui:refresh');
+});
+
+actions.set('gift_yuanbao', (params, store, _eventBus) => {
+  store.giftYuanbaoToNpc(params.npcId as string, params.amount as number);
   _eventBus.emit('ui:refresh');
 });
 

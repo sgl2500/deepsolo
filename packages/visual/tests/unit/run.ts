@@ -11,6 +11,7 @@ import { tests as playerLocationPersistenceTests } from './player_location_persi
 import { tests as strategyNpcPlacementTests } from './strategy_npc_placement.test';
 import { tests as strategyNpcVisualsTests } from './strategy_npc_visuals.test';
 import { tests as detailPanelLiveStateTests } from './detail_panel_live_state.test';
+import { tests as giftSystemTests } from './gift_system.test';
 
 export async function run(): Promise<void> {
   await runTests([
@@ -26,5 +27,6 @@ export async function run(): Promise<void> {
     { suite: 'StrategyNpcPlacement', tests: strategyNpcPlacementTests },
     { suite: 'StrategyNpcVisuals', tests: strategyNpcVisualsTests },
     { suite: 'DetailPanelLiveState', tests: detailPanelLiveStateTests },
+    { suite: 'GiftSystem', tests: giftSystemTests },
   ]);
 }

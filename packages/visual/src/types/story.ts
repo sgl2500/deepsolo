@@ -2,6 +2,9 @@
 export type StoryConditionName =
   | 'strategy_exists'
   | 'strategy_return_gt'
+  | 'npc_favor_gte'
+  | 'has_yuanbao_gte'
+  | 'manual_not_owned'
   | 'flag_not_set'
   | 'flag_is'
   | 'day_gt'
@@ -11,7 +14,12 @@ export type StoryConditionName =
 export type StoryActionName =
   | 'set_flag'
   | 'mark_completed'
-  | 'add_event_log';
+  | 'add_event_log'
+  | 'grant_manual'
+  | 'grant_yuanbao'
+  | 'spend_yuanbao'
+  | 'add_npc_favor'
+  | 'gift_yuanbao';
 
 /** 带参数的条件 */
 export interface StoryCondition {
@@ -26,12 +34,18 @@ export interface StoryAction {
 }
 
 /** 触发器：定义故事何时可以被激活 */
-export interface StoryTrigger {
-  sceneState: 'indoor';
-  buildingId: string;
-  conditions: StoryCondition[];
-  oncePerVisit?: boolean;
-}
+export type StoryTrigger =
+  | {
+      sceneState: 'indoor';
+      buildingId: string;
+      conditions: StoryCondition[];
+      oncePerVisit?: boolean;
+    }
+  | {
+      event: 'npc_favor_changed';
+      npcId: string;
+      conditions: StoryCondition[];
+    };
 
 /** 故事选项（增加条件和动作） */
 export interface StoryChoice {
