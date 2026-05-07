@@ -29,6 +29,8 @@ export class Player extends Entity {
   private indoorBuildingId: string | null = null;
   private appearance: PlayerAppearanceDef = getSelectedPlayerAppearance();
   private unsubscribeAppearance: (() => void) | null = null;
+  private visualMove = { dx: 0, dy: 1 };
+  private shadow: Phaser.GameObjects.Ellipse | null = null;
 
   constructor(scene: Phaser.Scene, mapData: MapData, inputController: InputController) {
     super(scene, mapData, 'player', mapData.width / 2, mapData.height / 2);
@@ -39,15 +41,22 @@ export class Player extends Entity {
     this.createSprite();
     this.unsubscribeAppearance = subscribePlayerAppearance((appearance) => {
       this.appearance = appearance;
-      if (this.sprite) applyPlayerAppearanceSprite(this.sprite, appearance, this.direction, this.indoorMode);
+      if (this.sprite) {
+        applyPlayerAppearanceSprite(this.sprite, appearance, this.direction, this.indoorMode, this.visualMove);
+        this.updatePseudoWalkVisual(0, false);
+      }
     });
   }
 
   private createSprite(): void {
     const frameIdx = getPlayerAppearanceFrame(this.appearance, this.direction, 0);
 
+    this.shadow = this.scene.add.ellipse(0, this.appearance.worldOffsetY + 1, 48, 13, 0x000000, 0.28);
+    this.shadow.setVisible(false);
+    this.container.add(this.shadow);
+
     this.sprite = this.scene.add.image(0, this.appearance.worldOffsetY, this.appearance.textureKey, frameIdx);
-    applyPlayerAppearanceSprite(this.sprite, this.appearance, this.direction, this.indoorMode);
+    applyPlayerAppearanceSprite(this.sprite, this.appearance, this.direction, this.indoorMode, this.visualMove);
     this.container.add(this.sprite);
 
     this.label = this.scene.add.text(5, 20, '观察者', {
@@ -69,7 +78,9 @@ export class Player extends Entity {
       this.direction,
       moving,
       time,
+      this.visualMove,
     );
+    this.updatePseudoWalkVisual(time, moving);
   }
 
   update(time: number, delta: number, playerX: number, playerY: number): void {
@@ -101,6 +112,7 @@ export class Player extends Entity {
       this.mapX = newX;
       this.mapY = newY;
       this.direction = this.getDirection(input.dx, input.dy);
+      this.visualMove = { dx: input.dx, dy: input.dy };
     }
 
     // 位置：室内模式用容器本地坐标（玩家在 indoorContainer 内）
@@ -176,6 +188,37 @@ export class Player extends Entity {
     this.container.setDepth(INDOOR_ACTOR_DEPTH_BASE + this.mapX + this.mapY);
     if (this.sprite) this.sprite.y = this.appearance.indoorOffsetY;
     this.updateWalkAnimation(time, false);
+  }
+
+  private updatePseudoWalkVisual(time: number, moving: boolean): void {
+    if (!this.sprite) return;
+
+    const baseY = this.indoorMode ? this.appearance.indoorOffsetY : this.appearance.worldOffsetY;
+    const pseudoWalk = this.appearance.pseudoWalk;
+    if (!pseudoWalk) {
+      this.sprite.setPosition(0, baseY).setScale(this.appearance.scale);
+      this.shadow?.setVisible(false);
+      return;
+    }
+
+    const phase = moving ? (time / pseudoWalk.stepIntervalMs) * Math.PI : 0;
+    const step = moving ? Math.abs(Math.sin(phase)) : 0;
+    const sway = moving ? Math.sin(phase * 0.5) * pseudoWalk.swayX : 0;
+    const squash = moving ? 1 - step * pseudoWalk.squashY : 1;
+
+    this.sprite
+      .setPosition(sway, baseY - step * pseudoWalk.bobHeight)
+      .setScale(this.appearance.scale, this.appearance.scale * squash);
+
+    if (this.shadow) {
+      const shadowScale = 1 - step * pseudoWalk.shadowScale;
+      this.shadow
+        .setVisible(true)
+        .setPosition(0, baseY + 1)
+        .setSize(pseudoWalk.shadowWidth, pseudoWalk.shadowHeight)
+        .setScale(shadowScale, shadowScale)
+        .setAlpha(pseudoWalk.shadowAlpha * (1 - step * 0.25));
+    }
   }
 
   override destroy(): void {
