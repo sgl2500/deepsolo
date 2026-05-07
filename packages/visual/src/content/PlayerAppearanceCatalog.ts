@@ -53,9 +53,9 @@ export const PLAYER_APPEARANCES: PlayerAppearanceDef[] = [
   {
     id: 'player3_iso_five_view_pseudo_walk',
     name: '白衣少侠等距五视图',
-    description: '基于 player003 五视图，使用引擎上下浮动伪行走。',
+    description: '基于 player3 新五视图，使用引擎上下浮动伪行走。',
     textureKey: 'player3_iso_five_view_pseudo_walk',
-    src: 'assets/characters/player3/player3_iso_five_view_pseudo_walk.png',
+    src: 'assets/characters/player3/player3_iso_five_view_pseudo_walk.png?v=20260507-new-view',
     frameWidth: 80,
     frameHeight: 160,
     frameCount: 5,
