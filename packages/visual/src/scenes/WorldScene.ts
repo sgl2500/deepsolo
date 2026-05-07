@@ -16,7 +16,7 @@ import { DiscussionSystem } from '../systems/DiscussionSystem';
 import { SceneManager } from '../systems/SceneManager';
 import { DialogueSystem } from '../systems/DialogueSystem';
 import { VFXSystem } from '../systems/VFXSystem';
-import { BattleSystem } from '../systems/BattleSystem';
+import { SideBattleSystem } from '../systems/sidebattle/SideBattleSystem';
 import { StorySystem } from '../systems/StorySystem';
 import { WorldMapEditor } from '../systems/WorldMapEditor';
 import { BUILDINGS } from '../data/BuildingData';
@@ -56,7 +56,7 @@ export class WorldScene extends Phaser.Scene {
   private sceneManager!: SceneManager;
   private dialogueSystem!: DialogueSystem;
   private vfxSystem!: VFXSystem;
-  private battleSystem!: BattleSystem;
+  private battleSystem!: SideBattleSystem;
   private storySystem!: StorySystem;
   private worldMapEditor!: WorldMapEditor;
   private playerAppearanceOverlay!: PlayerAppearanceOverlay;
@@ -133,7 +133,7 @@ export class WorldScene extends Phaser.Scene {
     this.vfxSystem = new VFXSystem(this);
 
     // 战斗系统
-    this.battleSystem = new BattleSystem(this, _eventBus, _store);
+    this.battleSystem = new SideBattleSystem(this, _eventBus, _store);
 
     // 剧情系统
     this.storySystem = new StorySystem(this, _eventBus, _store);

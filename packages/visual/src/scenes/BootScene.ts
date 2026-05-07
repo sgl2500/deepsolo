@@ -9,6 +9,7 @@ import { EFT_FRAME_COUNTS } from '../data/BattleData';
 import { preloadAgentProfiles } from '../data/agents';
 import { ASSET_CATALOG } from '../content/AssetCatalog';
 import { getAutomatedWorldBuildingAssets } from '../content/AutomatedBuildingRegistry';
+import { BATTLE_BACKGROUND_ASSETS, BATTLE_EFFECT_ASSETS, getBattleCharacterAssets } from '../content/BattleAssetCatalog';
 import { getPlayerAppearanceAssets } from '../content/PlayerAppearanceCatalog';
 
 const WORLD_BUILDING_ASSETS = [
@@ -111,6 +112,11 @@ export class BootScene extends Phaser.Scene {
 
     for (const asset of WORLD_BUILDING_ASSETS) {
       this.load.image(asset.key, `assets/world/buildings/${asset.file}?v=1`);
+    }
+
+    // === 横版战斗专用素材 ===
+    for (const asset of [...getBattleCharacterAssets(), ...BATTLE_BACKGROUND_ASSETS, ...BATTLE_EFFECT_ASSETS]) {
+      this.load.image(asset.key, asset.src);
     }
 
     // === Smap 瓦片 (JYQXZ 室内场景) ===
