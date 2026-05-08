@@ -76,6 +76,9 @@ export class WorldScene extends Phaser.Scene {
   private chatAgentId: string | null = null;
   /** 室内交互提示 */
   private interactHintText: Phaser.GameObjects.Text | null = null;
+  /** 类似 RPG 拾取物品的居中提示框 */
+  private itemNotice: Phaser.GameObjects.Container | null = null;
+  private itemNoticeTimer: Phaser.Time.TimerEvent | null = null;
   /** 上次持久化玩家位置的时间，避免每帧写 localStorage */
   private lastLocationPersistTime = 0;
   private locationPersistenceCleaned = false;
@@ -884,21 +887,33 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
+    if (action.type === 'notice') {
+      this.showItemNotice(action.notice.title, action.notice.message);
+      return;
+    }
+
     if (action.type === 'discover_manual') {
       const added = _store.addManual(action.manualId);
       if (added) {
         _store.setPlayerFlag(action.onceFlag, true);
-        this.entitySystem.showBubble('player', `获得秘籍《${action.manualName}》`);
-        this.startIndoorDialogue(action.firstDialogueId);
+        const notice = action.foundNotice ?? {
+          title: '发现物品',
+          message: `获得秘籍《${action.manualName}》`,
+        };
+        this.showItemNotice(notice.title, notice.message);
       } else {
-        this.startIndoorDialogue(action.repeatDialogueId);
+        const notice = action.emptyNotice ?? {
+          title: '什么都没有',
+          message: '你仔细翻找了一遍，没有发现新的东西。',
+        };
+        this.showItemNotice(notice.title, notice.message);
       }
       return;
     }
 
     if (action.type === 'rest') {
       _store.restPlayer(action.hpRecover, action.mpRecover);
-      this.entitySystem.showBubble('player', action.message);
+      this.showItemNotice(action.noticeTitle ?? interactable.name, action.message);
       this.cameras.main.flash(180, 255, 244, 214, false);
     }
   }
@@ -906,6 +921,64 @@ export class WorldScene extends Phaser.Scene {
   private startIndoorDialogue(dialogueId: string): void {
     this.sceneManager.startDialogue();
     this.dialogueSystem.startDialogue(dialogueId);
+  }
+
+  private showItemNotice(title: string, message: string): void {
+    this.itemNoticeTimer?.remove(false);
+    this.itemNotice?.destroy();
+
+    const width = 430;
+    const height = 86;
+    const container = this.add.container(SCREEN_WIDTH / 2, 132).setDepth(30000).setScrollFactor(0);
+    const bg = this.add.graphics();
+    bg.fillStyle(0x2b2112, 0.28);
+    bg.fillRoundedRect(-width / 2 + 5, -height / 2 + 7, width, height, 14);
+    bg.fillStyle(0xfff2ba, 0.96);
+    bg.fillRoundedRect(-width / 2, -height / 2, width, height, 14);
+    bg.lineStyle(3, 0xc9822c, 1);
+    bg.strokeRoundedRect(-width / 2 + 2, -height / 2 + 2, width - 4, height - 4, 12);
+    bg.lineStyle(1, 0x8f5b24, 0.55);
+    bg.strokeRoundedRect(-width / 2 + 10, -height / 2 + 10, width - 20, height - 20, 8);
+    container.add(bg);
+
+    const titleText = this.add.text(0, -22, title, {
+      fontFamily: 'Kaiti SC, STKaiti, Songti SC, serif',
+      fontSize: '20px',
+      color: '#7c3f16',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    const messageText = this.add.text(0, 14, message, {
+      fontFamily: 'PingFang SC, Microsoft YaHei, sans-serif',
+      fontSize: '17px',
+      color: '#3f2a17',
+      align: 'center',
+      wordWrap: { width: width - 42 },
+    }).setOrigin(0.5);
+    container.add([titleText, messageText]);
+
+    container.setAlpha(0).setScale(0.94);
+    this.tweens.add({
+      targets: container,
+      alpha: 1,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 120,
+      ease: 'Back.easeOut',
+    });
+    this.itemNotice = container;
+    this.itemNoticeTimer = this.time.delayedCall(1900, () => {
+      this.tweens.add({
+        targets: container,
+        alpha: 0,
+        y: 116,
+        duration: 220,
+        ease: 'Sine.easeIn',
+        onComplete: () => {
+          container.destroy();
+          if (this.itemNotice === container) this.itemNotice = null;
+        },
+      });
+    });
   }
 
   private startGushenStory(): void {

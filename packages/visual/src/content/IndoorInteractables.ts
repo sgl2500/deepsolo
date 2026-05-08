@@ -27,6 +27,7 @@ export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
       hpRecover: 'full',
       mpRecover: 'full',
       message: '你在木榻上调息片刻，生命与内力都恢复了。',
+      noticeTitle: '帷幔木榻',
     },
   },
   {
@@ -44,6 +45,14 @@ export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
       onceFlag: 'birth_house_bookshelf_manual_found',
       firstDialogueId: 'birth_house_bookshelf_found_manual',
       repeatDialogueId: 'birth_house_bookshelf_manual_repeat',
+      foundNotice: {
+        title: '发现物品',
+        message: '获得秘籍《吐纳入门》',
+      },
+      emptyNotice: {
+        title: '什么都没有',
+        message: '你仔细翻找了一遍，没有发现新的东西。',
+      },
     },
   },
   {
@@ -54,7 +63,13 @@ export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
     mapY: deskPos.mapY,
     interactRadius: 2.2,
     prompt: '空格：查看长案',
-    action: { type: 'dialogue', dialogueId: 'birth_house_desk' },
+    action: {
+      type: 'notice',
+      notice: {
+        title: '查看桌案',
+        message: '桌案上有纸和笔，纸页只写着几行短句：先问一问，再决定是战是谈。',
+      },
+    },
   },
   {
     id: 'birth_house_notice',
@@ -64,7 +79,13 @@ export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
     mapY: noticePos.mapY,
     interactRadius: 2.2,
     prompt: '空格：查看屋规告示',
-    action: { type: 'dialogue', dialogueId: 'birth_house_notice' },
+    action: {
+      type: 'notice',
+      notice: {
+        title: '屋规告示',
+        message: '告示上写着：入世先观，见人先问；若要动手，也须先听完一句话。',
+      },
+    },
   },
 ];
 

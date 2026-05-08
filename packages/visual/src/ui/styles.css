@@ -3318,3 +3318,665 @@ body {
   .build-inspector { display: none; }
   .build-statusbar { max-width: calc(100% - 28px); }
 }
+
+/* --- Jianghu Player Status Panel --- */
+.player-status-overlay {
+  background:
+    radial-gradient(circle at 14% 12%, rgba(170, 114, 55, 0.18), transparent 26%),
+    radial-gradient(circle at 82% 18%, rgba(130, 160, 150, 0.12), transparent 30%),
+    rgba(48, 38, 24, 0.42);
+  backdrop-filter: blur(2px) saturate(0.92);
+}
+
+.player-status-card {
+  position: relative;
+  width: min(1180px, calc(100vw - 28px));
+  height: min(670px, calc(100vh - 28px));
+  max-height: none;
+  border-radius: 8px;
+  border: 2px solid rgba(160, 121, 73, 0.55);
+  background:
+    linear-gradient(90deg, rgba(127, 94, 55, 0.08) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(127, 94, 55, 0.07) 1px, transparent 1px),
+    radial-gradient(circle at 18% 22%, rgba(187, 140, 75, 0.13), transparent 26%),
+    radial-gradient(circle at 86% 16%, rgba(119, 141, 130, 0.12), transparent 22%),
+    linear-gradient(180deg, #fbf4e6 0%, #f1e5cd 100%);
+  background-size: 34px 34px, 34px 34px, auto, auto, auto;
+  color: #4b3523;
+  box-shadow: 0 28px 80px rgba(33, 23, 12, 0.38), inset 0 0 0 6px rgba(255, 250, 239, 0.54);
+}
+
+.player-status-card::before,
+.player-status-card::after {
+  content: '';
+  position: absolute;
+  inset: 11px;
+  pointer-events: none;
+  border: 1px solid rgba(175, 139, 88, 0.46);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.48);
+}
+
+.player-status-card::after {
+  inset: 18px;
+  border-color: rgba(196, 166, 113, 0.28);
+  background:
+    linear-gradient(90deg, transparent, rgba(121, 89, 54, 0.08), transparent) top / 100% 1px no-repeat,
+    linear-gradient(90deg, transparent, rgba(121, 89, 54, 0.08), transparent) bottom / 100% 1px no-repeat;
+}
+
+.player-status-head {
+  position: relative;
+  z-index: 1;
+  height: 74px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 6px;
+}
+
+.player-status-title {
+  min-width: 300px;
+  text-align: center;
+  color: #4c3524;
+  font-family: 'Kaiti SC', 'STKaiti', 'Songti SC', serif;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.8);
+}
+
+.player-status-cloud {
+  width: 180px;
+  height: 22px;
+  margin: 0 24px;
+  opacity: 0.62;
+  background:
+    radial-gradient(circle at 14px 12px, transparent 9px, #bfa47c 10px 11px, transparent 12px),
+    linear-gradient(90deg, transparent, #bfa47c 12%, transparent 12% 20%, #bfa47c 20% 74%, transparent 74%);
+}
+.player-status-cloud.right { transform: scaleX(-1); }
+
+.player-status-close {
+  position: absolute;
+  z-index: 2;
+  top: 22px;
+  right: 24px;
+  width: 42px;
+  height: 42px;
+  border: 2px solid rgba(255, 238, 205, 0.72);
+  border-radius: 7px;
+  color: #fff8e9;
+  background: linear-gradient(135deg, #b77243, #9b4e2f);
+  box-shadow: 0 3px 0 #7c3c25, 0 10px 24px rgba(88, 45, 25, 0.22);
+  font-family: Georgia, serif;
+  font-size: 34px;
+  line-height: 34px;
+}
+.player-status-close:hover { background: linear-gradient(135deg, #c7834e, #a95031); }
+
+.player-status-overlay .player-card-body {
+  position: relative;
+  z-index: 1;
+  padding: 0 34px 20px;
+  overflow: hidden;
+}
+
+.player-status-tabs {
+  width: 430px;
+  height: 40px;
+  margin: -6px auto 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid rgba(174, 138, 87, 0.5);
+  border-radius: 8px;
+  background: rgba(255, 249, 236, 0.58);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+  overflow: hidden;
+}
+
+.player-status-tabs button {
+  border: 0;
+  border-right: 1px solid rgba(174, 138, 87, 0.36);
+  color: #604531;
+  background: transparent;
+  font-family: 'Kaiti SC', 'STKaiti', 'Songti SC', serif;
+  font-size: 18px;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+}
+.player-status-tabs button:last-child { border-right: 0; }
+.player-status-tabs button.active {
+  color: #382516;
+  background: linear-gradient(180deg, rgba(255, 252, 242, 0.95), rgba(224, 197, 145, 0.46));
+  box-shadow: inset 0 -2px 0 rgba(161, 104, 43, 0.55);
+}
+
+.jianghu-dashboard {
+  display: grid;
+  grid-template-columns: 34% 32% 34%;
+  gap: 12px;
+  height: 100%;
+}
+
+.jianghu-column {
+  min-height: 0;
+  padding: 12px;
+  border: 1px solid rgba(174, 138, 87, 0.35);
+  background: rgba(255, 250, 239, 0.4);
+  box-shadow: inset 0 0 24px rgba(133, 92, 42, 0.06);
+  overflow: hidden;
+  transition: filter 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+.jianghu-column.is-focus {
+  filter: saturate(1.08);
+  box-shadow: inset 0 0 24px rgba(133, 92, 42, 0.08), 0 0 0 2px rgba(44, 117, 99, 0.18);
+}
+
+.jianghu-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: #5c3b24;
+  font-family: 'Kaiti SC', 'STKaiti', 'Songti SC', serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+.jianghu-section-title span {
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(139, 103, 59, 0.8);
+  transform: rotate(45deg);
+}
+
+.jianghu-hero-card {
+  position: relative;
+  min-height: 286px;
+  padding-left: 176px;
+}
+
+.jianghu-portrait {
+  position: absolute;
+  left: 2px;
+  bottom: 0;
+  width: 170px;
+  height: 274px;
+  object-fit: contain;
+  object-position: bottom center;
+  filter: drop-shadow(0 14px 18px rgba(82, 57, 31, 0.24));
+}
+
+.jianghu-name-ribbon {
+  position: absolute;
+  left: 8px;
+  top: 52px;
+  writing-mode: vertical-rl;
+  padding: 10px 5px;
+  border-radius: 999px;
+  color: #fff7e4;
+  background: linear-gradient(180deg, #94613e, #b9533d);
+  font-family: 'Kaiti SC', 'STKaiti', serif;
+  font-size: 14px;
+  letter-spacing: 0.15em;
+  box-shadow: 0 8px 16px rgba(110, 62, 37, 0.24);
+}
+
+.jianghu-id-lines {
+  display: grid;
+  gap: 8px;
+  padding: 10px 0 8px;
+}
+.jianghu-id-lines p,
+.jianghu-item-detail p,
+.jianghu-manual-detail p { margin: 0; }
+.jianghu-id-lines span,
+.jianghu-item-detail span {
+  color: #8b7156;
+  font-size: 14px;
+}
+.jianghu-id-lines b {
+  color: #3f2b1d;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.jianghu-name-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.jianghu-name-line button {
+  padding: 2px 7px;
+  border: 1px solid rgba(64, 125, 107, 0.45);
+  border-radius: 999px;
+  color: #2c6d63;
+  background: rgba(245, 255, 248, 0.62);
+  font-family: 'Kaiti SC', 'STKaiti', serif;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.jianghu-name-line button:hover {
+  color: #fff8e9;
+  background: #2f7c70;
+}
+
+.jianghu-top-attrs {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+  margin: 6px 0 7px;
+}
+
+.jianghu-top-attrs div {
+  min-width: 0;
+  padding: 5px 3px;
+  border: 1px solid rgba(178, 136, 78, 0.28);
+  border-radius: 6px;
+  text-align: center;
+  background: rgba(255, 252, 244, 0.55);
+}
+
+.jianghu-top-attrs span {
+  display: block;
+  color: #8b7156;
+  font-size: 11px;
+}
+
+.jianghu-top-attrs b {
+  display: block;
+  margin-top: 1px;
+  color: #63331f;
+  font-size: 14px;
+}
+
+.player-status-overlay .player-vital {
+  margin: 8px 0;
+}
+.player-status-overlay .player-vital div {
+  color: #6a4d34;
+  font-size: 13px;
+}
+.player-status-overlay .player-vital b { color: #6f382a; }
+.player-status-overlay .player-vital i {
+  height: 10px;
+  border: 1px solid rgba(118, 87, 51, 0.22);
+  background: rgba(103, 75, 45, 0.16);
+}
+
+.jianghu-stat-list {
+  display: grid;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(173, 139, 91, 0.26);
+}
+.jianghu-stat-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  min-height: 28px;
+  border-bottom: 1px solid rgba(173, 139, 91, 0.22);
+  color: #63482f;
+}
+.jianghu-stat-row i {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #8b6840;
+  background: rgba(137, 102, 58, 0.12);
+  font-size: 10px;
+  font-style: normal;
+}
+.jianghu-stat-row b { color: #3d2a1c; }
+
+.jianghu-derived-attrs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(173, 139, 91, 0.26);
+}
+
+.jianghu-derived-attrs div {
+  padding: 8px 6px;
+  border: 1px solid rgba(178, 136, 78, 0.26);
+  border-radius: 8px;
+  text-align: center;
+  background: rgba(255, 252, 244, 0.46);
+}
+
+.jianghu-derived-attrs span {
+  display: block;
+  color: #8b7156;
+  font-size: 12px;
+}
+
+.jianghu-derived-attrs b {
+  display: block;
+  margin-top: 2px;
+  color: #4b2d1f;
+  font-size: 15px;
+}
+
+.jianghu-primary {
+  min-height: 34px;
+  padding: 0 20px;
+  border: 1px solid rgba(206, 173, 116, 0.9);
+  border-radius: 8px;
+  color: #fff8e9;
+  background: linear-gradient(180deg, #3b8e83, #2d6d63);
+  box-shadow: 0 2px 0 #8e653c;
+  font-family: 'Kaiti SC', 'STKaiti', serif;
+  font-size: 16px;
+  cursor: pointer;
+}
+.jianghu-identity .jianghu-primary { float: right; margin-top: 12px; }
+
+.jianghu-filter-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0;
+  margin-bottom: 10px;
+  border: 1px solid rgba(188, 148, 87, 0.32);
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(255, 252, 244, 0.42);
+}
+.jianghu-filter-row button {
+  height: 32px;
+  border: 0;
+  border-right: 1px solid rgba(188, 148, 87, 0.2);
+  color: #73543a;
+  background: transparent;
+  font-family: 'Kaiti SC', 'STKaiti', serif;
+  font-size: 14px;
+}
+.jianghu-filter-row button:last-child { border-right: 0; }
+.jianghu-filter-row button.active { background: rgba(226, 196, 139, 0.34); color: #3e2a1c; }
+
+.jianghu-bag-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 7px;
+}
+.jianghu-bag-cell {
+  position: relative;
+  aspect-ratio: 1 / 0.9;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(178, 136, 78, 0.36);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 252, 242, 0.72), rgba(222, 199, 158, 0.18));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.55);
+}
+.jianghu-bag-cell.manual { border-color: rgba(63, 132, 113, 0.5); }
+.jianghu-bag-cell.empty { opacity: 0.42; }
+.jianghu-bag-cell img {
+  max-width: 58%;
+  max-height: 50%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 5px 6px rgba(79, 50, 26, 0.18));
+}
+.jianghu-bag-cell small {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 6px;
+  overflow: hidden;
+  color: #5b3d28;
+  font-size: 10px;
+  line-height: 1.1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jianghu-bag-cell b {
+  position: absolute;
+  right: 8px;
+  top: 5px;
+  color: #4b3523;
+  font-size: 13px;
+}
+
+.jianghu-learned-tag {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 1;
+  padding: 1px 5px 2px;
+  border: 1px solid rgba(255, 236, 207, 0.75);
+  border-radius: 4px;
+  color: #fff7ed;
+  background: linear-gradient(180deg, #c95a43, #9f382f);
+  box-shadow: 0 2px 5px rgba(118, 45, 31, 0.22);
+  font-family: 'Kaiti SC', 'STKaiti', serif;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.1;
+}
+
+.jianghu-item-detail {
+  min-height: 88px;
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 10px;
+  padding: 8px;
+  border-top: 1px solid rgba(173, 139, 91, 0.3);
+  color: #604632;
+}
+.jianghu-item-detail img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  border: 1px solid rgba(178, 136, 78, 0.36);
+  border-radius: 6px;
+  background: rgba(255, 250, 238, 0.58);
+}
+.jianghu-item-detail strong {
+  display: block;
+  color: #3d291b;
+  font-family: 'Kaiti SC', 'STKaiti', serif;
+  font-size: 17px;
+}
+.jianghu-item-detail p {
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.jianghu-abandon {
+  align-self: end;
+  padding: 6px 10px;
+  border: 1px solid rgba(165, 73, 50, 0.35);
+  border-radius: 999px;
+  color: #8f382c;
+  background: rgba(255, 245, 232, 0.7);
+  cursor: pointer;
+}
+.jianghu-bag-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #70543a;
+  font-size: 14px;
+}
+
+.jianghu-martial-list {
+  display: grid;
+  gap: 7px;
+  max-height: calc(100% - 42px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.jianghu-martial-list::-webkit-scrollbar { width: 4px; }
+.jianghu-martial-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(155, 112, 62, 0.32);
+}
+.jianghu-martial-row {
+  display: grid;
+  grid-template-columns: 44px 1fr auto auto;
+  gap: 9px;
+  align-items: center;
+  padding: 7px;
+  border: 1px solid rgba(178, 136, 78, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 251, 241, 0.52);
+}
+.jianghu-martial-row.learned { border-color: rgba(194, 122, 59, 0.56); background: rgba(255, 246, 225, 0.72); }
+.jianghu-martial-row.can-learn { border-color: rgba(72, 142, 104, 0.5); }
+.jianghu-book-icon {
+  width: 38px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  color: #f9efd9;
+  background: linear-gradient(135deg, #2b6380, #25435e);
+  box-shadow: 3px 3px 0 rgba(72, 49, 28, 0.16);
+  font-family: 'Kaiti SC', 'STKaiti', serif;
+}
+.jianghu-martial-row strong {
+  color: #4a2f21;
+  font-family: 'Kaiti SC', 'STKaiti', serif;
+  font-size: 17px;
+}
+.jianghu-martial-row p {
+  margin: 3px 0 0;
+  color: #80634b;
+  font-size: 12px;
+}
+.jianghu-martial-row span {
+  padding: 3px 8px;
+  border: 1px solid rgba(66, 137, 96, 0.36);
+  border-radius: 999px;
+  color: #36704f;
+  background: rgba(245, 255, 241, 0.65);
+  white-space: nowrap;
+  font-size: 12px;
+}
+.jianghu-martial-row small {
+  color: #8b7156;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.jianghu-martial-row button {
+  padding: 6px 10px;
+  border: 1px solid rgba(55, 132, 111, 0.48);
+  border-radius: 999px;
+  color: #fff9e8;
+  background: #2f7c70;
+  cursor: pointer;
+  font-size: 12px;
+}
+.jianghu-martial-row button:disabled {
+  color: #9b8468;
+  border-color: rgba(126, 96, 58, 0.25);
+  background: rgba(226, 210, 178, 0.42);
+  cursor: not-allowed;
+}
+.jianghu-martial-row button.danger {
+  border-color: rgba(164, 76, 53, 0.4);
+  background: #a4523a;
+}
+
+.jianghu-manual-detail {
+  display: grid;
+  grid-template-columns: 118px 1fr;
+  gap: 14px;
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(173, 139, 91, 0.3);
+}
+.jianghu-book-preview {
+  height: 136px;
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  border-radius: 7px;
+  color: #2e4057;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,0.3), transparent 16%),
+    linear-gradient(135deg, #416b91, #203a5c);
+  box-shadow: 10px 12px 0 rgba(88, 62, 31, 0.12);
+  writing-mode: vertical-rl;
+  font-family: 'Kaiti SC', 'STKaiti', serif;
+  font-size: 20px;
+  color: #fff4d9;
+  letter-spacing: 0.18em;
+}
+.jianghu-manual-detail h4 {
+  margin: 0 0 7px;
+  color: #4b2d1f;
+  font-family: 'Kaiti SC', 'STKaiti', serif;
+  font-size: 21px;
+}
+.jianghu-manual-detail p {
+  margin-bottom: 5px;
+  color: #6a4f37;
+  line-height: 1.4;
+  font-size: 13px;
+}
+
+.player-status-foot {
+  position: relative;
+  z-index: 1;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 42px;
+  padding: 0 22px;
+  border-top: 1px solid rgba(174, 138, 87, 0.34);
+  color: #75563b;
+  background: rgba(255, 249, 236, 0.34);
+  font-family: 'Kaiti SC', 'STKaiti', serif;
+  font-size: 21px;
+}
+.player-status-foot span {
+  position: relative;
+  padding-left: 26px;
+}
+.player-status-foot span::before {
+  content: '◈';
+  position: absolute;
+  left: 0;
+  color: #b78c56;
+  font-size: 17px;
+}
+.player-status-foot .is-active {
+  color: #3b2719;
+  font-weight: 700;
+}
+
+@media (max-width: 980px) {
+  .player-status-card { height: min(92vh, 860px); }
+  .player-status-overlay .player-card-body { overflow-y: auto; padding: 0 20px 16px; }
+  .jianghu-dashboard { grid-template-columns: 1fr; height: auto; }
+  .jianghu-column { overflow: visible; }
+  .player-status-cloud { display: none; }
+  .player-status-title { min-width: 0; font-size: 30px; }
+  .player-status-tabs { width: min(430px, 100%); }
+  .player-status-foot { gap: 16px; font-size: 16px; flex-wrap: wrap; }
+}
+
+@media (max-width: 640px) {
+  .player-status-card { width: calc(100vw - 14px); height: calc(100vh - 14px); }
+  .player-status-close { top: 14px; right: 14px; }
+  .jianghu-hero-card { padding-left: 130px; }
+  .jianghu-portrait { width: 126px; height: 220px; }
+  .jianghu-bag-grid { grid-template-columns: repeat(4, 1fr); }
+  .jianghu-filter-row { grid-template-columns: repeat(3, 1fr); }
+  .jianghu-item-detail,
+  .jianghu-manual-detail,
+  .jianghu-martial-row { grid-template-columns: 1fr; }
+  .jianghu-item-detail img { display: none; }
+}

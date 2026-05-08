@@ -736,7 +736,17 @@ export class GameStore {
   private applyUserIdentity(): void {
     const name = this.storageUsername?.trim();
     if (!name) return;
+    const currentName = this.playerProgress.identity.name.trim();
+    if (currentName && currentName !== DEFAULT_PLAYER_PROGRESS.identity.name) return;
     this.playerProgress.identity.name = name;
+  }
+
+  setPlayerName(name: string): boolean {
+    const nextName = name.trim().replace(/\s+/g, ' ').slice(0, 12);
+    if (!nextName || nextName === this.playerProgress.identity.name) return false;
+    this.playerProgress.identity.name = nextName;
+    this.persistPlayerProgress();
+    return true;
   }
 
   private persistPlayerLocation(location: PlayerLocation): void {

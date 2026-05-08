@@ -76,8 +76,14 @@ export interface NPCDef {
 }
 
 /** 室内可交互对象定义 */
+export interface IndoorInteractableNotice {
+  title: string;
+  message: string;
+}
+
 export type IndoorInteractableAction =
   | { type: 'dialogue'; dialogueId: string }
+  | { type: 'notice'; notice: IndoorInteractableNotice }
   | {
       type: 'discover_manual';
       manualId: string;
@@ -85,12 +91,15 @@ export type IndoorInteractableAction =
       onceFlag: string;
       firstDialogueId: string;
       repeatDialogueId: string;
+      foundNotice?: IndoorInteractableNotice;
+      emptyNotice?: IndoorInteractableNotice;
     }
   | {
       type: 'rest';
       hpRecover: 'full' | number;
       mpRecover: 'full' | number;
       message: string;
+      noticeTitle?: string;
     };
 
 export type IndoorInteractableZone = {
