@@ -10,6 +10,7 @@ import type { StoryScript, StoryNode, StoryChoice, ConvChoice } from '../types';
 import { DIALOGUE_TYPE_SPEED } from '../config';
 import { STORY_SCRIPTS } from '../data/StoryScripts';
 import { evaluateAllConditions, executeActions } from '../data/StoryRegistry';
+import { resolveStoryPortraitKey } from '../content/StoryNpcPlacements';
 import type { EventBus } from '../core/EventBus';
 import type { GameStore } from '../core/GameStore';
 import { paginateDialogueText } from '../utils/DialogueText';
@@ -175,7 +176,7 @@ export class StorySystem {
       id: nextMsgId(),
       role: 'npc',
       speakerName: node.speaker,
-      portraitKey: node.portraitKey,
+      portraitKey: resolveStoryPortraitKey(node.speaker, node.portraitKey),
       text: '',
       choices: [],
     });
@@ -309,6 +310,13 @@ export class StorySystem {
 
     this.cleanup();
     this.eventBus.emit('conv:close');
+  }
+
+  /** 跳过当前故事：直接执行完成动作，适合长剧情快进 */
+  skipActiveStory(): boolean {
+    if (!this.activeStory) return false;
+    this.endStory();
+    return true;
   }
 
   /** 外部强制终止（conv:close 时调用） */

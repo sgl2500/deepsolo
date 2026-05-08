@@ -586,6 +586,11 @@ export class WorldScene extends Phaser.Scene {
     // 对话/聊天面板打开时：只处理关闭和对话推进
     if (this.convOpen) {
       this.updateInteractHint(null, null, null);
+      if (this.storySystem.isActive() && this.inputController.isSkipStoryPressed()) {
+        this.storySystem.skipActiveStory();
+        this.entitySystem.showBubble('player', '已跳过剧情');
+        return;
+      }
       if (this.inputController.isCancelPressed()) {
         _eventBus.emit('conv:close');
       }
@@ -901,6 +906,10 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private startGushenStory(): void {
+    if (!_store.storyFlags['story.observer_intro_prompt_seen'] && !_store.storyFlags['story.observer_awake']) {
+      if (this.storySystem.startStoryById('observer_house_arrival_prompt')) return;
+    }
+
     const storyId = _store.storyFlags['story.gushen_hub_unlocked']
       ? 'gushen_hub_default'
       : 'observer_house_intro_wakeup';
@@ -922,7 +931,7 @@ export class WorldScene extends Phaser.Scene {
     // 让调试重播更接近真实开场：先黑屏切回小屋，淡入后自动开始主角自言自语。
     this.time.delayedCall(700, () => {
       if (!this.storySystem.isActive()) {
-        this.storySystem.startStoryById('observer_house_intro_wakeup');
+        this.storySystem.startStoryById('observer_house_arrival_prompt');
       }
     });
   }

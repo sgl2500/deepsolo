@@ -7,6 +7,7 @@ import { Agent } from '../entities/Agent';
 import { NPC } from '../entities/NPC';
 import { StrategyNPC } from '../entities/StrategyNPC';
 import { NPC_DEFS } from '../data/NPCData';
+import { resolveStoryNpcPlacement } from '../content/StoryNpcPlacements';
 import { getStrategyNpcPlacements, shouldCreateWorldAgent } from '../content/StrategyNpcPlacement';
 import type { BubbleHandle } from '../ui/BubbleFactory';
 import { BubbleFactory } from '../ui/BubbleFactory';
@@ -71,11 +72,12 @@ export class EntitySystem {
     const mapData = this.mapData; // 使用当前地图数据
     const defs = NPC_DEFS.filter(n => n.mapId === buildingId);
     defs.forEach(def => {
-      const npc = new NPC(this.scene, mapData, def);
+      const resolvedDef = resolveStoryNpcPlacement(def);
+      const npc = new NPC(this.scene, mapData, resolvedDef);
       if (indoorCx !== undefined && indoorCy !== undefined) {
         npc.setIndoorMode(true, indoorCx, indoorCy);
       }
-      this.npcs.set(def.id, npc);
+      this.npcs.set(resolvedDef.id, npc);
     });
   }
 
@@ -185,12 +187,12 @@ export class EntitySystem {
       this.player.container.y = SCREEN_HEIGHT / 2;
       this.player.container.setDepth(playerX + playerY);
     }
-    // NPC 按相对玩家位置放置
+    // NPC 走各自 update 分支；室内 NPC 必须保留容器本地坐标，避免切场景首帧闪现到中心。
     for (const npc of this.npcs.values()) {
-      npc.updateScreenPosition(playerX, playerY);
+      npc.update(0, 0, playerX, playerY);
     }
     for (const npc of this.strategyNpcs.values()) {
-      npc.updateScreenPosition(playerX, playerY);
+      npc.update(0, 0, playerX, playerY);
     }
   }
 

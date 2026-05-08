@@ -27,9 +27,14 @@ export class NPC extends Entity {
     if (texture && texture.key !== '__MISSING') {
       const isSmap = texKey.startsWith('smap_');
       const isIndoorCharacter = texKey.startsWith('token_center_') || texKey.startsWith('indoor_character_');
-      this.sprite = this.scene.add.image(0, 0, texKey)
-        .setOrigin(0.5, 1.0)
-        .setScale(isIndoorCharacter ? 0.36 : isSmap ? 2.2 : 2.5);
+      this.sprite = this.scene.add.image(
+        this.npcDef.pixelOffsetX ?? 0,
+        this.npcDef.pixelOffsetY ?? 0,
+        texKey,
+      )
+        .setOrigin(this.npcDef.originX ?? 0.5, this.npcDef.originY ?? 1.0)
+        .setScale(this.npcDef.scale ?? (isIndoorCharacter ? 0.36 : isSmap ? 2.2 : 2.5))
+        .setAlpha(this.npcDef.alpha ?? 1);
       this.container.add(this.sprite);
     } else {
       // 备用：用彩色图形代替
@@ -57,7 +62,9 @@ export class NPC extends Entity {
       const s = INDOOR_SCALE;
       this.container.x = TILE_HALF_W * s * ((this.mapX - this.indoorCx) - (this.mapY - this.indoorCy)) + SCREEN_WIDTH / 2;
       this.container.y = TILE_HALF_H * s * ((this.mapX - this.indoorCx) + (this.mapY - this.indoorCy)) + SCREEN_HEIGHT / 2;
-      this.container.setDepth(INDOOR_ACTOR_DEPTH_BASE + this.mapX + this.mapY);
+      const depthX = this.npcDef.depthMapX ?? this.mapX;
+      const depthY = this.npcDef.depthMapY ?? this.mapY;
+      this.container.setDepth(INDOOR_ACTOR_DEPTH_BASE + depthX + depthY + (this.npcDef.depthBias ?? 0));
     } else {
       this.updateScreenPosition(playerX, playerY);
     }
@@ -68,6 +75,9 @@ export class NPC extends Entity {
     this.indoorMode = indoor;
     this.indoorCx = cx;
     this.indoorCy = cy;
+    if (indoor) {
+      this.update(0, 0, this.mapX, this.mapY);
+    }
   }
 
   get dialogueId(): string {

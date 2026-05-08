@@ -425,6 +425,7 @@ export class GameStore {
 
   resetObserverIntroDebugState(): void {
     for (const flag of [
+      'story.observer_intro_prompt_seen',
       'story.observer_awake',
       'story.has_observer_journal',
       'story.gushen_hub_unlocked',
@@ -433,6 +434,7 @@ export class GameStore {
     ]) {
       delete this.storyFlags[flag];
     }
+    this.completedStories.delete('observer_house_arrival_prompt');
     this.completedStories.delete('observer_house_intro_wakeup');
     this.persistStoryState();
 

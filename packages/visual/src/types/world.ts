@@ -42,6 +42,8 @@ export interface BuildingDef {
   /** 室内出口坐标 */
   exitX: number;
   exitY: number;
+  /** 室内出口触发半径，不指定则默认 2 */
+  exitRadius?: number;
   /** 返回世界地图坐标 */
   returnX: number;
   returnY: number;
@@ -57,6 +59,16 @@ export interface NPCDef {
   mapY: number;
   /** 精灵图 key */
   charKey: string;
+  /** 单图 NPC 可选视觉覆盖，用于复用编辑器里摆好的室内角色贴图 */
+  scale?: number;
+  alpha?: number;
+  originX?: number;
+  originY?: number;
+  pixelOffsetX?: number;
+  pixelOffsetY?: number;
+  depthMapX?: number;
+  depthMapY?: number;
+  depthBias?: number;
   /** 对话脚本 ID */
   dialogueId: string;
   /** 默认朝向 */

@@ -7,12 +7,46 @@
 
 import type { StoryScript } from '../types';
 
+/** 小屋出生提示——只播放主角自言自语，结束后交还控制权 */
+const observerHouseArrivalPrompt: StoryScript = {
+  id: 'observer_house_arrival_prompt',
+  trigger: {
+    sceneState: 'indoor',
+    buildingId: 'birth_house',
+    conditions: [
+      { type: 'flag_not_set', params: { flag: 'story.observer_intro_prompt_seen' } },
+      { type: 'flag_not_set', params: { flag: 'story.observer_awake' } },
+    ],
+  },
+  priority: 110,
+  firstNode: 'where_am_i',
+  nodes: {
+    where_am_i: {
+      id: 'where_am_i',
+      speaker: '我',
+      portraitKey: 'assets/portraits/player3_observer.png',
+      text: '我怎么在这？',
+      next: 'notice_person',
+    },
+    notice_person: {
+      id: 'notice_person',
+      speaker: '我',
+      portraitKey: 'assets/portraits/player3_observer.png',
+      text: '旁边有个人……我过去问问。',
+    },
+  },
+  onComplete: [
+    { type: 'set_flag', params: { flag: 'story.observer_intro_prompt_seen', value: true } },
+  ],
+};
+
 /** 小屋出生剧情——首次与股神对话 */
 const observerHouseIntroWakeup: StoryScript = {
   id: 'observer_house_intro_wakeup',
   trigger: {
     event: 'manual',
     conditions: [
+      { type: 'flag_is', params: { flag: 'story.observer_intro_prompt_seen', value: true } },
       { type: 'flag_not_set', params: { flag: 'story.observer_awake' } },
     ],
   },
@@ -625,6 +659,7 @@ const digitalMasterFavorGiftFumo: StoryScript = {
 const TEAHOUSE_ENTRY_STORIES_ENABLED = false;
 
 export const STORY_SCRIPTS: StoryScript[] = [
+  observerHouseArrivalPrompt,
   observerHouseIntroWakeup,
   gushenHubDefault,
   digitalMasterFavorGiftFumo,

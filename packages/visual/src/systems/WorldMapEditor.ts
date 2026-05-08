@@ -43,6 +43,8 @@ type WorldEditorSnapshotItem = {
   collisionY?: number;
   collisionRadius?: number;
   collisionPolygon?: BuildingDef['collisionPolygon'];
+  returnX?: number;
+  returnY?: number;
 };
 
 type WorldEditorStoragePayload = {
@@ -355,6 +357,8 @@ export class WorldMapEditor {
       collisionY: b.collisionY,
       collisionRadius: b.collisionRadius ?? 0,
       collisionPolygon: b.collisionPolygon?.map((p) => ({ x: p.x, y: p.y })),
+      returnX: b.returnX,
+      returnY: b.returnY,
     }));
 
     try {
@@ -370,7 +374,8 @@ export class WorldMapEditor {
       });
       const data = await res.json();
       if (res.ok && data.ok) {
-        this.showToast('已保存到 world_layout_override.json / generated_buildings.json');
+        localStorage.removeItem(LS_KEY_WORLD_MAP_EDITOR_LAYOUTS);
+        this.showToast('已保存到源码，并清空浏览器本地地图草稿');
       } else {
         this.showToast(`保存失败: ${data.error || res.statusText}`);
       }
@@ -1037,6 +1042,8 @@ export class WorldMapEditor {
       collisionY: building.collisionY,
       collisionRadius: building.collisionRadius ?? 0,
       collisionPolygon: building.collisionPolygon?.map((point) => ({ ...point })),
+      returnX: building.returnX,
+      returnY: building.returnY,
     }));
   }
 
@@ -1052,6 +1059,8 @@ export class WorldMapEditor {
       }
       building.entryX = item.entryX;
       building.entryY = item.entryY;
+      building.returnX = item.returnX ?? item.entryX;
+      building.returnY = item.returnY ?? item.entryY + 3;
       building.entryRadius = item.entryRadius;
       const savedCollisionRadius = item.collisionRadius ?? 0;
       if (payloadVersion < 3 && savedCollisionRadius <= 0 && (building.collisionRadius ?? 0) > 0) {

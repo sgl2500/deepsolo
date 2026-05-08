@@ -2299,6 +2299,13 @@ body {
     0 18px 42px rgba(0, 0, 0, 0.46);
 }
 
+.conv-overlay.is-rpg-dialogue .conv-msg-npc.has-choices .conv-msg-body {
+  height: 138px;
+  min-height: 138px;
+  max-height: 138px;
+  padding: 15px 18px 12px 24px;
+}
+
 .conv-overlay.is-rpg-dialogue .conv-msg-npc .conv-msg-body::before {
   content: "";
   position: absolute;
@@ -2335,6 +2342,12 @@ body {
   word-break: break-word;
 }
 
+.conv-overlay.is-rpg-dialogue .conv-msg-npc.has-choices .conv-msg-text {
+  max-height: 42px;
+  font-size: 15px;
+  line-height: 1.38;
+}
+
 .conv-overlay.is-rpg-dialogue .conv-msg-system {
   min-height: 70px;
   padding: 16px 22px;
@@ -2345,29 +2358,35 @@ body {
 
 .conv-overlay.is-rpg-dialogue .conv-msg-choices {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 10px;
-  margin-top: 8px;
-  max-height: 96px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px 8px;
+  margin-top: 7px;
+  max-height: 62px;
   overflow: hidden;
+  padding: 0;
 }
 
 .conv-overlay.is-rpg-dialogue .conv-choice-btn {
   position: relative;
-  padding: 6px 10px 6px 24px;
+  min-height: 26px;
+  padding: 4px 8px 4px 20px;
   border-radius: 0;
   border: 1px solid rgba(202, 169, 92, 0.62);
   background: rgba(4, 11, 16, 0.64);
   color: #f7e6ae;
   font-family: "STKaiti", "Kaiti SC", "Songti SC", "PingFang SC", serif;
-  font-size: 14px;
-  letter-spacing: 0.03em;
+  font-size: 12px;
+  line-height: 1.18;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .conv-overlay.is-rpg-dialogue .conv-choice-btn::before {
   content: "›";
   position: absolute;
-  left: 10px;
+  left: 8px;
   color: #61d3cd;
 }
 
@@ -2430,13 +2449,27 @@ body {
     padding: 16px 16px 22px 18px;
   }
 
+  .conv-overlay.is-rpg-dialogue .conv-msg-npc.has-choices .conv-msg-body {
+    height: 118px;
+    min-height: 118px;
+    max-height: 118px;
+  }
+
   .conv-overlay.is-rpg-dialogue .conv-msg-npc .conv-msg-text {
     font-size: 15px;
     line-height: 1.58;
   }
 
   .conv-overlay.is-rpg-dialogue .conv-msg-choices {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: 58px;
+    gap: 4px 6px;
+  }
+
+  .conv-overlay.is-rpg-dialogue .conv-choice-btn {
+    min-height: 25px;
+    font-size: 11px;
+    padding: 4px 7px 4px 18px;
   }
 }
 

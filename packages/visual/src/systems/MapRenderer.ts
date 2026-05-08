@@ -29,6 +29,7 @@ import {
 } from '../content/IndoorCharacterLayout';
 import { getIndoorAsset, INDOOR_ASSET_LIBRARY, type IndoorAssetDef } from '../content/IndoorAssetLibrary';
 import { getGeneratedIndoorLayout } from '../content/GeneratedIndoorLayouts';
+import { getStoryNpcSourceCharacterIds } from '../content/StoryNpcPlacements';
 import { getIndoorInteractables } from '../content/IndoorInteractables';
 import { getAsset, getAssetByTextureKey } from '../content/AssetCatalog';
 import {
@@ -1236,9 +1237,14 @@ export class MapRenderer {
       });
       const data = await res.json();
       if (res.ok && data.ok) {
-        this.lastIndoorSceneDraft = this.sceneRepository.saveSceneDraft(snapshot);
+        localStorage.removeItem(getFurnitureEditorStorageKey(sceneId));
+        localStorage.removeItem(getIndoorCharacterEditorStorageKey(sceneId));
+        localStorage.removeItem(getInteractableEditorStorageKey(sceneId));
+        clearIndoorFloorTileOverrides(sceneId);
+        this.sceneRepository.clearSceneDraft('indoor', sceneId);
+        this.lastIndoorSceneDraft = null;
         this.renderBuildModeOverlay();
-        this.showFurnitureEditorMessage(`已保存室内源码：${sceneId} / ${snapshot.objects.length} 个对象`);
+        this.showFurnitureEditorMessage(`已保存室内源码并清空本地草稿：${sceneId} / ${snapshot.objects.length} 个对象`);
       } else {
         this.showFurnitureEditorMessage(`室内源码保存失败：${data.error || res.statusText}`);
       }
@@ -1385,7 +1391,9 @@ export class MapRenderer {
     this.destroyIndoorCharacterSprites();
     if (!this.indoorContainer || !this.currentIndoorBuildingId) return;
 
-    const characters = getIndoorCharacterDefs(this.currentIndoorBuildingId);
+    const storyNpcCharacterIds = getStoryNpcSourceCharacterIds(this.currentIndoorBuildingId);
+    const characters = getIndoorCharacterDefs(this.currentIndoorBuildingId)
+      .filter((character) => !storyNpcCharacterIds.has(character.id));
     if (characters.length === 0) return;
 
     for (const character of characters) {

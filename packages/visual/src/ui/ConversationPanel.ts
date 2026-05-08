@@ -78,6 +78,7 @@ export class ConversationPanel {
     this.currentConvId = conv.id;
     this.isRpgMode = conv.inputMode !== 'text';
     this.overlay.classList.toggle('is-rpg-dialogue', this.isRpgMode);
+    this.overlay.classList.remove('has-choices');
 
     this.clearHeaderDynamicContent();
 
@@ -112,7 +113,7 @@ export class ConversationPanel {
     this._isOpen = false;
     this.currentConvId = null;
     this.isRpgMode = false;
-    this.overlay.classList.remove('is-rpg-dialogue');
+    this.overlay.classList.remove('is-rpg-dialogue', 'has-choices');
     this.hide();
     this.clearHeaderDynamicContent();
     this.eventBus.emit('conv:close');
@@ -168,6 +169,7 @@ export class ConversationPanel {
   private appendMessage(msg: ConvMessage): void {
     if (this.isRpgMode && msg.role === 'npc') {
       this.messagesEl.innerHTML = '';
+      this.overlay.classList.remove('has-choices');
       this.renderInputArea('none');
     }
 
@@ -221,6 +223,8 @@ export class ConversationPanel {
     // 移除已有选项
     const existing = container.querySelector('.conv-msg-choices');
     if (existing) existing.remove();
+    container.classList.add('has-choices');
+    this.overlay.classList.add('has-choices');
 
     const choicesEl = document.createElement('div');
     choicesEl.className = 'conv-msg-choices';

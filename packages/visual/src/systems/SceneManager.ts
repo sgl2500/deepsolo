@@ -207,7 +207,7 @@ export class SceneManager {
     const dx = player.mapX - building.exitX;
     const dy = player.mapY - building.exitY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist <= 2.0) {
+    if (dist <= (building.exitRadius ?? 2.0)) {
       if (building.id === 'birth_house' && !this.store.storyFlags['story.observer_awake']) {
         const now = this.scene.time.now;
         if (now - this.lastBirthHouseExitHintAt > 1800) {
@@ -242,8 +242,8 @@ export class SceneManager {
     this.currentBuildingId = building.id;
 
     const player = this.entitySystem.getPlayer();
-    this.savedPlayerX = player.mapX;
-    this.savedPlayerY = player.mapY;
+    this.savedPlayerX = building.returnX;
+    this.savedPlayerY = building.returnY;
 
     // 跳过淡出，直接进入室内（初始出生 → 房间中心）
     this.onEnterMidpoint(building, false);
@@ -255,10 +255,10 @@ export class SceneManager {
     this.state = SceneState.TransitionOut;
     this.currentBuildingId = building.id;
 
-    // 保存玩家世界位置
+    // 保存建筑配置的门外返回点，避免玩家从入口半径边缘进入后退出到错误位置。
     const player = this.entitySystem.getPlayer();
-    this.savedPlayerX = player.mapX;
-    this.savedPlayerY = player.mapY;
+    this.savedPlayerX = building.returnX;
+    this.savedPlayerY = building.returnY;
 
     // 淡出
     this.scene.tweens.add({

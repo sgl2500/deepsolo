@@ -15,6 +15,8 @@ type LayoutOverrideItem = {
   collisionY?: number;
   collisionRadius?: number;
   collisionPolygon?: Array<{ x: number; y: number }>;
+  returnX?: number;
+  returnY?: number;
 };
 
 type LayoutOverride = {
@@ -118,10 +120,11 @@ export const BUILDINGS: BuildingDef[] = [
     indoorMapKey: 'indoor_birth_house',
     spawnX: 13,
     spawnY: 13,
-    doorSpawnX: 12.2,
-    doorSpawnY: 22.5,
-    exitX: 13,
-    exitY: 25,
+    doorSpawnX: 12.5,
+    doorSpawnY: 20.4,
+    exitX: 12.5,
+    exitY: 21.8,
+    exitRadius: 0.65,
     returnX: 50,
     returnY: 58,
   },
@@ -226,6 +229,16 @@ if (Array.isArray(layoutOverride.items) && layoutOverride.items.length > 0) {
     if (!building) continue;
     if (item.entryX !== undefined) building.entryX = item.entryX;
     if (item.entryY !== undefined) building.entryY = item.entryY;
+    if (item.returnX !== undefined) {
+      building.returnX = item.returnX;
+    } else if (item.entryX !== undefined) {
+      building.returnX = item.entryX;
+    }
+    if (item.returnY !== undefined) {
+      building.returnY = item.returnY;
+    } else if (item.entryY !== undefined) {
+      building.returnY = item.entryY + 3;
+    }
     if (item.visualX !== undefined) building.visualX = item.visualX;
     if (item.visualY !== undefined) building.visualY = item.visualY;
     if (item.depthX !== undefined) building.depthX = item.depthX;
