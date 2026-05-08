@@ -8,6 +8,7 @@ import { Entity } from './Entity';
 import { clamp } from '../utils/MathUtils';
 import { getTile } from '../utils/IsoProjection';
 import { isBlockedByIndoorCharacter } from '../content/IndoorCharacterCollision';
+import { isBlockedByLockedIndoorExit } from '../content/IndoorExitLocks';
 import { isBlockedByIndoorFurniture } from '../content/IndoorFurnitureCollision';
 import { isBlockedByWorldBuildingCollision } from '../content/WorldBuildingCollision';
 import type { InputController } from '../systems/InputController';
@@ -28,6 +29,7 @@ export class Player extends Entity {
   private indoorCx = 0;
   private indoorCy = 0;
   private indoorBuildingId: string | null = null;
+  private indoorExitBlocked = false;
   private appearance: PlayerAppearanceDef = getSelectedPlayerAppearance();
   private unsubscribeAppearance: (() => void) | null = null;
   private visualMove = { dx: 0, dy: 1 };
@@ -140,6 +142,7 @@ export class Player extends Entity {
   /** 检查指定位置是否被墙壁阻挡（仅室内生效） */
   private isBlocked(x: number, y: number): boolean {
     if (!this.indoorMode) return isBlockedByWorldBuildingCollision(x, y);
+    if (isBlockedByLockedIndoorExit(this.indoorBuildingId, this.indoorExitBlocked, x, y)) return true;
     if (isBlockedByIndoorFurniture(this.indoorBuildingId, x, y)) return true;
     if (isBlockedByIndoorCharacter(this.indoorBuildingId, x, y)) return true;
     // 检查 surface 层
@@ -178,6 +181,12 @@ export class Player extends Entity {
     this.indoorCx = cx;
     this.indoorCy = cy;
     this.indoorBuildingId = indoor ? buildingId : null;
+    if (!indoor) this.indoorExitBlocked = false;
+  }
+
+  /** 设置当前室内出口是否被剧情临时阻挡 */
+  setIndoorExitBlocked(blocked: boolean): void {
+    this.indoorExitBlocked = blocked;
   }
 
   get isIndoor(): boolean { return this.indoorMode; }

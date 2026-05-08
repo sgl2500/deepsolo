@@ -139,6 +139,9 @@ export class WorldScene extends Phaser.Scene {
 
     // 剧情系统
     this.storySystem = new StorySystem(this, _eventBus, _store);
+    _eventBus.on('story:start-requested', ({ storyId }) => {
+      this.storySystem.startStoryById(storyId);
+    });
 
     // 建筑入口标记（必须在 SceneManager 之前创建）
     this.buildingMarkers = createBuildingMarkers(this, this.mapData);

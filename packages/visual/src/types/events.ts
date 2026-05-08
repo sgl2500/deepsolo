@@ -51,4 +51,5 @@ export interface GameEvents {
   // ── 剧情系统事件 ──
   'story:started': { storyId: string };
   'story:completed': { storyId: string };
+  'story:start-requested': { storyId: string };
 }

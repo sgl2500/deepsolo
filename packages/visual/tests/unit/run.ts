@@ -6,6 +6,7 @@ import { tests as combatProfileTests } from './combat_profile.test';
 import { tests as combatDisplayTests } from './combat_display.test';
 import { tests as indoorCoordinateMapperTests } from './indoor_coordinate_mapper.test';
 import { tests as indoorEditorPersistenceTests } from './indoor_editor_persistence.test';
+import { tests as indoorExitLocksTests } from './indoor_exit_locks.test';
 import { tests as indoorRoomTemplateTests } from './indoor_room_templates.test';
 import { tests as playerAppearanceTests } from './player_appearance.test';
 import { tests as playerLocationPersistenceTests } from './player_location_persistence.test';
@@ -25,6 +26,7 @@ export async function run(): Promise<void> {
     { suite: 'CombatProfile', tests: combatProfileTests },
     { suite: 'IndoorCoordinateMapper', tests: indoorCoordinateMapperTests },
     { suite: 'IndoorEditorPersistence', tests: indoorEditorPersistenceTests },
+    { suite: 'IndoorExitLocks', tests: indoorExitLocksTests },
     { suite: 'IndoorRoomTemplates', tests: indoorRoomTemplateTests },
     { suite: 'PlayerAppearance', tests: playerAppearanceTests },
     { suite: 'PlayerLocationPersistence', tests: playerLocationPersistenceTests },

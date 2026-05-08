@@ -14,6 +14,7 @@ import type { GameStore } from '../core/GameStore';
 import type { DialogueSystem } from './DialogueSystem';
 import type { MinimapSystem } from './MinimapSystem';
 import { setBuildingMarkersVisible, updateBuildingMarkers } from './BuildingMarkers';
+import { BIRTH_HOUSE_LOCKED_EXIT_MAX_Y } from '../content/IndoorExitLocks';
 
 export class SceneManager {
   private state: SceneState = SceneState.WorldMap;
@@ -181,6 +182,7 @@ export class SceneManager {
         this.checkBuildingEntry(player);
       }
     } else if (this.state === SceneState.Indoor) {
+      this.syncIndoorExitBlock(player);
       this.checkExit(player);
     }
   }
@@ -207,15 +209,16 @@ export class SceneManager {
     const dx = player.mapX - building.exitX;
     const dy = player.mapY - building.exitY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist <= (building.exitRadius ?? 2.0)) {
-      if (building.id === 'birth_house' && !this.store.storyFlags['story.observer_awake']) {
-        const now = this.scene.time.now;
-        if (now - this.lastBirthHouseExitHintAt > 1800) {
-          this.entitySystem.showBubble('player', '门外雾气很重。我连这里是哪都不知道，还是先问问屋里那个人。');
-          this.lastBirthHouseExitHintAt = now;
-        }
-        return;
+    if (building.id === 'birth_house' && !this.store.storyFlags['story.observer_awake']) {
+      const movement = this.inputController.getMovement();
+      const attemptingLockedExit = movement.dy > 0 && player.mapY >= BIRTH_HOUSE_LOCKED_EXIT_MAX_Y - 0.2;
+      if (attemptingLockedExit) {
+        this.showBirthHouseExitHint(player);
       }
+      return;
+    }
+
+    if (dist <= (building.exitRadius ?? 2.0)) {
       this.exitBuilding(building);
     }
   }
@@ -304,6 +307,7 @@ export class SceneManager {
     }
     player.switchMapData(indoorMap);
     player.setIndoorMode(true, indoorMap.cx, indoorMap.cy, building.id);
+    this.syncIndoorExitBlock(player, building.id);
 
     this.mapRenderer.ensureIndoorAssets(indoorMap).then(() => {
       // 切换地图渲染
@@ -457,6 +461,7 @@ export class SceneManager {
   /** 结束对话模式 */
   endDialogue(): void {
     this.state = this.prevSceneState;
+    this.syncIndoorExitBlock(this.entitySystem.getPlayer());
   }
 
   /** 进入战斗模式 */
@@ -490,6 +495,31 @@ export class SceneManager {
     setBuildingMarkersVisible(this.buildingMarkers, returningToWorld);
 
     this.state = this.prevSceneState;
+    this.syncIndoorExitBlock(this.entitySystem.getPlayer());
     this.eventBus.emit('scene:state-changed', { state: this.state });
+  }
+
+  private syncIndoorExitBlock(player: Player, buildingId = this.currentBuildingId): void {
+    const blocked = buildingId === 'birth_house' && !this.store.storyFlags['story.observer_awake'];
+    player.setIndoorExitBlocked(blocked);
+    if (blocked && player.mapY > BIRTH_HOUSE_LOCKED_EXIT_MAX_Y) {
+      player.setMapPosition(player.mapX, BIRTH_HOUSE_LOCKED_EXIT_MAX_Y);
+    }
+  }
+
+  private showBirthHouseExitHint(player: Player): void {
+    const now = this.scene.time.now;
+    if (now - this.lastBirthHouseExitHintAt <= 1800) return;
+    this.retreatPlayerFromLockedExit(player);
+    this.eventBus.emit('story:start-requested', { storyId: 'observer_house_exit_locked_prompt' });
+    this.lastBirthHouseExitHintAt = now;
+  }
+
+  private retreatPlayerFromLockedExit(player: Player): void {
+    const retreatY = Math.max(0, Math.min(player.mapY, BIRTH_HOUSE_LOCKED_EXIT_MAX_Y) - 1);
+    player.setMapPosition(player.mapX, retreatY);
+    // 立刻同步室内镜头和玩家容器；剧情打开后本帧不会再走普通移动更新。
+    player.update(this.scene.time.now, 0, player.mapX, player.mapY);
+    this.mapRenderer.updateIndoorCamera(player.mapX, player.mapY);
   }
 }

@@ -40,6 +40,28 @@ const observerHouseArrivalPrompt: StoryScript = {
   ],
 };
 
+/** 小屋出口锁定提示——未问股神前试图出门时的主角自言自语 */
+const observerHouseExitLockedPrompt: StoryScript = {
+  id: 'observer_house_exit_locked_prompt',
+  trigger: {
+    event: 'manual',
+    conditions: [
+      { type: 'flag_is', params: { flag: 'story.observer_intro_prompt_seen', value: true } },
+      { type: 'flag_not_set', params: { flag: 'story.observer_awake' } },
+    ],
+  },
+  priority: 105,
+  firstNode: 'locked',
+  nodes: {
+    locked: {
+      id: 'locked',
+      speaker: '我',
+      portraitKey: 'assets/portraits/player3_observer.png',
+      text: '门外雾气很重……不行，我连这里是哪都不知道，还是先去问问屋里那个人。',
+    },
+  },
+};
+
 /** 小屋出生剧情——首次与股神对话 */
 const observerHouseIntroWakeup: StoryScript = {
   id: 'observer_house_intro_wakeup',
@@ -660,6 +682,7 @@ const TEAHOUSE_ENTRY_STORIES_ENABLED = false;
 
 export const STORY_SCRIPTS: StoryScript[] = [
   observerHouseArrivalPrompt,
+  observerHouseExitLockedPrompt,
   observerHouseIntroWakeup,
   gushenHubDefault,
   digitalMasterFavorGiftFumo,
