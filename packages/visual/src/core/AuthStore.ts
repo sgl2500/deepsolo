@@ -3,7 +3,7 @@
 // ============================================================
 
 import type { AuthResult, AuthSession, AuthUser } from '../types';
-import { LS_KEY_AUTH_SESSION, LS_KEY_AUTH_USERS } from '../config';
+import { ENABLE_DEMO_AUTH, LS_KEY_AUTH_SESSION, LS_KEY_AUTH_USERS } from '../config';
 import type { EventBus } from './EventBus';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -163,7 +163,7 @@ export class AuthStore {
 
   private init(): void {
     this.users = this.loadUsers();
-    this.ensureDefaultUser();
+    if (ENABLE_DEMO_AUTH) this.ensureDefaultUser();
     this.persistUsers();
     this.session = this.loadSession();
   }

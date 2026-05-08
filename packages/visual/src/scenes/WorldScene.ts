@@ -3,7 +3,7 @@
 // ============================================================
 
 import Phaser from 'phaser';
-import { SCREEN_WIDTH, SCREEN_HEIGHT, NPC_INTERACT_DIST } from '../config';
+import { ENABLE_DEV_TOOLS, SCREEN_WIDTH, SCREEN_HEIGHT, NPC_INTERACT_DIST } from '../config';
 import { SceneState, type MapData, type TileMeta, type CharMeta, type Strategy } from '../types';
 import { EventBus } from '../core/EventBus';
 import { GameStore } from '../core/GameStore';
@@ -177,126 +177,129 @@ export class WorldScene extends Phaser.Scene {
     // ── 优先恢复上次退出前的稳定场景；新号仍进入出生小屋 ──
     this.restoreInitialPlayerLocation();
 
-    this.input.keyboard!.on('keydown-F2', () => {
-      this.mapRenderer.toggleFurnitureEditor();
-    });
-    this.input.keyboard!.on('keydown-M', () => {
-      this.mapRenderer.toggleFurnitureMaskEditor();
-    });
-    this.input.keyboard!.on('keydown-BACKSPACE', (event: KeyboardEvent) => {
-      event.preventDefault();
-      this.mapRenderer.deleteSelectedIndoorEditorItem();
-    });
-    this.input.keyboard!.on('keydown-DELETE', (event: KeyboardEvent) => {
-      if (this.worldMapEditor?.isActive()) {
+    if (ENABLE_DEV_TOOLS) {
+      this.input.keyboard!.on('keydown-F2', () => {
+        this.mapRenderer.toggleFurnitureEditor();
+      });
+      this.input.keyboard!.on('keydown-M', () => {
+        this.mapRenderer.toggleFurnitureMaskEditor();
+      });
+      this.input.keyboard!.on('keydown-BACKSPACE', (event: KeyboardEvent) => {
         event.preventDefault();
-        if (event.shiftKey) this.worldMapEditor.deleteSelectedAutomatedBuilding();
-        else this.worldMapEditor.clearSelectedCollision();
-        return;
-      }
-      this.mapRenderer.deleteSelectedIndoorEditorItem();
-    });
-    this.input.keyboard!.on('keydown-C', (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.shiftKey) {
+        this.mapRenderer.deleteSelectedIndoorEditorItem();
+      });
+      this.input.keyboard!.on('keydown-DELETE', (event: KeyboardEvent) => {
+        if (this.worldMapEditor?.isActive()) {
+          event.preventDefault();
+          if (event.shiftKey) this.worldMapEditor.deleteSelectedAutomatedBuilding();
+          else this.worldMapEditor.clearSelectedCollision();
+          return;
+        }
+        this.mapRenderer.deleteSelectedIndoorEditorItem();
+      });
+      this.input.keyboard!.on('keydown-C', (event: KeyboardEvent) => {
+        if ((event.metaKey || event.ctrlKey) && event.shiftKey) {
+          event.preventDefault();
+          this.mapRenderer.exportIndoorCharacterEditorLayout();
+          return;
+        }
+        this.mapRenderer.clearFurnitureMask();
+      });
+      this.input.keyboard!.on('keydown-S', (event: KeyboardEvent) => {
+        if (!this.mapRenderer.isFurnitureEditorActive() || (!event.metaKey && !event.ctrlKey)) return;
         event.preventDefault();
-        this.mapRenderer.exportIndoorCharacterEditorLayout();
-        return;
-      }
-      this.mapRenderer.clearFurnitureMask();
-    });
-    this.input.keyboard!.on('keydown-S', (event: KeyboardEvent) => {
-      if (!this.mapRenderer.isFurnitureEditorActive() || (!event.metaKey && !event.ctrlKey)) return;
-      event.preventDefault();
-      if (event.shiftKey) this.mapRenderer.exportIndoorSceneSnapshot();
-      else this.mapRenderer.saveIndoorSceneToSource();
-    });
-    this.input.keyboard!.on('keydown-Z', (event: KeyboardEvent) => {
-      if (!this.mapRenderer.isFurnitureEditorActive() || (!event.metaKey && !event.ctrlKey)) return;
-      event.preventDefault();
-      if (event.shiftKey) {
+        if (event.shiftKey) this.mapRenderer.exportIndoorSceneSnapshot();
+        else this.mapRenderer.saveIndoorSceneToSource();
+      });
+      this.input.keyboard!.on('keydown-Z', (event: KeyboardEvent) => {
+        if (!this.mapRenderer.isFurnitureEditorActive() || (!event.metaKey && !event.ctrlKey)) return;
+        event.preventDefault();
+        if (event.shiftKey) {
+          this.mapRenderer.redoIndoorEditorChange();
+        } else {
+          this.mapRenderer.undoIndoorEditorChange();
+        }
+      });
+      this.input.keyboard!.on('keydown-Y', (event: KeyboardEvent) => {
+        if (!this.mapRenderer.isFurnitureEditorActive() || (!event.metaKey && !event.ctrlKey)) return;
+        event.preventDefault();
         this.mapRenderer.redoIndoorEditorChange();
-      } else {
-        this.mapRenderer.undoIndoorEditorChange();
-      }
-    });
-    this.input.keyboard!.on('keydown-Y', (event: KeyboardEvent) => {
-      if (!this.mapRenderer.isFurnitureEditorActive() || (!event.metaKey && !event.ctrlKey)) return;
-      event.preventDefault();
-      this.mapRenderer.redoIndoorEditorChange();
-    });
-    this.input.keyboard!.on('keydown-D', (event: KeyboardEvent) => {
-      if (!event.metaKey && !event.ctrlKey && !event.shiftKey) return;
-      event.preventDefault();
-      this.mapRenderer.duplicateSelectedIndoorEditorItem();
-    });
-    this.input.keyboard!.on('keydown-Q', (_event: KeyboardEvent) => {
-      if (_event.shiftKey) {
-        this.mapRenderer.rotateSelectedFurniture(-1);
-      } else {
-        this.mapRenderer.rotateSelectedFurniture(-15);
-      }
-    });
-    this.input.keyboard!.on('keydown-E', (_event: KeyboardEvent) => {
-      if (_event.shiftKey) {
-        this.mapRenderer.rotateSelectedFurniture(1);
-      } else {
-        this.mapRenderer.rotateSelectedFurniture(15);
-      }
-    });
-    this.input.keyboard!.on('keydown-LEFT', (event: KeyboardEvent) => {
-      if (event.shiftKey && this.mapRenderer.isFurnitureEditorActive()) {
+      });
+      this.input.keyboard!.on('keydown-D', (event: KeyboardEvent) => {
+        if (!event.metaKey && !event.ctrlKey && !event.shiftKey) return;
         event.preventDefault();
-        this.mapRenderer.nudgeSelectedFurnitureOrigin(-0.05, 0);
-        return;
-      }
-      if (this.mapRenderer.nudgeSelectedIndoorEditorItem(event.altKey ? -1 : -0.1, 0)) event.preventDefault();
-    });
-    this.input.keyboard!.on('keydown-RIGHT', (event: KeyboardEvent) => {
-      if (event.shiftKey && this.mapRenderer.isFurnitureEditorActive()) {
-        event.preventDefault();
-        this.mapRenderer.nudgeSelectedFurnitureOrigin(0.05, 0);
-        return;
-      }
-      if (this.mapRenderer.nudgeSelectedIndoorEditorItem(event.altKey ? 1 : 0.1, 0)) event.preventDefault();
-    });
-    this.input.keyboard!.on('keydown-UP', (event: KeyboardEvent) => {
-      if (event.shiftKey && this.mapRenderer.isFurnitureEditorActive()) {
-        event.preventDefault();
-        this.mapRenderer.nudgeSelectedFurnitureOrigin(0, -0.05);
-        return;
-      }
-      if (this.mapRenderer.nudgeSelectedIndoorEditorItem(0, event.altKey ? -1 : -0.1)) event.preventDefault();
-    });
-    this.input.keyboard!.on('keydown-DOWN', (event: KeyboardEvent) => {
-      if (event.shiftKey && this.mapRenderer.isFurnitureEditorActive()) {
-        event.preventDefault();
-        this.mapRenderer.nudgeSelectedFurnitureOrigin(0, 0.05);
-        return;
-      }
-      if (this.mapRenderer.nudgeSelectedIndoorEditorItem(0, event.altKey ? 1 : 0.1)) event.preventDefault();
-    });
-    this.input.keyboard!.on('keydown-R', () => {
-      if (this.worldMapEditor?.isActive()) {
-        this.worldMapEditor.resetSavedLayout();
-        return;
-      }
-      this.mapRenderer.resetFurnitureEditorSavedLayout();
-    });
-    this.input.keyboard!.on('keydown-H', () => {
-      if (this.worldMapEditor?.isActive()) {
-        this.worldMapEditor.toggleGuide();
-        return;
-      }
-      this.mapRenderer.toggleFurnitureEditorGuide();
-    });
-    this.input.keyboard!.on('keydown-F3', () => {
-      if (this.sceneManager?.isIndoor()) return;
-      this.worldMapEditor.toggle();
-    });
+        this.mapRenderer.duplicateSelectedIndoorEditorItem();
+      });
+      this.input.keyboard!.on('keydown-Q', (_event: KeyboardEvent) => {
+        if (_event.shiftKey) {
+          this.mapRenderer.rotateSelectedFurniture(-1);
+        } else {
+          this.mapRenderer.rotateSelectedFurniture(-15);
+        }
+      });
+      this.input.keyboard!.on('keydown-E', (_event: KeyboardEvent) => {
+        if (_event.shiftKey) {
+          this.mapRenderer.rotateSelectedFurniture(1);
+        } else {
+          this.mapRenderer.rotateSelectedFurniture(15);
+        }
+      });
+      this.input.keyboard!.on('keydown-LEFT', (event: KeyboardEvent) => {
+        if (event.shiftKey && this.mapRenderer.isFurnitureEditorActive()) {
+          event.preventDefault();
+          this.mapRenderer.nudgeSelectedFurnitureOrigin(-0.05, 0);
+          return;
+        }
+        if (this.mapRenderer.nudgeSelectedIndoorEditorItem(event.altKey ? -1 : -0.1, 0)) event.preventDefault();
+      });
+      this.input.keyboard!.on('keydown-RIGHT', (event: KeyboardEvent) => {
+        if (event.shiftKey && this.mapRenderer.isFurnitureEditorActive()) {
+          event.preventDefault();
+          this.mapRenderer.nudgeSelectedFurnitureOrigin(0.05, 0);
+          return;
+        }
+        if (this.mapRenderer.nudgeSelectedIndoorEditorItem(event.altKey ? 1 : 0.1, 0)) event.preventDefault();
+      });
+      this.input.keyboard!.on('keydown-UP', (event: KeyboardEvent) => {
+        if (event.shiftKey && this.mapRenderer.isFurnitureEditorActive()) {
+          event.preventDefault();
+          this.mapRenderer.nudgeSelectedFurnitureOrigin(0, -0.05);
+          return;
+        }
+        if (this.mapRenderer.nudgeSelectedIndoorEditorItem(0, event.altKey ? -1 : -0.1)) event.preventDefault();
+      });
+      this.input.keyboard!.on('keydown-DOWN', (event: KeyboardEvent) => {
+        if (event.shiftKey && this.mapRenderer.isFurnitureEditorActive()) {
+          event.preventDefault();
+          this.mapRenderer.nudgeSelectedFurnitureOrigin(0, 0.05);
+          return;
+        }
+        if (this.mapRenderer.nudgeSelectedIndoorEditorItem(0, event.altKey ? 1 : 0.1)) event.preventDefault();
+      });
+      this.input.keyboard!.on('keydown-R', () => {
+        if (this.worldMapEditor?.isActive()) {
+          this.worldMapEditor.resetSavedLayout();
+          return;
+        }
+        this.mapRenderer.resetFurnitureEditorSavedLayout();
+      });
+      this.input.keyboard!.on('keydown-H', () => {
+        if (this.worldMapEditor?.isActive()) {
+          this.worldMapEditor.toggleGuide();
+          return;
+        }
+        this.mapRenderer.toggleFurnitureEditorGuide();
+      });
+      this.input.keyboard!.on('keydown-F3', () => {
+        if (this.sceneManager?.isIndoor()) return;
+        this.worldMapEditor.toggle();
+      });
+    }
     this.input.keyboard!.on('keydown-F4', () => {
       this.playerAppearanceOverlay.toggle();
     });
     this.input.keyboard!.on('keydown-F10', () => {
+      if (!ENABLE_DEV_TOOLS) return;
       this.battleActionPreviewOverlay.toggle();
     });
     this.input.keyboard!.on('keydown-ESC', () => {
@@ -308,21 +311,27 @@ export class WorldScene extends Phaser.Scene {
       }
     });
     this.input.keyboard!.on('keydown-OPEN_BRACKET', () => {
+      if (!ENABLE_DEV_TOOLS) return;
       this.worldMapEditor.adjustEntryRadius(-0.5);
     });
     this.input.keyboard!.on('keydown-CLOSED_BRACKET', () => {
+      if (!ENABLE_DEV_TOOLS) return;
       this.worldMapEditor.adjustEntryRadius(0.5);
     });
     this.input.keyboard!.on('keydown-MINUS', () => {
+      if (!ENABLE_DEV_TOOLS) return;
       this.worldMapEditor.adjustCollisionRadius(-0.5);
     });
     this.input.keyboard!.on('keydown-PLUS', () => {
+      if (!ENABLE_DEV_TOOLS) return;
       this.worldMapEditor.adjustCollisionRadius(0.5);
     });
     this.input.keyboard!.on('keydown-EQUALS', () => {
+      if (!ENABLE_DEV_TOOLS) return;
       this.worldMapEditor.adjustCollisionRadius(0.5);
     });
     this.input.keyboard!.on('keydown-F9', () => {
+      if (!ENABLE_DEV_TOOLS) return;
       this.resetObserverIntroForDebug();
     });
 

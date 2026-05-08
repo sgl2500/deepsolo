@@ -4,6 +4,21 @@
 
 import { AgentState, type StateRegion } from './types';
 
+const viteEnv = (import.meta as unknown as { env?: Record<string, unknown> }).env ?? {};
+const isProdBuild = viteEnv.PROD === true;
+
+function getStringEnv(key: string): string | undefined {
+  const value = viteEnv[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function getDefaultWsUrl(): string {
+  if (typeof window === 'undefined') return 'ws://localhost:8765';
+  const { protocol, hostname, host } = window.location;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return 'ws://localhost:8765';
+  return `${protocol === 'https:' ? 'wss' : 'ws'}://${host}/ws`;
+}
+
 /** 后端数据文件路径（seed 脚本同步到 public/data/） */
 export const STRATEGIES_URL = './data/strategies.json';
 
@@ -14,7 +29,13 @@ export const POLL_INTERVAL = 10000;
 export const EVENTS_URL = './data/events.json';
 
 /** WebSocket 服务地址 */
-export const WS_URL = 'ws://localhost:8765';
+export const WS_URL = getStringEnv('VITE_DEEPSOLO_WS_URL') ?? getDefaultWsUrl();
+
+/** 生产包默认关闭开发编辑入口，可通过环境变量显式开启。 */
+export const ENABLE_DEV_TOOLS = !isProdBuild || getStringEnv('VITE_DEEPSOLO_ENABLE_DEV_TOOLS') === '1';
+
+/** 生产包默认不注入演示账号，可通过环境变量显式开启。 */
+export const ENABLE_DEMO_AUTH = !isProdBuild || getStringEnv('VITE_DEEPSOLO_ENABLE_DEMO_AUTH') === '1';
 
 /** 屏幕尺寸 */
 export const SCREEN_WIDTH = 1280;

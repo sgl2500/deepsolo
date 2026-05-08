@@ -3,6 +3,7 @@
 // ============================================================
 
 import type { AuthStore } from '../core/AuthStore';
+import { ENABLE_DEMO_AUTH } from '../config';
 
 type AuthMode = 'login' | 'register';
 
@@ -71,6 +72,8 @@ export class AuthOverlay {
     this.messageEl = this.root.querySelector('.auth-message')!;
     this.usernameInput = this.root.querySelector<HTMLInputElement>('input[name="username"]')!;
     this.passwordInput = this.root.querySelector<HTMLInputElement>('input[name="password"]')!;
+    this.usernameInput.placeholder = ENABLE_DEMO_AUTH ? 'sgl2500' : '请输入用户名';
+    this.passwordInput.placeholder = ENABLE_DEMO_AUTH ? '123' : '请输入密码';
 
     this.form.addEventListener('submit', (event) => {
       event.preventDefault();
@@ -82,8 +85,10 @@ export class AuthOverlay {
       this.updateMode();
     });
 
-    this.usernameInput.value = 'sgl2500';
-    this.passwordInput.value = '123';
+    if (ENABLE_DEMO_AUTH) {
+      this.usernameInput.value = 'sgl2500';
+      this.passwordInput.value = '123';
+    }
     this.updateMode();
     this.usernameInput.focus();
   }
@@ -92,7 +97,9 @@ export class AuthOverlay {
     const isLogin = this.mode === 'login';
     this.titleEl.textContent = isLogin ? '登入江湖' : '注册新角色';
     this.subtitleEl.textContent = isLogin
-      ? '用账号进入你的策略武侠世界，默认账号已初始化。'
+      ? ENABLE_DEMO_AUTH
+        ? '用账号进入你的策略武侠世界，默认账号已初始化。'
+        : '用账号进入你的策略武侠世界，新玩家请先注册。'
       : '创建一个本地账号，随后进入同一个策略世界。';
     this.submitBtn.textContent = isLogin ? '登入' : '注册并登入';
     this.root.querySelector('.auth-foot span')!.textContent = isLogin ? '还没有账号？' : '已经有账号？';

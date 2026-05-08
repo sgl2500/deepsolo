@@ -21,7 +21,7 @@ const requiredPaths = [
   'packages/visual/public/assets/core/char_atlas.png',
   'packages/visual/public/assets/maps/world/map_data.json',
   'packages/visual/public/assets/maps/indoor/indoor_birth_house.json',
-  'packages/visual/public/assets/characters/player/player_walk1.png',
+  'packages/visual/public/assets/characters/player3/player3_iso_five_view_pseudo_walk.png',
   'packages/visual/public/assets/jy-runtime',
   'packages/visual/public/assets/jy-runtime/10_smap/_info.json',
   'packages/visual/public/assets/jy-runtime/08_thing/0079.png',
