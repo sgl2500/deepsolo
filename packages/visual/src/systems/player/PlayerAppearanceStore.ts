@@ -11,6 +11,7 @@ export type PlayerAppearanceTuning = {
   directionRows?: Partial<Record<Direction, number>>;
   frameSequence?: number[];
   scale?: number;
+  indoorScale?: number;
   originX?: number;
   originY?: number;
   worldOffsetY?: number;
@@ -86,6 +87,7 @@ function getTunedPlayerAppearance(id: string): PlayerAppearanceDef {
   return {
     ...base,
     scale: tuning.scale ?? base.scale,
+    indoorScale: tuning.indoorScale ?? base.indoorScale,
     originX: tuning.originX ?? base.originX,
     originY: tuning.originY ?? base.originY,
     worldOffsetY: tuning.worldOffsetY ?? base.worldOffsetY,
@@ -135,6 +137,7 @@ function normalizeTuning(base: PlayerAppearanceDef, tuning: PlayerAppearanceTuni
       ?.map((item) => clampInt(item, 0, base.frameCount - 1))
       .filter((item): item is number => item !== undefined),
     scale: clampNumber(tuning.scale, 0.1, 8),
+    indoorScale: clampNumber(tuning.indoorScale, 0.1, 8),
     originX: clampNumber(tuning.originX, 0, 1),
     originY: clampNumber(tuning.originY, 0, 1.5),
     worldOffsetY: clampNumber(tuning.worldOffsetY, -80, 80),

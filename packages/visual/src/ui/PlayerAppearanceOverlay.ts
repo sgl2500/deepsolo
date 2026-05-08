@@ -139,7 +139,8 @@ export class PlayerAppearanceOverlay {
           <button data-action="reset-tuning">恢复默认</button>
         </div>
         <div class="player-appearance-tuning-grid">
-          ${renderNumberInput('scale', '缩放', selected.scale, 0.05)}
+          ${renderNumberInput('scale', '室外缩放', selected.scale, 0.05)}
+          ${renderNumberInput('indoorScale', '室内缩放', selected.indoorScale, 0.05)}
           ${renderNumberInput('originY', '脚底锚点', selected.originY, 0.01)}
           ${renderNumberInput('worldOffsetY', '大地图Y', selected.worldOffsetY, 1)}
           ${renderNumberInput('indoorOffsetY', '室内Y', selected.indoorOffsetY, 1)}

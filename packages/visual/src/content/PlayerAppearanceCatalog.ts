@@ -38,6 +38,7 @@ export type PlayerAppearanceDef = {
   frameSequence?: number[];
   directionRows: Record<Direction, number>;
   scale: number;
+  indoorScale: number;
   originX: number;
   originY: number;
   worldOffsetY: number;
@@ -66,6 +67,7 @@ export const PLAYER_APPEARANCES: PlayerAppearanceDef[] = [
       [Direction.Down]: 0,
     },
     scale: 0.95,
+    indoorScale: 0.95,
     originX: 0.5,
     originY: 0.972,
     worldOffsetY: 10,

@@ -16,6 +16,7 @@ import { getSelectedPlayerAppearance, subscribePlayerAppearance } from '../syste
 import {
   applyPlayerAppearanceSprite,
   getPlayerAppearanceFrame,
+  getPlayerAppearanceScale,
   updatePlayerAppearanceWalkFrame,
 } from '../systems/player/PlayerSpriteAnimator';
 
@@ -194,9 +195,10 @@ export class Player extends Entity {
     if (!this.sprite) return;
 
     const baseY = this.indoorMode ? this.appearance.indoorOffsetY : this.appearance.worldOffsetY;
+    const renderScale = getPlayerAppearanceScale(this.appearance, this.indoorMode);
     const pseudoWalk = this.appearance.pseudoWalk;
     if (!pseudoWalk) {
-      this.sprite.setPosition(0, baseY).setScale(this.appearance.scale);
+      this.sprite.setPosition(0, baseY).setScale(renderScale);
       this.shadow?.setVisible(false);
       return;
     }
@@ -208,7 +210,7 @@ export class Player extends Entity {
 
     this.sprite
       .setPosition(sway, baseY - step * pseudoWalk.bobHeight)
-      .setScale(this.appearance.scale, this.appearance.scale * squash);
+      .setScale(renderScale, renderScale * squash);
 
     if (this.shadow) {
       const shadowScale = 1 - step * pseudoWalk.shadowScale;

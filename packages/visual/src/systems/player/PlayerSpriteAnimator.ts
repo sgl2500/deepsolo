@@ -34,7 +34,7 @@ export function applyPlayerAppearanceSprite(
   sprite
     .setTexture(appearance.textureKey, visualFrame.frame)
     .setOrigin(appearance.originX, appearance.originY)
-    .setScale(appearance.scale)
+    .setScale(getPlayerAppearanceScale(appearance, indoorMode))
     .setFlipX(!!visualFrame.flipX);
   sprite.y = indoorMode ? appearance.indoorOffsetY : appearance.worldOffsetY;
 }
@@ -79,6 +79,13 @@ function getPlayerVisualFrame(
     return appearance.isoStaticFrames[key] ?? appearance.isoStaticFrames.down ?? { frame: 0 };
   }
   return { frame: getPlayerAppearanceFrame(appearance, direction, frameIndex) };
+}
+
+export function getPlayerAppearanceScale(
+  appearance: PlayerAppearanceDef,
+  indoorMode: boolean,
+): number {
+  return indoorMode ? appearance.indoorScale : appearance.scale;
 }
 
 function getIsoFacingKey(direction: Direction, moveVector?: PlayerMoveVector): PlayerIsoFacingKey {
