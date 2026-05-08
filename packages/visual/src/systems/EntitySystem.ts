@@ -229,15 +229,13 @@ export class EntitySystem {
       this.bubbles.delete(entityId);
     }
 
+    if (entityId === 'player') return;
+
     let parent: Phaser.GameObjects.Container;
-    if (entityId === 'player') {
-      parent = this.player.container;
-    } else {
-      const agent = this.agents.get(entityId);
-      const strategyNpc = this.strategyNpcs.get(entityId);
-      if (!agent && !strategyNpc) return;
-      parent = agent?.container ?? strategyNpc!.container;
-    }
+    const agent = this.agents.get(entityId);
+    const strategyNpc = this.strategyNpcs.get(entityId);
+    if (!agent && !strategyNpc) return;
+    parent = agent?.container ?? strategyNpc!.container;
 
     const handle = BubbleFactory.create(this.scene, parent, text, config);
     this.bubbles.set(entityId, handle);

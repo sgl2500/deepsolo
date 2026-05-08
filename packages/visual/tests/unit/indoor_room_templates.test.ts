@@ -68,8 +68,8 @@ export const tests: TestCase[] = [
     const building = BUILDINGS.find((item) => item.id === 'digital_sect');
     assert.ok(building);
     assert.equal(building?.name, '数字');
-    assert.equal(building?.entryX, 49.5);
-    assert.equal(building?.entryY, 39);
+    assert.equal(building?.entryX, 17.7);
+    assert.equal(building?.entryY, 12.1);
     assert.equal(building?.indoorMapKey, 'indoor_digital_sect');
     assert.equal(getIndoorRoomTemplate('digital_sect')?.mapKey, 'indoor_digital_sect');
     assert.equal(isIndoorTileEditable('digital_sect', 'floor', 36, 36), true);

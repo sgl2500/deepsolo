@@ -59,7 +59,7 @@ export class ShopOverlay {
     this.eventBus.on('player:progress-changed', () => this.refresh());
     this.eventBus.on('player:currency-changed', () => this.refresh());
     this.eventBus.on('scene:state-changed', ({ state }) => {
-      const showDock = state === 'world_map';
+      const showDock = state !== 'battle';
       this.dock.style.display = showDock ? 'flex' : 'none';
       if (!showDock) this.hide();
     });

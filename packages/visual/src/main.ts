@@ -46,7 +46,7 @@ function startGame(): void {
     scene: [BootScene, WorldScene],
     scale: {
       mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_HORIZONTALLY,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
     },
   };
 

@@ -17,6 +17,7 @@ export class HeaderBar {
   private hpEl!: HTMLElement;
   private mpEl!: HTMLElement;
   private userEl!: HTMLElement;
+  private actionsEl!: HTMLElement;
   private logoutBtn!: HTMLButtonElement;
 
   constructor(container: HTMLElement, eventBus: EventBus, store: GameStore, authStore: AuthStore) {
@@ -50,6 +51,7 @@ export class HeaderBar {
       <button type="button" class="logout-btn">退出</button>
     `;
     this.el.appendChild(actions);
+    this.actionsEl = actions;
 
     container.appendChild(this.el);
 
@@ -81,5 +83,9 @@ export class HeaderBar {
 
   setVisible(visible: boolean): void {
     this.el.style.display = visible ? '' : 'none';
+  }
+
+  getActionsContainer(): HTMLElement {
+    return this.actionsEl;
   }
 }

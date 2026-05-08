@@ -49,6 +49,7 @@ export class UIManager {
     // Side panel (原策略面板)
     this.panel = document.createElement('div');
     this.panel.className = 'panel';
+    this.panel.style.display = 'none';
     gameContainer.appendChild(this.panel);
 
     // Token 中心面板 (进入建筑时切换)
@@ -74,14 +75,12 @@ export class UIManager {
     listSection.innerHTML = '<h3>📊 策略排行</h3>';
     const listContainer = document.createElement('div');
     listSection.appendChild(listContainer);
-    this.panel.appendChild(listSection);
 
     const eventSection = document.createElement('div');
     eventSection.innerHTML = '<h3>🧬 事件</h3>';
     const eventContainer = document.createElement('div');
     eventContainer.className = 'events';
     eventSection.appendChild(eventContainer);
-    this.panel.appendChild(eventSection);
 
     const detailSection = document.createElement('div');
     detailSection.innerHTML = '<h3>🗣️ 实况</h3>';
@@ -89,7 +88,6 @@ export class UIManager {
     detailContainer.className = 'detail';
     detailContainer.appendChild(this.createPlaceholder());
     detailSection.appendChild(detailContainer);
-    this.panel.appendChild(detailSection);
 
     // Initialize panels
     this.strategyList = new StrategyListPanel(listContainer, eventBus, store);
@@ -99,7 +97,7 @@ export class UIManager {
     this.conversationPanel = new ConversationPanel(eventBus);
     this.tokenCenterUI = new TokenCenterUI(this.tokenPanel, eventBus, tokenStore);
     this.playerPanel = new PlayerPanel(eventBus, store);
-    this.shopOverlay = new ShopOverlay(gameContainer, eventBus, store);
+    this.shopOverlay = new ShopOverlay(this.headerBar.getActionsContainer(), eventBus, store);
     this.headerBar.refresh();
 
     // Subscribe to refresh events
@@ -130,14 +128,14 @@ export class UIManager {
         this.tokenCenterUI.show();
         this.headerBar.setVisible(true);
         this.hideGameContainerOverlays(true);
-        this.shopOverlay.setDockVisible(false);
+        this.shopOverlay.setDockVisible(true);
       } else if (state === 'indoor' && buildingId === 'digital_sect') {
-        this.panel.style.display = 'block';
+        this.panel.style.display = 'none';
         this.tokenPanel.style.display = 'none';
         this.tokenCenterUI.hide();
         this.headerBar.setVisible(true);
         this.hideGameContainerOverlays(true);
-        this.shopOverlay.setDockVisible(false);
+        this.shopOverlay.setDockVisible(true);
         store.selectStrategy(null);
       } else if (state === 'indoor') {
         this.panel.style.display = 'none';
@@ -145,9 +143,9 @@ export class UIManager {
         this.tokenCenterUI.hide();
         this.headerBar.setVisible(true);
         this.hideGameContainerOverlays(true);
-        this.shopOverlay.setDockVisible(false);
+        this.shopOverlay.setDockVisible(true);
       } else {
-        this.panel.style.display = 'block';
+        this.panel.style.display = 'none';
         this.tokenPanel.style.display = 'none';
         this.tokenCenterUI.hide();
         this.headerBar.setVisible(true);
