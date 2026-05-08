@@ -7,7 +7,11 @@ import { SCREEN_HEIGHT, SCREEN_WIDTH } from '../../config';
 import { createBattlePerson, createPlayerBattlePerson, NORMAL_ATTACK } from '../../data/BattleData';
 import type { EventBus } from '../../core/EventBus';
 import type { GameStore } from '../../core/GameStore';
-import { getBattleCharacterTextureKey, type BattleCharacterStance } from '../../content/BattleAssetCatalog';
+import {
+  getBattleCharacterAnimation,
+  getBattleCharacterTextureKey,
+  type BattleCharacterStance,
+} from '../../content/BattleAssetCatalog';
 import { getBattleSkillEffect, type BattleSkillEffectDef } from '../../content/BattleSkillEffectCatalog';
 import { BattleAnimator } from '../BattleAnimator';
 import {
@@ -41,6 +45,7 @@ export class SideBattleSystem {
 
   private container: Phaser.GameObjects.Container | null = null;
   private sprites = new Map<string, Phaser.GameObjects.Image | Phaser.GameObjects.Container>();
+  private actionTimers = new Map<string, Phaser.Time.TimerEvent>();
   private hpBars = new Map<string, Phaser.GameObjects.Graphics>();
   private mpBars = new Map<string, Phaser.GameObjects.Graphics>();
   private shieldBars = new Map<string, Phaser.GameObjects.Graphics>();
@@ -224,6 +229,7 @@ export class SideBattleSystem {
     const strikeX = this.getMeleeStrikeX(actor, target);
 
     this.setActorStance(actor, 'attack');
+    this.playActorActionAnimation(actor, 'attack');
     actorSprite?.setDepth(9280);
     this.scene.tweens.add({
       targets: actorSprite,
@@ -256,6 +262,7 @@ export class SideBattleSystem {
     const readyX = actorAnchor.x + (actor.side === 'left' ? 58 : -58);
 
     this.setActorStance(actor, 'attack');
+    this.playActorActionAnimation(actor, 'attack');
     actorSprite?.setDepth(9280);
     this.scene.tweens.add({
       targets: actorSprite,
@@ -764,8 +771,8 @@ ${skill.flavor ?? ''}`.trim();
     return actor.id === 'digital_master' ? 405 : 350;
   }
 
-  private getActorBattleWidth(actor: SideBattleActor, stance: BattleCharacterStance): number {
-    const key = this.getActorBattleTexture(actor, stance);
+  private getActorBattleWidth(actor: SideBattleActor, stance: BattleCharacterStance, textureKey?: string): number {
+    const key = textureKey ?? this.getActorBattleTexture(actor, stance);
     if (!key) return actor.id === 'digital_master' ? 300 : 245;
     const source = this.scene.textures.get(key).getSourceImage() as HTMLImageElement | HTMLCanvasElement;
     const ratio = source.width > 0 && source.height > 0 ? source.width / source.height : 0.72;
@@ -792,6 +799,7 @@ ${skill.flavor ?? ''}`.trim();
 
   private setActorStance(actor: SideBattleActor, stance: BattleCharacterStance, restoreDelay = 0): void {
     const sprite = this.sprites.get(actor.id);
+    this.stopActorActionAnimation(actor.id);
     actor.visualState = stance;
     const key = this.getActorBattleTexture(actor, stance);
     if (!key || !(sprite instanceof Phaser.GameObjects.Image)) return;
@@ -808,6 +816,43 @@ ${skill.flavor ?? ''}`.trim();
         sprite.setDisplaySize(this.getActorBattleWidth(actor, 'idle'), this.getActorBattleHeight(actor));
       });
     }
+  }
+
+  private playActorActionAnimation(actor: SideBattleActor, stance: BattleCharacterStance): void {
+    const sprite = this.sprites.get(actor.id);
+    if (!(sprite instanceof Phaser.GameObjects.Image)) return;
+
+    const animation = getBattleCharacterAnimation(actor.id, stance);
+    const frameKeys = animation?.frameKeys.filter(key => this.scene.textures.exists(key)) ?? [];
+    if (!animation || frameKeys.length === 0) return;
+
+    this.stopActorActionAnimation(actor.id);
+    let frameIndex = 0;
+    const applyFrame = () => {
+      const key = frameKeys[Math.min(frameIndex, frameKeys.length - 1)];
+      sprite.setTexture(key);
+      sprite.setDisplaySize(this.getActorBattleWidth(actor, stance, key), this.getActorBattleHeight(actor));
+      if (actor.side === 'right') sprite.setFlipX(true);
+      frameIndex += 1;
+      if (frameIndex >= frameKeys.length) {
+        this.stopActorActionAnimation(actor.id);
+      }
+    };
+
+    applyFrame();
+    const timer = this.scene.time.addEvent({
+      delay: animation.frameIntervalMs,
+      repeat: Math.max(0, frameKeys.length - 2),
+      callback: applyFrame,
+    });
+    this.actionTimers.set(actor.id, timer);
+  }
+
+  private stopActorActionAnimation(actorId: string): void {
+    const timer = this.actionTimers.get(actorId);
+    if (!timer) return;
+    timer.remove(false);
+    this.actionTimers.delete(actorId);
   }
 
   private highlightActor(actor: SideBattleActor): void {
@@ -1214,6 +1259,8 @@ ${skill.flavor ?? ''}`.trim();
 
   private cleanup(): void {
     this.clearMenu();
+    for (const timer of this.actionTimers.values()) timer.remove(false);
+    this.actionTimers.clear();
     for (const g of this.hpBars.values()) {
       const label = g.getData('label') as Phaser.GameObjects.Text | undefined;
       label?.destroy();

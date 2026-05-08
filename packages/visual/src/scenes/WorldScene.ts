@@ -23,6 +23,7 @@ import { BUILDINGS } from '../data/BuildingData';
 import { getNearbyIndoorInteractable } from '../content/IndoorInteractables';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
 import { PlayerAppearanceOverlay } from '../ui/PlayerAppearanceOverlay';
+import { BattleActionPreviewOverlay } from '../ui/BattleActionPreviewOverlay';
 import type { NPC } from '../entities/NPC';
 import type { StrategyNPC } from '../entities/StrategyNPC';
 import {
@@ -60,6 +61,7 @@ export class WorldScene extends Phaser.Scene {
   private storySystem!: StorySystem;
   private worldMapEditor!: WorldMapEditor;
   private playerAppearanceOverlay!: PlayerAppearanceOverlay;
+  private battleActionPreviewOverlay!: BattleActionPreviewOverlay;
   private buildingMarkers!: Phaser.GameObjects.Container[];
 
   private mapData!: MapData;
@@ -158,6 +160,7 @@ export class WorldScene extends Phaser.Scene {
       },
       onExit: () => this.playerAppearanceOverlay.setActive(false),
     });
+    this.battleActionPreviewOverlay = new BattleActionPreviewOverlay();
 
     this.sceneManager = new SceneManager(
       this, this.mapRenderer, this.entitySystem,
@@ -293,9 +296,15 @@ export class WorldScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-F4', () => {
       this.playerAppearanceOverlay.toggle();
     });
+    this.input.keyboard!.on('keydown-F10', () => {
+      this.battleActionPreviewOverlay.toggle();
+    });
     this.input.keyboard!.on('keydown-ESC', () => {
       if (this.playerAppearanceOverlay.isActive()) {
         this.playerAppearanceOverlay.setActive(false);
+      }
+      if (this.battleActionPreviewOverlay.isActive()) {
+        this.battleActionPreviewOverlay.setActive(false);
       }
     });
     this.input.keyboard!.on('keydown-OPEN_BRACKET', () => {
