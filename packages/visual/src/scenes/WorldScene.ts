@@ -904,7 +904,7 @@ export class WorldScene extends Phaser.Scene {
       } else {
         const notice = action.emptyNotice ?? {
           title: '什么都没有',
-          message: '你仔细翻找了一遍，没有发现新的东西。',
+          message: '没有发现新的东西。',
         };
         this.showItemNotice(notice.title, notice.message);
       }
@@ -914,7 +914,6 @@ export class WorldScene extends Phaser.Scene {
     if (action.type === 'rest') {
       _store.restPlayer(action.hpRecover, action.mpRecover);
       this.showItemNotice(action.noticeTitle ?? interactable.name, action.message);
-      this.cameras.main.flash(180, 255, 244, 214, false);
     }
   }
 
@@ -927,32 +926,32 @@ export class WorldScene extends Phaser.Scene {
     this.itemNoticeTimer?.remove(false);
     this.itemNotice?.destroy();
 
-    const width = 430;
-    const height = 86;
-    const container = this.add.container(SCREEN_WIDTH / 2, 132).setDepth(30000).setScrollFactor(0);
+    const width = 320;
+    const height = 62;
+    const container = this.add.container(SCREEN_WIDTH / 2, 118).setDepth(30000).setScrollFactor(0);
     const bg = this.add.graphics();
     bg.fillStyle(0x2b2112, 0.28);
-    bg.fillRoundedRect(-width / 2 + 5, -height / 2 + 7, width, height, 14);
+    bg.fillRoundedRect(-width / 2 + 4, -height / 2 + 5, width, height, 10);
     bg.fillStyle(0xfff2ba, 0.96);
-    bg.fillRoundedRect(-width / 2, -height / 2, width, height, 14);
-    bg.lineStyle(3, 0xc9822c, 1);
-    bg.strokeRoundedRect(-width / 2 + 2, -height / 2 + 2, width - 4, height - 4, 12);
+    bg.fillRoundedRect(-width / 2, -height / 2, width, height, 10);
+    bg.lineStyle(2, 0xc9822c, 1);
+    bg.strokeRoundedRect(-width / 2 + 2, -height / 2 + 2, width - 4, height - 4, 8);
     bg.lineStyle(1, 0x8f5b24, 0.55);
-    bg.strokeRoundedRect(-width / 2 + 10, -height / 2 + 10, width - 20, height - 20, 8);
+    bg.strokeRoundedRect(-width / 2 + 8, -height / 2 + 8, width - 16, height - 16, 6);
     container.add(bg);
 
-    const titleText = this.add.text(0, -22, title, {
+    const titleText = this.add.text(0, -15, title, {
       fontFamily: 'Kaiti SC, STKaiti, Songti SC, serif',
-      fontSize: '20px',
+      fontSize: '17px',
       color: '#7c3f16',
       fontStyle: 'bold',
     }).setOrigin(0.5);
-    const messageText = this.add.text(0, 14, message, {
+    const messageText = this.add.text(0, 12, message, {
       fontFamily: 'PingFang SC, Microsoft YaHei, sans-serif',
-      fontSize: '17px',
+      fontSize: '14px',
       color: '#3f2a17',
       align: 'center',
-      wordWrap: { width: width - 42 },
+      wordWrap: { width: width - 32 },
     }).setOrigin(0.5);
     container.add([titleText, messageText]);
 
@@ -966,12 +965,12 @@ export class WorldScene extends Phaser.Scene {
       ease: 'Back.easeOut',
     });
     this.itemNotice = container;
-    this.itemNoticeTimer = this.time.delayedCall(1900, () => {
+    this.itemNoticeTimer = this.time.delayedCall(1500, () => {
       this.tweens.add({
         targets: container,
         alpha: 0,
-        y: 116,
-        duration: 220,
+        y: 106,
+        duration: 180,
         ease: 'Sine.easeIn',
         onComplete: () => {
           container.destroy();

@@ -26,8 +26,8 @@ export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
       type: 'rest',
       hpRecover: 'full',
       mpRecover: 'full',
-      message: '你在木榻上调息片刻，生命与内力都恢复了。',
-      noticeTitle: '帷幔木榻',
+      message: '已恢复全部精力。',
+      noticeTitle: '休息完成',
     },
   },
   {
@@ -51,7 +51,7 @@ export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
       },
       emptyNotice: {
         title: '什么都没有',
-        message: '你仔细翻找了一遍，没有发现新的东西。',
+        message: '没有发现新的东西。',
       },
     },
   },
@@ -67,7 +67,7 @@ export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
       type: 'notice',
       notice: {
         title: '查看桌案',
-        message: '桌案上有纸和笔，纸页只写着几行短句：先问一问，再决定是战是谈。',
+        message: '桌上有纸和笔。',
       },
     },
   },
@@ -83,7 +83,7 @@ export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
       type: 'notice',
       notice: {
         title: '屋规告示',
-        message: '告示上写着：入世先观，见人先问；若要动手，也须先听完一句话。',
+        message: '入世先观，见人先问。',
       },
     },
   },
