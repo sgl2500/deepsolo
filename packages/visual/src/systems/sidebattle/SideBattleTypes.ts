@@ -15,6 +15,8 @@ export interface SideBattleSkill {
   description: string;
   target: 'enemy' | 'self';
   flavor?: string;
+  spineAction?: string;
+  hitDelayMs?: number;
 }
 
 export interface SideBattleActor {

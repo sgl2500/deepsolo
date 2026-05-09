@@ -239,13 +239,13 @@ export class SideBattleSystem {
       duration: effect.presentation === 'melee_normal' ? 220 : 280,
       ease: 'Sine.easeOut',
       onComplete: () => {
-        this.setActorStance(actor, 'attack');
+        this.setActorStance(actor, 'attack', 0, skill.spineAction);
         this.flashAttack(actor, skill);
         const resolve = () => {
           this.resolveAnimatedHit(actor, target, skill, effect);
           this.finishAttack(actor, actorAnchor);
         };
-        this.scene.time.delayedCall(this.getActorHitDelayMs(actor, 'attack'), () => {
+        this.scene.time.delayedCall(this.getActorHitDelayMs(actor, 'attack', skill), () => {
           if (effect.presentation === 'melee_wugong') {
             this.playMeleeWugongEffect(actor, target, effect, resolve);
           } else {
@@ -266,7 +266,7 @@ export class SideBattleSystem {
     const actorAnchor = this.getAnchor(actor);
     const readyX = actorAnchor.x + (actor.side === 'left' ? 58 : -58);
 
-    this.setActorStance(actor, 'attack');
+    this.setActorStance(actor, 'attack', 0, skill.spineAction);
     actorSprite?.setDepth(9280);
     this.scene.tweens.add({
       targets: actorSprite,
@@ -275,7 +275,7 @@ export class SideBattleSystem {
       ease: 'Sine.easeOut',
       onComplete: () => {
         this.flashAttack(actor, skill);
-        this.scene.time.delayedCall(this.getActorHitDelayMs(actor, 'attack'), () => {
+        this.scene.time.delayedCall(this.getActorHitDelayMs(actor, 'attack', skill), () => {
           this.playRangedStrategyEffect(actor, target, effect, () => {
             this.resolveAnimatedHit(actor, target, skill, effect);
             this.finishAttack(actor, actorAnchor);
@@ -385,7 +385,21 @@ export class SideBattleSystem {
 
   private createPlayerLearnedSkills(): SideBattleSkill[] {
     const manuals = this.store.playerProgress.manuals.filter(item => item.learned).map(item => item.manualId);
-    const skills: SideBattleSkill[] = [];
+    const skills: SideBattleSkill[] = [
+      {
+        id: 'flame_palm',
+        name: '火焰掌',
+        type: 'martial',
+        mpCost: 16,
+        power: 130,
+        hitRate: 92,
+        description: '掌劲炽烈，贴身爆发一记火焰内劲。',
+        flavor: '掌风带火，近身一吐即收。',
+        target: 'enemy',
+        spineAction: 'skill4',
+        hitDelayMs: 430,
+      },
+    ];
     if (manuals.includes('manual_tuna_intro')) {
       skills.push({
         id: 'tuna_qigong',
@@ -659,7 +673,7 @@ export class SideBattleSystem {
     items.forEach((item, index) => {
       const label = item.kind === 'defense'
         ? '防御'
-        : `${item.skill.name}${item.skill.mpCost > 0 ? `  ${item.skill.mpCost}内力` : ''}`;
+        : `${item.skill.id === 'flame_palm' ? '技能攻击 · ' : ''}${item.skill.name}${item.skill.mpCost > 0 ? `  ${item.skill.mpCost}内力` : ''}`;
       const text = this.scene.add.text(startX, startY + index * 28, `${this.menuIndex === index ? '▶ ' : '   '}${index + 1}. ${label}`, {
         fontSize: '15px',
         color: this.menuIndex === index ? '#fef3c7' : '#cbd5e1',
@@ -788,18 +802,19 @@ ${skill.flavor ?? ''}`.trim();
       : anchor.x - targetHalfWidth * 0.58;
   }
 
-  private getActorHitDelayMs(actor: SideBattleActor, stance: BattleCharacterStance): number {
+  private getActorHitDelayMs(actor: SideBattleActor, stance: BattleCharacterStance, skill?: SideBattleSkill): number {
+    if (skill?.hitDelayMs != null) return skill.hitDelayMs;
     const spineDelay = getBattleSpineHitDelayMs(actor.id, stance);
     if (spineDelay != null && this.isSpineDisplay(this.sprites.get(actor.id))) return spineDelay;
     return stance === 'attack' ? 220 : 160;
   }
 
-  private setActorStance(actor: SideBattleActor, stance: BattleCharacterStance, restoreDelay = 0): void {
+  private setActorStance(actor: SideBattleActor, stance: BattleCharacterStance, restoreDelay = 0, spineAction?: string): void {
     const sprite = this.sprites.get(actor.id);
     actor.visualState = stance;
     if (!this.isSpineDisplay(sprite)) return;
 
-    this.playSpineActorAction(actor, sprite, stance);
+    this.playSpineActorAction(actor, sprite, stance, spineAction);
     if (restoreDelay > 0) {
       this.scene.time.delayedCall(restoreDelay, () => {
         if (this.phase === 'idle' || !actor.alive || actor.defending || actor.visualState !== stance) return;
@@ -834,8 +849,9 @@ ${skill.flavor ?? ''}`.trim();
     actor: SideBattleActor,
     spine: SpineGameObject,
     stance: BattleCharacterStance,
+    spineAction?: string,
   ): void {
-    const action = getBattleSpineAction(actor.id, stance);
+    const action = spineAction ?? getBattleSpineAction(actor.id, stance);
     if (!action) return;
     const animations = spine.skeleton.data.animations.map(animation => animation.name);
     if (animations.length > 0 && !animations.includes(action)) return;

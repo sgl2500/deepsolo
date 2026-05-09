@@ -109,6 +109,11 @@ const DEFAULT_STANCE_MAP: Record<BattleCharacterStance, BattleSpineAction> = {
   dead: 'die',
 };
 
+const PLAYER_STANCE_MAP: Record<BattleCharacterStance, BattleSpineAction> = {
+  ...DEFAULT_STANCE_MAP,
+  attack: 'skill2',
+};
+
 export const BATTLE_SPINE_VISUALS: readonly BattleSpineVisualDef[] = [
   {
     id: 'player3',
@@ -116,11 +121,11 @@ export const BATTLE_SPINE_VISUALS: readonly BattleSpineVisualDef[] = [
     atlasKey: 'battle_spine_role77_atlas',
     assetFolder: 'role77',
     actions: BATTLE_SPINE_ACTIONS,
-    stanceMap: DEFAULT_STANCE_MAP,
+    stanceMap: PLAYER_STANCE_MAP,
     scale: 0.66,
     rootOffsetY: -28,
     combatWidth: 118,
-    hitDelayMs: { attack: 610, hit: 160, defense: 180, dead: 980 },
+    hitDelayMs: { attack: 260, hit: 160, defense: 180, dead: 980 },
   },
   {
     id: 'digital_master',

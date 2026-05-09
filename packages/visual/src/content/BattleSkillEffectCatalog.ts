@@ -64,6 +64,15 @@ export const BATTLE_SKILL_EFFECTS: Record<string, BattleSkillEffectDef> = {
     height: 132,
     hitBurstScale: 0.46,
   },
+  flame_palm: {
+    ...DEFAULT_WUGONG_EFFECT,
+    skillId: 'flame_palm',
+    textureKey: 'battle_effect_martial_flame_palm',
+    width: 244,
+    height: 132,
+    durationMs: 380,
+    hitBurstScale: 0.5,
+  },
   live_strategy_deduction: {
     ...DEFAULT_STRATEGY_EFFECT,
     skillId: 'live_strategy_deduction',

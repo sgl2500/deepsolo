@@ -26,9 +26,11 @@ export const tests: TestCase[] = [
   test('spine battle catalog exposes all role77 and role148 actions', () => {
     assert.equal(BATTLE_SPINE_ACTIONS.length, 36);
     assert.equal(getBattleSpineAction('player', 'idle'), 'idle');
-    assert.equal(getBattleSpineAction('player', 'attack'), 'skill_combo1');
+    assert.equal(getBattleSpineAction('player', 'attack'), 'skill2');
+    assert.equal(getBattleSpineAction('digital_master', 'attack'), 'skill_combo1');
     assert.equal(getBattleSpineAction('digital_master', 'defense'), 'idlesquat');
     assert.equal(getBattleSpineAction('digital_master', 'dead'), 'die');
+    assert.equal(getBattleSpineHitDelayMs('player', 'attack'), 260);
     assert.equal(getBattleSpineHitDelayMs('digital_master', 'attack'), 610);
 
     const visual = getBattleSpineVisualForActor('digital_master');

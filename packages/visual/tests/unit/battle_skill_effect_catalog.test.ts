@@ -33,4 +33,12 @@ export const tests: TestCase[] = [
     assert.equal(heartbeat.presentation, 'ranged_strategy');
     assert.ok(heartbeat.hitBurstScale > deduction.hitBurstScale);
   }),
+
+  test('flame palm uses dedicated martial fire effect', () => {
+    const effect = getBattleSkillEffect({ id: 'flame_palm', type: 'martial' });
+
+    assert.equal(effect.presentation, 'melee_wugong');
+    assert.equal(effect.textureKey, 'battle_effect_martial_flame_palm');
+    assert.ok(effect.hitBurstScale > 0.45);
+  }),
 ];

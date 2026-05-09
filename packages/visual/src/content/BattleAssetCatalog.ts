@@ -29,6 +29,10 @@ export const BATTLE_EFFECT_ASSETS: BattleImageAsset[] = [
     src: 'assets/battle/shared/effects/martial/palm.png?v=1',
   },
   {
+    key: 'battle_effect_martial_flame_palm',
+    src: 'assets/battle/shared/effects/martial/flame_palm.png?v=1',
+  },
+  {
     key: 'battle_effect_hit_burst',
     src: 'assets/battle/shared/effects/common/hit_burst.png?v=1',
   },
