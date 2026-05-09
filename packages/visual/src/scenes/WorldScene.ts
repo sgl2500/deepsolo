@@ -550,10 +550,26 @@ export class WorldScene extends Phaser.Scene {
     _eventBus.on('battle:end', () => {
       this.sceneManager.endBattle();
     });
+
+    this.maybeStartBattlePreviewFromQuery();
   }
 
   /** Agent 交互距离（地图格） */
   private static readonly AGENT_INTERACT_DIST = 3.0;
+
+  private maybeStartBattlePreviewFromQuery(): void {
+    if (!ENABLE_DEV_TOOLS || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const targetId = params.get('battlePreview')?.trim();
+    if (!targetId) return;
+
+    this.time.delayedCall(320, () => {
+      if (this.battleSystem.isActive() || this.sceneManager.getState() === SceneState.Battle) return;
+      const targetName = _store.getStrategy(targetId)?.name ?? (targetId === 'digital_master' ? '数字掌门' : targetId);
+      this.sceneManager.startBattle();
+      this.battleSystem.startPlayerVsAgent(targetId, targetName);
+    });
+  }
 
   /** 为新诞生的 Agent 播放涌现特效 */
   private playBirthForAgent(agent: import('../entities/Agent').Agent, name: string): void {

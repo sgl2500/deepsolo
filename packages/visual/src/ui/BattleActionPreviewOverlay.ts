@@ -1,12 +1,13 @@
 import {
-  BATTLE_CHARACTER_STANCES,
-  BATTLE_CHARACTER_VISUALS,
-  type BattleCharacterStance,
-  type BattleCharacterVisualDef,
-} from '../content/BattleAssetCatalog';
+  BATTLE_SPINE_ACTIONS,
+  BATTLE_SPINE_VISUALS,
+  type BattleSpineAction,
+  type BattleSpineVisualDef,
+} from '../content/BattleSpineCatalog';
 
-type PreviewAction = BattleCharacterStance;
-type PreviewMode = 'registered' | 'sheet';
+const SHEET_STORAGE_KEY = 'deepsolo_battle_sheet_preview_v1';
+
+type PreviewMode = 'spine' | 'sheet';
 
 interface SheetPreviewConfig {
   actionName: string;
@@ -17,8 +18,6 @@ interface SheetPreviewConfig {
   frameIntervalMs: number;
   impactFrame: number;
 }
-
-const SHEET_STORAGE_KEY = 'deepsolo_battle_sheet_preview_v1';
 
 const DEFAULT_SHEET_CONFIG: SheetPreviewConfig = {
   actionName: 'attack',
@@ -33,12 +32,11 @@ const DEFAULT_SHEET_CONFIG: SheetPreviewConfig = {
 export class BattleActionPreviewOverlay {
   private root: HTMLDivElement;
   private active = false;
-  private mode: PreviewMode = 'registered';
-  private selectedVisualId: string = BATTLE_CHARACTER_VISUALS[0]?.id ?? 'player3';
-  private selectedAction: PreviewAction = 'attack';
+  private mode: PreviewMode = 'spine';
+  private selectedVisualId: string = BATTLE_SPINE_VISUALS[0]?.id ?? 'player3';
+  private selectedAction: BattleSpineAction = 'skill_combo1';
   private frameIndex = 0;
   private playing = true;
-  private frameIntervalMs = 140;
   private flipped = false;
   private showFootLine = true;
   private cacheVersion = Date.now();
@@ -80,19 +78,14 @@ export class BattleActionPreviewOverlay {
     }
 
     const visual = this.getSelectedVisual();
-    const frames = this.getFrameSources(visual, this.selectedAction);
-    const totalFrames = this.getCurrentFrameCount(frames.length);
-    this.frameIndex = clamp(this.frameIndex, 0, Math.max(0, totalFrames - 1));
-    const currentSrc = frames[this.frameIndex] ?? frames[0] ?? '';
-
     this.root.style.display = 'block';
     this.root.innerHTML = `
       <section class="battle-action-preview-panel">
         <header class="battle-action-preview-head">
-          <span class="battle-action-preview-seal">帧</span>
+          <span class="battle-action-preview-seal">骨</span>
           <div>
-            <strong>动作帧编辑器</strong>
-            <em>F10 / Esc 关闭 · 用同一套面板调试角色动作、怪物动作、技能特效</em>
+            <strong>Spine 动作检查器</strong>
+            <em>F10 / Esc 关闭 · 运行时角色已切到 Spine 4.2，帧图模式仅保留为外部 sheet 检查工具</em>
           </div>
           <button data-action="exit" aria-label="关闭">×</button>
         </header>
@@ -102,12 +95,12 @@ export class BattleActionPreviewOverlay {
             <label>
               <span>编辑模式</span>
               <select data-field="mode">
-                <option value="registered" ${this.mode === 'registered' ? 'selected' : ''}>已接入资源</option>
+                <option value="spine" ${this.mode === 'spine' ? 'selected' : ''}>Spine 动作</option>
                 <option value="sheet" ${this.mode === 'sheet' ? 'selected' : ''}>Sprite Sheet</option>
               </select>
             </label>
 
-            ${this.mode === 'registered' ? this.renderRegisteredControls(visual, frames, currentSrc) : this.renderSheetControls()}
+            ${this.mode === 'spine' ? this.renderSpineControls(visual) : this.renderSheetControls()}
 
             <label class="battle-action-preview-check">
               <input data-field="flip" type="checkbox" ${this.flipped ? 'checked' : ''} />
@@ -123,7 +116,7 @@ export class BattleActionPreviewOverlay {
           <main class="battle-action-preview-stage">
             <div class="battle-action-preview-grid"></div>
             ${this.showFootLine ? '<div class="battle-action-preview-footline"></div>' : ''}
-            ${this.mode === 'registered' ? this.renderRegisteredStage(currentSrc) : this.renderSheetStage()}
+            ${this.mode === 'spine' ? this.renderSpineStage(visual) : this.renderSheetStage()}
           </main>
         </div>
       </section>
@@ -134,12 +127,12 @@ export class BattleActionPreviewOverlay {
     this.syncTimer();
   }
 
-  private renderRegisteredControls(visual: BattleCharacterVisualDef, frames: string[], currentSrc: string): string {
+  private renderSpineControls(visual: BattleSpineVisualDef): string {
     return `
       <label>
         <span>角色视觉</span>
         <select data-field="visual">
-          ${BATTLE_CHARACTER_VISUALS.map(item => `
+          ${BATTLE_SPINE_VISUALS.map(item => `
             <option value="${escapeAttr(item.id)}" ${item.id === visual.id ? 'selected' : ''}>
               ${escapeHtml(item.id)}
             </option>
@@ -148,22 +141,25 @@ export class BattleActionPreviewOverlay {
       </label>
 
       <label>
-        <span>动作</span>
-        <select data-field="action">
-          ${BATTLE_CHARACTER_STANCES.map(stance => `
-            <option value="${stance}" ${stance === this.selectedAction ? 'selected' : ''}>
-              ${escapeHtml(stance)}
+        <span>Spine 动作</span>
+        <select data-field="spine-action">
+          ${BATTLE_SPINE_ACTIONS.map(action => `
+            <option value="${action}" ${action === this.selectedAction ? 'selected' : ''}>
+              ${escapeHtml(action)}
             </option>
           `).join('')}
         </select>
       </label>
 
-      ${this.renderPlaybackControls(this.frameIntervalMs)}
+      <div class="battle-action-preview-buttons">
+        <button data-action="open-battle-preview">打开战斗预览</button>
+        <button data-action="reload">刷新面板</button>
+      </div>
 
       <div class="battle-action-preview-meta">
         <b>${escapeHtml(this.selectedAction)}</b>
-        <span>${frames.length > 1 ? `帧动画 ${this.frameIndex + 1}/${frames.length}` : '单张姿态'}</span>
-        <small>${escapeHtml(currentSrc.replace(/\?.*$/, ''))}</small>
+        <span>Spine 4.2 · ${visual.actions.length} 个动作</span>
+        <small>${escapeHtml(`${visual.dataKey} / ${visual.atlasKey}`)}</small>
       </div>
     `;
   }
@@ -191,29 +187,27 @@ export class BattleActionPreviewOverlay {
 
       <label>
         <span>Sprite Sheet 路径</span>
-        <input data-field="sheet-src" type="text" value="${escapeAttr(config.src)}" placeholder="assets/characters/player3/battle/actions/source/attack_sheet.png" />
+        <input data-field="sheet-src" type="text" value="${escapeAttr(config.src)}" placeholder="assets/.../attack_sheet.png" />
       </label>
 
       <div class="battle-action-preview-number-grid">
-        <label>
-          <span>总帧数</span>
-          <input data-field="sheet-frame-count" type="number" min="1" max="64" step="1" value="${config.frameCount}" />
-        </label>
-        <label>
-          <span>列数</span>
-          <input data-field="sheet-columns" type="number" min="1" max="16" step="1" value="${config.columns}" />
-        </label>
-        <label>
-          <span>行数</span>
-          <input data-field="sheet-rows" type="number" min="1" max="16" step="1" value="${config.rows}" />
-        </label>
-        <label>
-          <span>打击帧</span>
-          <input data-field="sheet-impact-frame" type="number" min="1" max="64" step="1" value="${config.impactFrame}" />
-        </label>
+        <label><span>总帧数</span><input data-field="sheet-frame-count" type="number" min="1" max="64" step="1" value="${config.frameCount}" /></label>
+        <label><span>列数</span><input data-field="sheet-columns" type="number" min="1" max="16" step="1" value="${config.columns}" /></label>
+        <label><span>行数</span><input data-field="sheet-rows" type="number" min="1" max="16" step="1" value="${config.rows}" /></label>
+        <label><span>打击帧</span><input data-field="sheet-impact-frame" type="number" min="1" max="64" step="1" value="${config.impactFrame}" /></label>
       </div>
 
-      ${this.renderPlaybackControls(config.frameIntervalMs)}
+      <label>
+        <span>帧间隔 ${normalizedConfig.frameIntervalMs}ms</span>
+        <input data-field="speed" type="range" min="60" max="320" step="10" value="${normalizedConfig.frameIntervalMs}" />
+      </label>
+
+      <div class="battle-action-preview-buttons">
+        <button data-action="prev">上一帧</button>
+        <button data-action="play">${this.playing ? '暂停' : '播放'}</button>
+        <button data-action="next">下一帧</button>
+        <button data-action="reload">刷新素材</button>
+      </div>
 
       <div class="battle-action-preview-meta ${impactLabel ? 'is-impact' : ''}">
         <b>${escapeHtml(normalizedConfig.actionName)}</b>
@@ -228,30 +222,16 @@ export class BattleActionPreviewOverlay {
     `;
   }
 
-  private renderPlaybackControls(intervalMs: number): string {
+  private renderSpineStage(visual: BattleSpineVisualDef): string {
+    const stanceEntries = Object.entries(visual.stanceMap)
+      .map(([stance, action]) => `${stance} -> ${action}`)
+      .join('\n');
     return `
-      <label>
-        <span>帧间隔 ${intervalMs}ms</span>
-        <input data-field="speed" type="range" min="60" max="320" step="10" value="${intervalMs}" />
-      </label>
-
-      <div class="battle-action-preview-buttons">
-        <button data-action="prev">上一帧</button>
-        <button data-action="play">${this.playing ? '暂停' : '播放'}</button>
-        <button data-action="next">下一帧</button>
-        <button data-action="reload">刷新素材</button>
+      <div class="battle-action-preview-sheet-wrap ${this.flipped ? 'is-flipped' : ''}">
+        <span class="battle-action-preview-canvas-state">
+          当前角色运行时使用 Spine，不再预加载时序帧。\n\n${escapeHtml(visual.id)}\n${escapeHtml(stanceEntries)}\n\n要看真实骨骼动画，请点“打开战斗预览”。
+        </span>
       </div>
-    `;
-  }
-
-  private renderRegisteredStage(currentSrc: string): string {
-    return `
-      <img
-        class="battle-action-preview-sprite ${this.flipped ? 'is-flipped' : ''}"
-        src="${escapeAttr(withCacheBust(currentSrc, this.cacheVersion))}"
-        alt=""
-        draggable="false"
-      />
     `;
   }
 
@@ -278,18 +258,9 @@ export class BattleActionPreviewOverlay {
         if (el.dataset.field === 'mode') {
           this.mode = el.value as PreviewMode;
           this.frameIndex = 0;
-          this.frameIntervalMs = this.mode === 'sheet' ? this.sheetConfig.frameIntervalMs : this.frameIntervalMs;
         }
-        if (el.dataset.field === 'visual') {
-          this.selectedVisualId = el.value;
-          this.frameIndex = 0;
-        }
-        if (el.dataset.field === 'action') {
-          this.selectedAction = el.value as PreviewAction;
-          const animation = this.getSelectedVisual().animations?.find(item => item.stance === this.selectedAction);
-          this.frameIntervalMs = animation?.frameIntervalMs ?? this.frameIntervalMs;
-          this.frameIndex = 0;
-        }
+        if (el.dataset.field === 'visual') this.selectedVisualId = el.value;
+        if (el.dataset.field === 'spine-action') this.selectedAction = el.value as BattleSpineAction;
         this.render();
       });
       el.addEventListener('keydown', (event) => event.stopPropagation());
@@ -298,13 +269,8 @@ export class BattleActionPreviewOverlay {
     const speed = this.root.querySelector<HTMLInputElement>('input[data-field="speed"]');
     speed?.addEventListener('input', (event) => {
       event.stopPropagation();
-      const nextValue = sanitizeNumber(speed.value, 60, 320, this.getActiveFrameInterval());
-      if (this.mode === 'sheet') {
-        this.sheetConfig.frameIntervalMs = nextValue;
-        this.saveSheetConfig();
-      } else {
-        this.frameIntervalMs = nextValue;
-      }
+      this.sheetConfig.frameIntervalMs = sanitizeNumber(speed.value, 60, 320, this.getNormalizedSheetConfig().frameIntervalMs);
+      this.saveSheetConfig();
       this.render();
     });
 
@@ -338,9 +304,13 @@ export class BattleActionPreviewOverlay {
   }
 
   private handleAction(action: string): void {
-    const frameCount = this.getCurrentFrameCount(this.getCurrentFrames().length);
+    const frameCount = this.getNormalizedSheetConfig().frameCount;
     if (action === 'exit') {
       this.setActive(false);
+      return;
+    }
+    if (action === 'open-battle-preview') {
+      window.location.href = `${window.location.origin}${window.location.pathname}?battlePreview=digital_master`;
       return;
     }
     if (action === 'play') {
@@ -380,7 +350,6 @@ export class BattleActionPreviewOverlay {
         if (state) state.textContent = '帧图尺寸或行列配置不对';
         return;
       }
-
       const maxCells = config.columns * config.rows;
       const sourceFrameIndex = clamp(this.frameIndex, 0, Math.max(0, maxCells - 1));
       const col = sourceFrameIndex % config.columns;
@@ -392,17 +361,7 @@ export class BattleActionPreviewOverlay {
       canvas.height = frameHeight;
       context.clearRect(0, 0, frameWidth, frameHeight);
       context.imageSmoothingEnabled = true;
-      context.drawImage(
-        image,
-        col * frameWidth,
-        row * frameHeight,
-        frameWidth,
-        frameHeight,
-        0,
-        0,
-        frameWidth,
-        frameHeight,
-      );
+      context.drawImage(image, col * frameWidth, row * frameHeight, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
       if (state) state.textContent = '';
     };
     image.onerror = () => {
@@ -415,12 +374,13 @@ export class BattleActionPreviewOverlay {
 
   private syncTimer(): void {
     this.stopTimer();
-    const frameCount = this.getCurrentFrameCount(this.getCurrentFrames().length);
+    if (this.mode !== 'sheet') return;
+    const frameCount = this.getNormalizedSheetConfig().frameCount;
     if (!this.active || !this.playing || frameCount <= 1) return;
     this.timer = window.setInterval(() => {
       this.frameIndex = wrap(this.frameIndex + 1, frameCount);
       this.render();
-    }, this.getActiveFrameInterval());
+    }, this.getNormalizedSheetConfig().frameIntervalMs);
   }
 
   private stopTimer(): void {
@@ -429,32 +389,8 @@ export class BattleActionPreviewOverlay {
     this.timer = null;
   }
 
-  private getSelectedVisual(): BattleCharacterVisualDef {
-    return BATTLE_CHARACTER_VISUALS.find(item => item.id === this.selectedVisualId)
-      ?? BATTLE_CHARACTER_VISUALS[0];
-  }
-
-  private getCurrentFrames(): string[] {
-    return this.getFrameSources(this.getSelectedVisual(), this.selectedAction);
-  }
-
-  private getFrameSources(visual: BattleCharacterVisualDef, action: PreviewAction): string[] {
-    const animation = visual.animations?.find(item => item.stance === action);
-    if (animation) {
-      return Array.from({ length: animation.frameCount }, (_, index) =>
-        `${animation.frameRoot}/${String(index).padStart(3, '0')}.png?v=1`,
-      );
-    }
-    return [`${visual.actionRoot}/${action}.png?v=1`];
-  }
-
-  private getCurrentFrameCount(registeredFrameCount: number): number {
-    if (this.mode === 'sheet') return this.getNormalizedSheetConfig().frameCount;
-    return Math.max(1, registeredFrameCount);
-  }
-
-  private getActiveFrameInterval(): number {
-    return this.mode === 'sheet' ? this.getNormalizedSheetConfig().frameIntervalMs : this.frameIntervalMs;
+  private getSelectedVisual(): BattleSpineVisualDef {
+    return BATTLE_SPINE_VISUALS.find(item => item.id === this.selectedVisualId) ?? BATTLE_SPINE_VISUALS[0];
   }
 
   private updateSheetConfigFromControls(): void {
@@ -468,7 +404,6 @@ export class BattleActionPreviewOverlay {
       frameIntervalMs: this.sheetConfig.frameIntervalMs,
       impactFrame: sanitizeNumber(getInput('sheet-impact-frame')?.value, 1, 64, DEFAULT_SHEET_CONFIG.impactFrame),
     };
-
     this.sheetConfig.impactFrame = clamp(this.sheetConfig.impactFrame, 1, this.sheetConfig.frameCount);
     this.frameIndex = clamp(this.frameIndex, 0, this.getNormalizedSheetConfig().frameCount - 1);
     this.saveSheetConfig();

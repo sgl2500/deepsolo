@@ -1,5 +1,6 @@
 import { runTests } from './test_utils';
 import { tests as authStoreTests } from './auth_store.test';
+import { tests as battleAssetCatalogTests } from './battle_asset_catalog.test';
 import { tests as battleRulesTests } from './battle_rules.test';
 import { tests as battleSkillEffectCatalogTests } from './battle_skill_effect_catalog.test';
 import { tests as combatProfileTests } from './combat_profile.test';
@@ -20,6 +21,7 @@ import { tests as giftSystemTests } from './gift_system.test';
 export async function run(): Promise<void> {
   await runTests([
     { suite: 'AuthStore', tests: authStoreTests },
+    { suite: 'BattleAssetCatalog', tests: battleAssetCatalogTests },
     { suite: 'BattleRules', tests: battleRulesTests },
     { suite: 'BattleSkillEffectCatalog', tests: battleSkillEffectCatalogTests },
     { suite: 'CombatDisplay', tests: combatDisplayTests },

@@ -3,6 +3,7 @@
 // ============================================================
 
 import Phaser from 'phaser';
+import { SpinePlugin } from '@esotericsoftware/spine-phaser-v3';
 import { SCREEN_WIDTH, SCREEN_HEIGHT, WS_URL } from './config';
 import { EventBus } from './core/EventBus';
 import { AuthStore } from './core/AuthStore';
@@ -37,13 +38,22 @@ function startGame(): void {
 
   // 启动 Phaser
   const config: Phaser.Types.Core.GameConfig = {
-    type: Phaser.CANVAS,
+    type: Phaser.AUTO,
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
     parent: 'game-container',
     pixelArt: true,
     backgroundColor: '#0a0e1a',
     scene: [BootScene, WorldScene],
+    plugins: {
+      scene: [
+        {
+          key: 'SpinePlugin',
+          plugin: SpinePlugin,
+          mapping: 'spine',
+        },
+      ],
+    },
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,

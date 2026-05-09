@@ -9,7 +9,8 @@ import { EFT_FRAME_COUNTS } from '../data/BattleData';
 import { preloadAgentProfiles } from '../data/agents';
 import { ASSET_CATALOG } from '../content/AssetCatalog';
 import { getAutomatedWorldBuildingAssets } from '../content/AutomatedBuildingRegistry';
-import { BATTLE_BACKGROUND_ASSETS, BATTLE_EFFECT_ASSETS, getBattleCharacterAssets } from '../content/BattleAssetCatalog';
+import { BATTLE_BACKGROUND_ASSETS, BATTLE_EFFECT_ASSETS } from '../content/BattleAssetCatalog';
+import { getBattleSpineAssets } from '../content/BattleSpineCatalog';
 import { getPlayerAppearanceAssets } from '../content/PlayerAppearanceCatalog';
 
 const WORLD_BUILDING_ASSETS = [
@@ -115,8 +116,16 @@ export class BootScene extends Phaser.Scene {
     }
 
     // === 横版战斗专用素材 ===
-    for (const asset of [...getBattleCharacterAssets(), ...BATTLE_BACKGROUND_ASSETS, ...BATTLE_EFFECT_ASSETS]) {
+    for (const asset of [...BATTLE_BACKGROUND_ASSETS, ...BATTLE_EFFECT_ASSETS]) {
       this.load.image(asset.key, asset.src);
+    }
+    if (this.load.spineJson && this.load.spineAtlas) {
+      for (const asset of getBattleSpineAssets()) {
+        this.load.spineJson(asset.dataKey, asset.jsonSrc);
+        this.load.spineAtlas(asset.atlasKey, asset.atlasSrc, asset.premultipliedAlpha);
+      }
+    } else {
+      console.warn('SpinePlugin 未加载，横版战斗将使用帧动画兜底。');
     }
 
     // === Smap 瓦片 (JYQXZ 室内场景) ===

@@ -91,7 +91,8 @@ export const INDOOR_FURNITURE_DEFS: IndoorFurnitureDef[] = [
     scale: 0.55,
     depthLocalX: 12.1,
     depthLocalY: 12.6,
-    collider: { minLocalX: 11.6, maxLocalX: 13.9, minLocalY: 10.3, maxLocalY: 13.8 },
+    collider: { minLocalX: 11.6, maxLocalX: 13.9, minLocalY: 10.3, maxLocalY: 13.8
+     },
   },
   {
     buildingId: 'birth_house',

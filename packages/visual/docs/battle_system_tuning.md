@@ -8,7 +8,8 @@
 - 战斗画面采用“四角 HUD + 中心战场”：左上状态、右上战局、左下日志、右下命令、底部出手顺序。
 - 玩家生命/内力直接读取个人属性面板当前值和上限，战斗结束后直接回写，不再做 5 倍缩放。
 - 战斗移动有碰撞，不允许穿过其他角色；移动动画按 BFS 路径逐格行走。
-- 战斗移动使用 `16_walk/2501.png-2528.png` 走路帧；停下后恢复 `Fight000` 战斗站立帧。
+- 角色77主角与角色148数字掌门已接入横版 batch frames：idle/run/attack/hit/defense/dead 都走同一套帧动画管线。
+- 横版打击增加了命中帧同步、目标受击动作、斩击线、屏幕闪白和战斗层震动，伤害数字会区分护盾、闪避和会心。
 - 普通攻击是单格单体攻击，并接入熟练度成长和等级视觉阶段。
 - 武功表现已抽到配置层，后续特效、招式字、震动、命中停顿可以不改主流程直接调配置。
 - Vite 大 chunk 警告已通过 `vite.config.ts` 的 `chunkSizeWarningLimit` 处理，当前 build 无警告。
@@ -17,10 +18,14 @@
 
 - `src/systems/BattleSystem.ts`
   - 战斗流程、回合、移动、攻击、HUD 布局和 Phaser 画面渲染。
+- `src/systems/sidebattle/SideBattleSystem.ts`
+  - 当前横版切磋主流程，负责横版角色站位、出招节奏、命中反馈、HUD 和开发预览。
 - `src/content/BattleActors.ts`
   - 战斗角色动作资源配置。当前 `fight000` 攻击/站立使用 `12_fight/Fight000/0040.png-0087.png`，移动使用 `16_walk/2501.png-2528.png`。
+- `src/content/BattleAssetCatalog.ts`
+  - 横版战斗角色资源目录、锚点、显示高度、动作帧数与命中帧配置。当前玩家映射角色77，数字掌门映射角色148。
 - `src/systems/BattleAnimator.ts`
-  - 战斗角色动画播放封装，负责站立帧、攻击帧和移动帧。
+  - 旧 JYQXZ 战斗角色动画播放封装，作为未接入 batch frames 的兜底。
 - `src/content/BattleSkillVisuals.ts`
   - 武功表现配置：单体/群攻、特效编号、特效大小、招式字、震动、命中停顿、等级阶段。
 - `src/data/BattleData.ts`
@@ -198,11 +203,20 @@ normal_attack: {
 
 ## 建议后续优化
 
-1. 给 `BattleActors.ts` 增加 `hit / defend / dead` 动作。
+1. 给 `BattleAssetCatalog.ts` 增加更多 batch frame 角色映射，统一主角、掌门和后续敌人的动作规格。
 2. 给 `BattleSkillVisuals.ts` 增加 `line`、`fan` 等范围形状。
 3. 战斗菜单支持鼠标点击。
 4. 物品菜单接入回血/回内力。
 5. 战斗地板从单一瓦片升级为专用战斗场景背景。
+
+## 横版战斗预览
+
+开发模式下可以用 URL 直接进入战斗预览，方便截图验收：
+
+```bash
+npm run dev
+# 打开 http://127.0.0.1:3456/?battlePreview=digital_master
+```
 
 ## 构建验证
 
@@ -215,7 +229,7 @@ cd packages/visual && npm run build
 当前状态：构建通过，无 Vite 大 chunk 警告。`vite.config.ts` 中保留：
 
 ```ts
-chunkSizeWarningLimit: 1800
+chunkSizeWarningLimit: 2000
 ```
 
 这是因为 Phaser 单页游戏运行时代码本身较大，当前阶段不做运行时代码拆包。

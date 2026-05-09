@@ -3,7 +3,7 @@ import type { BattleResult } from '../../types';
 export type SideBattleSide = 'left' | 'right';
 
 export type SideBattleSkillType = 'normal' | 'martial' | 'inner' | 'strategy' | 'defense';
-export type SideBattleActorVisualState = 'idle' | 'attack' | 'hit' | 'defense' | 'dead';
+export type SideBattleActorVisualState = 'idle' | 'run' | 'attack' | 'hit' | 'defense' | 'dead';
 
 export interface SideBattleSkill {
   id: string;

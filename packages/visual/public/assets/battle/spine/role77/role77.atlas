@@ -1,0 +1,156 @@
+role77.png
+size: 2009,1426
+format: RGBA8888
+filter: Linear,Linear
+pma: false
+repeat: none
+Weapon_Sword
+  rotate: false
+  bounds: 2, 2, 512, 512
+  offsets: 0, 0, 512, 512
+  index: -1
+Weapon_Arrow
+  rotate: false
+  bounds: 516, 2, 512, 512
+  offsets: 0, 0, 512, 512
+  index: -1
+Weapon_Staff
+  rotate: false
+  bounds: 1030, 2, 512, 512
+  offsets: 0, 0, 512, 512
+  index: -1
+bodyS_L
+  rotate: false
+  bounds: 1544, 2, 226, 319
+  offsets: 0, 0, 226, 319
+  index: -1
+body
+  rotate: false
+  bounds: 2, 516, 282, 300
+  offsets: 0, 0, 282, 300
+  index: -1
+footL
+  rotate: false
+  bounds: 286, 516, 144, 260
+  offsets: 0, 0, 144, 260
+  index: -1
+footR
+  rotate: false
+  bounds: 432, 516, 144, 260
+  offsets: 0, 0, 144, 260
+  index: -1
+head
+  rotate: false
+  bounds: 578, 516, 324, 241
+  offsets: 0, 0, 324, 241
+  index: -1
+Weapon_Bowstring
+  rotate: false
+  bounds: 904, 516, 3, 224
+  offsets: 0, 0, 3, 224
+  index: -1
+daoframe_012
+  rotate: false
+  bounds: 909, 516, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+daoframe_013
+  rotate: false
+  bounds: 1129, 516, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+daoframe_007
+  rotate: false
+  bounds: 1349, 516, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+frame_011
+  rotate: false
+  bounds: 1569, 516, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+frame_006
+  rotate: false
+  bounds: 1789, 516, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+daoframe_004
+  rotate: false
+  bounds: 2, 818, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+daoframe_002
+  rotate: false
+  bounds: 222, 818, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+frame_001
+  rotate: false
+  bounds: 442, 818, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+frame_002
+  rotate: false
+  bounds: 662, 818, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+frame_004
+  rotate: false
+  bounds: 882, 818, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+daoframe_005
+  rotate: false
+  bounds: 1102, 818, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+daoframe_010
+  rotate: false
+  bounds: 1322, 818, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+frame_005
+  rotate: false
+  bounds: 1542, 818, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+frame_015
+  rotate: false
+  bounds: 1762, 818, 218, 218
+  offsets: 0, 0, 218, 218
+  index: -1
+handR_wq
+  rotate: false
+  bounds: 2, 1038, 384, 192
+  offsets: 0, 0, 384, 192
+  index: -1
+handL_pa01
+  rotate: false
+  bounds: 388, 1038, 384, 192
+  offsets: 0, 0, 384, 192
+  index: -1
+handR_pa02
+  rotate: false
+  bounds: 774, 1038, 384, 192
+  offsets: 0, 0, 384, 192
+  index: -1
+handL_wq
+  rotate: false
+  bounds: 1160, 1038, 384, 192
+  offsets: 0, 0, 384, 192
+  index: -1
+handL_pa02
+  rotate: false
+  bounds: 1546, 1038, 384, 192
+  offsets: 0, 0, 384, 192
+  index: -1
+handR_pa01
+  rotate: false
+  bounds: 2, 1232, 384, 192
+  offsets: 0, 0, 384, 192
+  index: -1
+yz
+  rotate: false
+  bounds: 388, 1232, 139, 72
+  offsets: 0, 0, 139, 72
+  index: -1

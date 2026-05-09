@@ -3,15 +3,18 @@
 // ============================================================
 
 import type { BattlePerson, BattleResult, WugongDef } from '../../types';
+import type { SpineGameObject } from '@esotericsoftware/spine-phaser-v3';
 import { SCREEN_HEIGHT, SCREEN_WIDTH } from '../../config';
 import { createBattlePerson, createPlayerBattlePerson, NORMAL_ATTACK } from '../../data/BattleData';
 import type { EventBus } from '../../core/EventBus';
 import type { GameStore } from '../../core/GameStore';
+import { type BattleCharacterStance } from '../../content/BattleAssetCatalog';
 import {
-  getBattleCharacterAnimation,
-  getBattleCharacterTextureKey,
-  type BattleCharacterStance,
-} from '../../content/BattleAssetCatalog';
+  getBattleSpineAction,
+  getBattleSpineHitDelayMs,
+  getBattleSpineVisualForActor,
+  type BattleSpineVisualDef,
+} from '../../content/BattleSpineCatalog';
 import { getBattleSkillEffect, type BattleSkillEffectDef } from '../../content/BattleSkillEffectCatalog';
 import { BattleAnimator } from '../BattleAnimator';
 import {
@@ -25,9 +28,10 @@ import {
 import type { SideBattleActor, SideBattleSkill } from './SideBattleTypes';
 
 type Phase = 'idle' | 'intro' | 'player_select' | 'animating' | 'enemy_turn' | 'ended';
+type BattleDisplay = Phaser.GameObjects.Image | Phaser.GameObjects.Container | SpineGameObject;
 
 const LEFT_ANCHOR = { x: 320, y: 480 };
-const RIGHT_ANCHOR = { x: 960, y: 480 };
+const RIGHT_ANCHOR = { x: 985, y: 456 };
 
 export class SideBattleSystem {
   private scene: Phaser.Scene;
@@ -44,8 +48,7 @@ export class SideBattleSystem {
   private menuIndex = 0;
 
   private container: Phaser.GameObjects.Container | null = null;
-  private sprites = new Map<string, Phaser.GameObjects.Image | Phaser.GameObjects.Container>();
-  private actionTimers = new Map<string, Phaser.Time.TimerEvent>();
+  private sprites = new Map<string, BattleDisplay>();
   private hpBars = new Map<string, Phaser.GameObjects.Graphics>();
   private mpBars = new Map<string, Phaser.GameObjects.Graphics>();
   private shieldBars = new Map<string, Phaser.GameObjects.Graphics>();
@@ -228,8 +231,7 @@ export class SideBattleSystem {
     const actorAnchor = this.getAnchor(actor);
     const strikeX = this.getMeleeStrikeX(actor, target);
 
-    this.setActorStance(actor, 'attack');
-    this.playActorActionAnimation(actor, 'attack');
+    this.setActorStance(actor, 'run');
     actorSprite?.setDepth(9280);
     this.scene.tweens.add({
       targets: actorSprite,
@@ -237,16 +239,19 @@ export class SideBattleSystem {
       duration: effect.presentation === 'melee_normal' ? 220 : 280,
       ease: 'Sine.easeOut',
       onComplete: () => {
+        this.setActorStance(actor, 'attack');
         this.flashAttack(actor, skill);
         const resolve = () => {
           this.resolveAnimatedHit(actor, target, skill, effect);
           this.finishAttack(actor, actorAnchor);
         };
-        if (effect.presentation === 'melee_wugong') {
-          this.playMeleeWugongEffect(actor, target, effect, resolve);
-        } else {
-          resolve();
-        }
+        this.scene.time.delayedCall(this.getActorHitDelayMs(actor, 'attack'), () => {
+          if (effect.presentation === 'melee_wugong') {
+            this.playMeleeWugongEffect(actor, target, effect, resolve);
+          } else {
+            resolve();
+          }
+        });
       },
     });
   }
@@ -262,7 +267,6 @@ export class SideBattleSystem {
     const readyX = actorAnchor.x + (actor.side === 'left' ? 58 : -58);
 
     this.setActorStance(actor, 'attack');
-    this.playActorActionAnimation(actor, 'attack');
     actorSprite?.setDepth(9280);
     this.scene.tweens.add({
       targets: actorSprite,
@@ -271,9 +275,11 @@ export class SideBattleSystem {
       ease: 'Sine.easeOut',
       onComplete: () => {
         this.flashAttack(actor, skill);
-        this.playRangedStrategyEffect(actor, target, effect, () => {
-          this.resolveAnimatedHit(actor, target, skill, effect);
-          this.finishAttack(actor, actorAnchor);
+        this.scene.time.delayedCall(this.getActorHitDelayMs(actor, 'attack'), () => {
+          this.playRangedStrategyEffect(actor, target, effect, () => {
+            this.resolveAnimatedHit(actor, target, skill, effect);
+            this.finishAttack(actor, actorAnchor);
+          });
         });
       },
     });
@@ -504,13 +510,10 @@ export class SideBattleSystem {
     shadow.setScrollFactor(0);
     this.container!.add(shadow);
 
-    let display: Phaser.GameObjects.Image | Phaser.GameObjects.Container;
-    const battleTextureKey = this.getActorBattleTexture(actor, 'idle');
-    if (battleTextureKey) {
-      const image = this.scene.add.image(anchor.x, anchor.y + 42, battleTextureKey)
-        .setOrigin(0.5, 1);
-      image.setDisplaySize(this.getActorBattleWidth(actor, 'idle'), this.getActorBattleHeight(actor));
-      display = image;
+    let display: BattleDisplay;
+    const spineDisplay = this.createSpineActor(actor, anchor);
+    if (spineDisplay) {
+      display = spineDisplay;
     } else if (source && this.animator.hasIdleTexture(source)) {
       const key = this.animator.getIdleTextureKey(source);
       const image = this.scene.add.image(anchor.x, anchor.y, key)
@@ -531,7 +534,6 @@ export class SideBattleSystem {
     display.setScrollFactor(0);
     this.container!.add(display);
     this.sprites.set(actor.id, display);
-
     const name = this.scene.add.text(anchor.x, anchor.y + 42, actor.name, {
       fontSize: '14px',
       color: actor.side === 'left' ? '#fbbf24' : '#93c5fd',
@@ -762,27 +764,16 @@ ${skill.flavor ?? ''}`.trim();
     return this.actors.some(actor => actor.id === 'digital_master');
   }
 
-  private getActorBattleTexture(actor: SideBattleActor, stance: BattleCharacterStance): string | null {
-    const key = getBattleCharacterTextureKey(actor.id, stance);
-    return key && this.scene.textures.exists(key) ? key : null;
-  }
-
-  private getActorBattleHeight(actor: SideBattleActor): number {
-    return actor.id === 'digital_master' ? 405 : 350;
-  }
-
-  private getActorBattleWidth(actor: SideBattleActor, stance: BattleCharacterStance, textureKey?: string): number {
-    const key = textureKey ?? this.getActorBattleTexture(actor, stance);
-    if (!key) return actor.id === 'digital_master' ? 300 : 245;
-    const source = this.scene.textures.get(key).getSourceImage() as HTMLImageElement | HTMLCanvasElement;
-    const ratio = source.width > 0 && source.height > 0 ? source.width / source.height : 0.72;
-    return Math.round(this.getActorBattleHeight(actor) * ratio);
+  private getActorCombatHalfWidth(actor: SideBattleActor, _stance: BattleCharacterStance): number {
+    const spineVisual = getBattleSpineVisualForActor(actor.id);
+    if (spineVisual) return spineVisual.combatWidth / 2;
+    return actor.id === 'digital_master' ? 56 : 59;
   }
 
   private getMeleeStrikeX(actor: SideBattleActor, target: SideBattleActor): number {
     const targetAnchor = this.getAnchor(target);
-    const actorHalfWidth = this.getActorBattleWidth(actor, 'attack') / 2;
-    const targetHalfWidth = this.getActorBattleWidth(target, 'idle') / 2;
+    const actorHalfWidth = this.getActorCombatHalfWidth(actor, 'attack');
+    const targetHalfWidth = this.getActorCombatHalfWidth(target, 'idle');
     const gap = 34;
     return actor.side === 'left'
       ? targetAnchor.x - targetHalfWidth - actorHalfWidth - gap
@@ -791,68 +782,87 @@ ${skill.flavor ?? ''}`.trim();
 
   private getImpactX(target: SideBattleActor): number {
     const anchor = this.getAnchor(target);
-    const targetHalfWidth = this.getActorBattleWidth(target, 'idle') / 2;
+    const targetHalfWidth = this.getActorCombatHalfWidth(target, 'idle');
     return target.side === 'left'
       ? anchor.x + targetHalfWidth * 0.58
       : anchor.x - targetHalfWidth * 0.58;
   }
 
+  private getActorHitDelayMs(actor: SideBattleActor, stance: BattleCharacterStance): number {
+    const spineDelay = getBattleSpineHitDelayMs(actor.id, stance);
+    if (spineDelay != null && this.isSpineDisplay(this.sprites.get(actor.id))) return spineDelay;
+    return stance === 'attack' ? 220 : 160;
+  }
+
   private setActorStance(actor: SideBattleActor, stance: BattleCharacterStance, restoreDelay = 0): void {
     const sprite = this.sprites.get(actor.id);
-    this.stopActorActionAnimation(actor.id);
     actor.visualState = stance;
-    const key = this.getActorBattleTexture(actor, stance);
-    if (!key || !(sprite instanceof Phaser.GameObjects.Image)) return;
+    if (!this.isSpineDisplay(sprite)) return;
 
-    sprite.setTexture(key);
-    sprite.setDisplaySize(this.getActorBattleWidth(actor, stance), this.getActorBattleHeight(actor));
+    this.playSpineActorAction(actor, sprite, stance);
     if (restoreDelay > 0) {
       this.scene.time.delayedCall(restoreDelay, () => {
         if (this.phase === 'idle' || !actor.alive || actor.defending || actor.visualState !== stance) return;
-        const idleKey = this.getActorBattleTexture(actor, 'idle');
-        if (!idleKey) return;
         actor.visualState = 'idle';
-        sprite.setTexture(idleKey);
-        sprite.setDisplaySize(this.getActorBattleWidth(actor, 'idle'), this.getActorBattleHeight(actor));
+        this.playSpineActorAction(actor, sprite, 'idle');
       });
     }
   }
 
-  private playActorActionAnimation(actor: SideBattleActor, stance: BattleCharacterStance): void {
-    const sprite = this.sprites.get(actor.id);
-    if (!(sprite instanceof Phaser.GameObjects.Image)) return;
+  private createSpineActor(actor: SideBattleActor, anchor: { x: number; y: number }): SpineGameObject | null {
+    const visual = getBattleSpineVisualForActor(actor.id);
+    if (!visual || !this.isWebGLRenderer() || !this.scene.add.spine) return null;
 
-    const animation = getBattleCharacterAnimation(actor.id, stance);
-    const frameKeys = animation?.frameKeys.filter(key => this.scene.textures.exists(key)) ?? [];
-    if (!animation || frameKeys.length === 0) return;
-
-    this.stopActorActionAnimation(actor.id);
-    let frameIndex = 0;
-    const applyFrame = () => {
-      const key = frameKeys[Math.min(frameIndex, frameKeys.length - 1)];
-      sprite.setTexture(key);
-      sprite.setDisplaySize(this.getActorBattleWidth(actor, stance, key), this.getActorBattleHeight(actor));
-      if (actor.side === 'right') sprite.setFlipX(true);
-      frameIndex += 1;
-      if (frameIndex >= frameKeys.length) {
-        this.stopActorActionAnimation(actor.id);
-      }
-    };
-
-    applyFrame();
-    const timer = this.scene.time.addEvent({
-      delay: animation.frameIntervalMs,
-      repeat: Math.max(0, frameKeys.length - 2),
-      callback: applyFrame,
-    });
-    this.actionTimers.set(actor.id, timer);
+    try {
+      const spine = this.scene.add.spine(
+        anchor.x,
+        anchor.y + visual.rootOffsetY,
+        visual.dataKey,
+        visual.atlasKey,
+      );
+      this.applySpineActorFacing(spine, actor, visual);
+      this.playSpineActorAction(actor, spine, 'idle');
+      spine.setScrollFactor(0);
+      return spine;
+    } catch (error) {
+      console.warn(`Spine 角色 ${actor.id} 创建失败，使用轻量占位兜底。`, error);
+      return null;
+    }
   }
 
-  private stopActorActionAnimation(actorId: string): void {
-    const timer = this.actionTimers.get(actorId);
-    if (!timer) return;
-    timer.remove(false);
-    this.actionTimers.delete(actorId);
+  private playSpineActorAction(
+    actor: SideBattleActor,
+    spine: SpineGameObject,
+    stance: BattleCharacterStance,
+  ): void {
+    const action = getBattleSpineAction(actor.id, stance);
+    if (!action) return;
+    const animations = spine.skeleton.data.animations.map(animation => animation.name);
+    if (animations.length > 0 && !animations.includes(action)) return;
+    const loop = stance === 'idle' || stance === 'run';
+    const current = spine.animationState.getCurrent(0);
+    if (current?.animation?.name === action && !current.isComplete()) return;
+    spine.animationState.setAnimation(0, action, loop);
+    const visual = getBattleSpineVisualForActor(actor.id);
+    if (visual) this.applySpineActorFacing(spine, actor, visual);
+  }
+
+  private applySpineActorFacing(
+    spine: SpineGameObject,
+    actor: SideBattleActor,
+    visual: BattleSpineVisualDef,
+  ): void {
+    const facing = actor.side === 'right' ? -1 : 1;
+    spine.scaleX = visual.scale * facing;
+    spine.scaleY = visual.scale;
+  }
+
+  private isSpineDisplay(display: BattleDisplay | undefined): display is SpineGameObject {
+    return !!display && 'animationState' in display && 'skeleton' in display;
+  }
+
+  private isWebGLRenderer(): boolean {
+    return this.scene.game.renderer.type === Phaser.WEBGL;
   }
 
   private highlightActor(actor: SideBattleActor): void {
@@ -899,6 +909,7 @@ ${skill.flavor ?? ''}`.trim();
     this.refreshBars();
     if (damage.hit) {
       this.shakeTarget(targetSprite, !wasDefending);
+      this.playHitImpactJuice(impactX, targetAnchor.y - 104, damage.damage, damage.crit, wasDefending);
       this.showImpactBurst(impactX, targetAnchor.y - 104, 0xf97316, effect.hitBurstScale);
       this.showDamageNumber(impactX, targetAnchor.y - 126, damage.damage, damage.crit, damage.shieldDamage);
       const shieldText = damage.shieldDamage > 0 ? `，护盾抵消 ${damage.shieldDamage}` : '';
@@ -1142,7 +1153,7 @@ ${skill.flavor ?? ''}`.trim();
     });
   }
 
-  private shakeTarget(target: Phaser.GameObjects.Image | Phaser.GameObjects.Container | undefined, showHitStance = true): void {
+  private shakeTarget(target: BattleDisplay | undefined, showHitStance = true): void {
     if (!target) return;
     this.scene.tweens.add({
       targets: target,
@@ -1157,6 +1168,81 @@ ${skill.flavor ?? ''}`.trim();
     }
     const actor = this.actors.find(item => this.sprites.get(item.id) === target);
     if (actor && showHitStance) this.setActorStance(actor, 'hit', 300);
+  }
+
+  private playHitImpactJuice(x: number, y: number, damage: number, crit: boolean, wasDefending: boolean): void {
+    const intensity = crit ? 1.28 : damage >= 90 ? 1 : wasDefending ? 0.42 : 0.72;
+    this.shakeBattleLayer(intensity);
+    this.showImpactSlash(x, y, intensity, crit);
+    this.showScreenImpactFlash(intensity, crit);
+  }
+
+  private shakeBattleLayer(intensity: number): void {
+    if (!this.container) return;
+    const amplitude = Math.round(5 + intensity * 7);
+    const startX = this.container.x;
+    const startY = this.container.y;
+    this.scene.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: Math.round(120 + intensity * 42),
+      ease: 'Stepped',
+      onUpdate: tween => {
+        const p = tween.getValue() ?? 1;
+        const sign = Math.floor(p * 8) % 2 === 0 ? 1 : -1;
+        this.container?.setPosition(
+          startX + sign * amplitude * (1 - p),
+          startY + sign * Math.max(2, amplitude * 0.35) * (1 - p),
+        );
+      },
+      onComplete: () => this.container?.setPosition(startX, startY),
+    });
+  }
+
+  private showImpactSlash(x: number, y: number, intensity: number, crit: boolean): void {
+    const color = crit ? 0xfef3c7 : 0xffffff;
+    const slashCount = crit ? 4 : 3;
+    for (let i = 0; i < slashCount; i += 1) {
+      const slash = this.scene.add.rectangle(
+        x + (i - 1) * 10,
+        y + (i - 1) * 8,
+        Math.round(86 + intensity * 44 - i * 8),
+        crit ? 7 : 5,
+        color,
+        0.72 - i * 0.12,
+      ).setOrigin(0.5).setAngle(i % 2 === 0 ? -22 : 18).setDepth(9610);
+      slash.setScrollFactor(0);
+      this.container!.add(slash);
+      this.scene.tweens.add({
+        targets: slash,
+        scaleX: 1.7,
+        scaleY: 0.22,
+        alpha: 0,
+        duration: Math.round(170 + intensity * 55),
+        ease: 'Cubic.easeOut',
+        onComplete: () => slash.destroy(),
+      });
+    }
+  }
+
+  private showScreenImpactFlash(intensity: number, crit: boolean): void {
+    const flash = this.scene.add.rectangle(
+      SCREEN_WIDTH / 2,
+      SCREEN_HEIGHT / 2,
+      SCREEN_WIDTH,
+      SCREEN_HEIGHT,
+      crit ? 0xfef3c7 : 0xffffff,
+      Math.min(0.16, 0.055 + intensity * 0.045),
+    ).setDepth(9660);
+    flash.setScrollFactor(0);
+    this.container!.add(flash);
+    this.scene.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: crit ? 150 : 105,
+      ease: 'Sine.easeOut',
+      onComplete: () => flash.destroy(),
+    });
   }
 
   private showDamageNumber(x: number, y: number, damage: number, crit: boolean, shieldDamage: number): void {
@@ -1207,6 +1293,20 @@ ${skill.flavor ?? ''}`.trim();
   private playDeath(actor: SideBattleActor): void {
     const sprite = this.sprites.get(actor.id);
     if (!sprite) return;
+    if (this.isSpineDisplay(sprite)) {
+      this.setActorStance(actor, 'dead');
+      this.scene.time.delayedCall(980, () => {
+        if (actor.visualState !== 'dead') return;
+        this.scene.tweens.add({
+          targets: sprite,
+          alpha: 0.55,
+          duration: 260,
+          ease: 'Sine.easeOut',
+        });
+      });
+      return;
+    }
+
     actor.visualState = 'dead';
     this.scene.tweens.add({
       targets: sprite,
@@ -1259,8 +1359,6 @@ ${skill.flavor ?? ''}`.trim();
 
   private cleanup(): void {
     this.clearMenu();
-    for (const timer of this.actionTimers.values()) timer.remove(false);
-    this.actionTimers.clear();
     for (const g of this.hpBars.values()) {
       const label = g.getData('label') as Phaser.GameObjects.Text | undefined;
       label?.destroy();
