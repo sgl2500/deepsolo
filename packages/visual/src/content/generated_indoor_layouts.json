@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": 1778225933395,
+  "savedAt": 1778343960228,
   "scenes": {
     "birth_house": {
       "sceneId": "birth_house",
@@ -500,6 +500,29 @@
           "source": "visual-indoor-editor",
           "schemaPurpose": "database-ready-scene-state",
           "objectCount": 11,
+          "floorTileOverrideCount": 0,
+          "floorTileOverrides": []
+        }
+      }
+    },
+    "digital_sect": {
+      "sceneId": "digital_sect",
+      "savedAt": 1778343960228,
+      "furniture": [],
+      "characters": [],
+      "interactables": [],
+      "floorTileOverrides": [],
+      "sceneSnapshot": {
+        "version": 1,
+        "sceneId": "digital_sect",
+        "sceneType": "indoor",
+        "templateId": "digital_sect",
+        "savedAt": 1778343960225,
+        "objects": [],
+        "metadata": {
+          "source": "visual-indoor-editor",
+          "schemaPurpose": "database-ready-scene-state",
+          "objectCount": 0,
           "floorTileOverrideCount": 0,
           "floorTileOverrides": []
         }

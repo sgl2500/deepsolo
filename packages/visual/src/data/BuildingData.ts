@@ -1,32 +1,9 @@
 import type { BuildingDef } from '../types';
 import { SCENES } from './SceneData';
 import { getAutomatedBuildings, type AutomatedBuildingSpec } from '../content/AutomatedBuildingRegistry';
+import { WORLD_LAYOUT_SOURCE } from './WorldLayoutSource';
 
-type LayoutOverrideItem = {
-  id: string;
-  entryX?: number;
-  entryY?: number;
-  visualX?: number;
-  visualY?: number;
-  depthX?: number;
-  depthY?: number;
-  entryRadius?: number;
-  collisionX?: number;
-  collisionY?: number;
-  collisionRadius?: number;
-  collisionPolygon?: Array<{ x: number; y: number }>;
-  returnX?: number;
-  returnY?: number;
-};
-
-type LayoutOverride = {
-  version: number;
-  savedAt: number;
-  items: LayoutOverrideItem[];
-};
-
-import savedLayout from './world_layout_override.json' assert { type: 'json' };
-const layoutOverride = savedLayout as LayoutOverride;
+const layoutOverride = WORLD_LAYOUT_SOURCE;
 
 /**
  * 建筑定义 — 世界地图上的建筑入口与室内场景对应关系

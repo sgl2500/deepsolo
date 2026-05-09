@@ -24,6 +24,7 @@ import { getNearbyIndoorInteractable } from '../content/IndoorInteractables';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
 import { PlayerAppearanceOverlay } from '../ui/PlayerAppearanceOverlay';
 import { BattleActionPreviewOverlay } from '../ui/BattleActionPreviewOverlay';
+import { WORLD_LAYOUT_SOURCE_SAVED_AT } from '../data/WorldLayoutSource';
 import type { NPC } from '../entities/NPC';
 import type { StrategyNPC } from '../entities/StrategyNPC';
 import {
@@ -796,31 +797,12 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private updateInteractHint(
-    interactable: IndoorInteractableDef | null,
-    strategyNpc: StrategyNPC | null,
-    npc: NPC | null,
+    _interactable: IndoorInteractableDef | null,
+    _strategyNpc: StrategyNPC | null,
+    _npc: NPC | null,
   ): void {
     if (!this.interactHintText) return;
-    const prompts: string[] = [];
-    if (interactable) {
-      prompts.push(interactable.prompt ?? `空格：互动 ${interactable.name}`);
-    }
-    if (strategyNpc) {
-      prompts.push(`T：查看 ${strategyNpc.strategy.name}`);
-      prompts.push(`G：赠送10元宝（好感 ${_store.getNpcFavor(strategyNpc.strategy.id)}）`);
-    }
-    if (npc) {
-      prompts.push(`空格：交谈 ${npc.npcDef.name}`);
-      prompts.push(`G：赠送10元宝（好感 ${_store.getNpcFavor(npc.id)}）`);
-    }
-    if (prompts.length === 0) {
-      this.interactHintText.setVisible(false);
-      return;
-    }
-
-    this.interactHintText
-      .setText(prompts.join('  ·  '))
-      .setVisible(true);
+    this.interactHintText.setVisible(false);
   }
 
   private getNearbyInspectableStrategyNpc(playerX: number, playerY: number): StrategyNPC | null {
@@ -866,8 +848,8 @@ export class WorldScene extends Phaser.Scene {
       savedLocation.buildingId ?? '',
       savedLocation.x,
       savedLocation.y,
-      savedLocation.worldX,
-      savedLocation.worldY,
+      savedLocation.worldLayoutSavedAt === WORLD_LAYOUT_SOURCE_SAVED_AT ? savedLocation.worldX : undefined,
+      savedLocation.worldLayoutSavedAt === WORLD_LAYOUT_SOURCE_SAVED_AT ? savedLocation.worldY : undefined,
     );
     if (!restored) this.sceneManager.startInstant('birth_house');
   }

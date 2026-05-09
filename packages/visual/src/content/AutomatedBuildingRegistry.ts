@@ -66,8 +66,10 @@ const GENERATED_AUTOMATED_BUILDINGS: AutomatedBuildingSpec[] = (generatedBuildin
     Number.isFinite(building.entryY)
   ));
 
-let runtimeAutomatedBuildings: AutomatedBuildingSpec[] = loadRuntimeAutomatedBuildings();
-let runtimeDeletedAutomatedBuildingIds: string[] = loadRuntimeDeletedAutomatedBuildingIds();
+// Source files are the authority on page load. Runtime edits only live in the
+// current editor session until "save to source" writes generated_buildings.json.
+let runtimeAutomatedBuildings: AutomatedBuildingSpec[] = [];
+let runtimeDeletedAutomatedBuildingIds: string[] = [];
 
 export const AUTOMATED_BUILDINGS: AutomatedBuildingSpec[] = getAutomatedBuildings();
 
@@ -104,6 +106,15 @@ export function removeRuntimeAutomatedBuilding(id: string): boolean {
   saveRuntimeAutomatedBuildings();
   saveRuntimeDeletedAutomatedBuildingIds();
   return true;
+}
+
+export function clearRuntimeAutomatedBuildingDrafts(): void {
+  runtimeAutomatedBuildings = [];
+  runtimeDeletedAutomatedBuildingIds = [];
+  const storage = getLocalStorage();
+  if (!storage) return;
+  storage.removeItem(LS_KEY_RUNTIME_WORLD_BUILDINGS);
+  storage.removeItem(LS_KEY_RUNTIME_WORLD_BUILDING_DELETIONS);
 }
 
 export function getAutomatedWorldBuildingVisuals(): Record<string, Required<Pick<AutomatedWorldBuildingVisual, 'textureKey' | 'originY' | 'offsetY' | 'labelY'>> & { scale?: number }> {
@@ -145,42 +156,6 @@ export function getAutomatedIndoorFurnitureDefs(buildingId?: string): IndoorFurn
       }];
     })
   ));
-}
-
-function loadRuntimeAutomatedBuildings(): AutomatedBuildingSpec[] {
-  const storage = getLocalStorage();
-  if (!storage) return [];
-  try {
-    const raw = storage.getItem(LS_KEY_RUNTIME_WORLD_BUILDINGS);
-    if (!raw) return [];
-    const payload = JSON.parse(raw) as { version?: number; items?: AutomatedBuildingSpec[] };
-    if (payload.version !== 1 || !Array.isArray(payload.items)) return [];
-    return payload.items.filter((building) => (
-      typeof building.id === 'string' &&
-      building.id.length > 0 &&
-      typeof building.name === 'string' &&
-      Number.isFinite(building.entryX) &&
-      Number.isFinite(building.entryY)
-    ));
-  } catch (error) {
-    console.warn('[AutomatedBuildingRegistry] Failed to load runtime buildings:', error);
-    return [];
-  }
-}
-
-function loadRuntimeDeletedAutomatedBuildingIds(): string[] {
-  const storage = getLocalStorage();
-  if (!storage) return [];
-  try {
-    const raw = storage.getItem(LS_KEY_RUNTIME_WORLD_BUILDING_DELETIONS);
-    if (!raw) return [];
-    const payload = JSON.parse(raw) as { version?: number; ids?: string[] };
-    if (payload.version !== 1 || !Array.isArray(payload.ids)) return [];
-    return payload.ids.filter((id) => typeof id === 'string' && id.length > 0);
-  } catch (error) {
-    console.warn('[AutomatedBuildingRegistry] Failed to load runtime deleted buildings:', error);
-    return [];
-  }
 }
 
 function saveRuntimeAutomatedBuildings(): void {

@@ -28,7 +28,7 @@ import {
   type IndoorCharacterDef,
 } from '../content/IndoorCharacterLayout';
 import { getIndoorAsset, INDOOR_ASSET_LIBRARY, type IndoorAssetDef } from '../content/IndoorAssetLibrary';
-import { getGeneratedIndoorLayout } from '../content/GeneratedIndoorLayouts';
+import { getGeneratedIndoorLayout, getGeneratedIndoorLayoutSavedAt } from '../content/GeneratedIndoorLayouts';
 import { getStoryNpcSourceCharacterIds } from '../content/StoryNpcPlacements';
 import { getIndoorInteractables } from '../content/IndoorInteractables';
 import { getAsset, getAssetByTextureKey } from '../content/AssetCatalog';
@@ -62,7 +62,7 @@ import { FurnitureOccluderRenderer } from './map/FurnitureOccluderRenderer';
 import { IndoorLayerRenderer } from './map/IndoorLayerRenderer';
 import {
   clearIndoorFloorTileOverrides,
-  loadIndoorFloorTileOverrides,
+  loadIndoorFloorTileOverridePayload,
   saveIndoorFloorTileOverrides,
   type IndoorFloorTileOverride,
 } from './map/IndoorTileEditorPersistence';
@@ -79,7 +79,7 @@ import {
   getInteractableEditorStorageKey,
   loadIndoorCharacterEditorSnapshotPayload,
   loadFurnitureEditorSnapshotPayload,
-  loadInteractableEditorSnapshot,
+  loadInteractableEditorSnapshotPayload,
   saveIndoorCharacterEditorSnapshot,
   saveFurnitureEditorSnapshot,
   saveInteractableEditorSnapshot,
@@ -295,13 +295,8 @@ export class MapRenderer {
     if (this.currentIndoorBuildingId) {
       this.applyGeneratedIndoorLayout(this.currentIndoorBuildingId);
       this.captureFurnitureEditorDefaults(this.currentIndoorBuildingId);
-      this.restoreFurnitureEditorLayoutFromStorage(this.currentIndoorBuildingId);
       this.captureIndoorCharacterEditorDefaults(this.currentIndoorBuildingId);
-      this.restoreIndoorCharacterEditorLayoutFromStorage(this.currentIndoorBuildingId);
       this.captureInteractableEditorDefaults(this.currentIndoorBuildingId);
-      this.restoreInteractableEditorLayoutFromStorage(this.currentIndoorBuildingId);
-      this.restoreIndoorFloorTileOverridesFromStorage(this.currentIndoorBuildingId);
-      this.lastIndoorSceneDraft = this.sceneRepository.loadSceneDraft('indoor', this.currentIndoorBuildingId);
     }
 
     // 创建室内容器，用于整体跟随玩家滚动
@@ -922,9 +917,10 @@ export class MapRenderer {
   }
 
   private restoreIndoorFloorTileOverridesFromStorage(buildingId: string): void {
+    const payload = loadIndoorFloorTileOverridePayload(buildingId);
+    if (!payload || !this.isIndoorEditorDraftNewerThanSource(buildingId, payload.savedAt)) return;
     this.indoorFloorTileOverrides.clear();
-    const items = loadIndoorFloorTileOverrides(buildingId) ?? [];
-    for (const item of items) {
+    for (const item of payload.items) {
       this.indoorFloorTileOverrides.set(`${item.col},${item.row}`, { ...item });
     }
   }
@@ -1148,6 +1144,13 @@ export class MapRenderer {
 
   setFurnitureEditorActive(active: boolean): void {
     this.furnitureEditorActive = active && this.isIndoor && !!this.currentIndoorBuildingId;
+    if (this.furnitureEditorActive && this.currentIndoorBuildingId) {
+      this.restoreFurnitureEditorLayoutFromStorage(this.currentIndoorBuildingId);
+      this.restoreIndoorCharacterEditorLayoutFromStorage(this.currentIndoorBuildingId);
+      this.restoreInteractableEditorLayoutFromStorage(this.currentIndoorBuildingId);
+      this.restoreIndoorFloorTileOverridesFromStorage(this.currentIndoorBuildingId);
+      this.lastIndoorSceneDraft = this.sceneRepository.loadSceneDraft('indoor', this.currentIndoorBuildingId);
+    }
     if (this.furnitureEditorActive && !this.furnitureEditorSelectedId && !this.characterEditorSelectedId) {
       this.furnitureEditorSelectedId = getIndoorFurnitureDefs(this.currentIndoorBuildingId)[0]?.id ?? null;
     }
@@ -2669,10 +2672,14 @@ export class MapRenderer {
     }
   }
 
+  private isIndoorEditorDraftNewerThanSource(buildingId: string, savedAt: number): boolean {
+    return savedAt > getGeneratedIndoorLayoutSavedAt(buildingId);
+  }
+
   private restoreFurnitureEditorLayoutFromStorage(buildingId: string): void {
     try {
       const snapshot = loadFurnitureEditorSnapshotPayload(buildingId);
-      if (snapshot) {
+      if (snapshot && this.isIndoorEditorDraftNewerThanSource(buildingId, snapshot.savedAt)) {
         applyFurnitureEditorSnapshot(
           buildingId,
           snapshot.items,
@@ -2692,7 +2699,7 @@ export class MapRenderer {
   private restoreIndoorCharacterEditorLayoutFromStorage(buildingId: string): void {
     try {
       const snapshot = loadIndoorCharacterEditorSnapshotPayload(buildingId);
-      if (snapshot) {
+      if (snapshot && this.isIndoorEditorDraftNewerThanSource(buildingId, snapshot.savedAt)) {
         applyIndoorCharacterEditorSnapshot(
           buildingId,
           snapshot.items,
@@ -2753,8 +2760,10 @@ export class MapRenderer {
 
   private restoreInteractableEditorLayoutFromStorage(buildingId: string): void {
     try {
-      const items = loadInteractableEditorSnapshot(buildingId);
-      if (items) applyInteractableEditorSnapshot(buildingId, items);
+      const snapshot = loadInteractableEditorSnapshotPayload(buildingId);
+      if (snapshot && this.isIndoorEditorDraftNewerThanSource(buildingId, snapshot.savedAt)) {
+        applyInteractableEditorSnapshot(buildingId, snapshot.items);
+      }
     } catch (error) {
       console.warn('[InteractableEditor] Failed to restore saved layout:', error);
     }

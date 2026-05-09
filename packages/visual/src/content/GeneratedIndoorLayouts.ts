@@ -38,3 +38,7 @@ export function getGeneratedIndoorLayout(sceneId: string): GeneratedIndoorLayout
     sceneSnapshot: layout.sceneSnapshot,
   };
 }
+
+export function getGeneratedIndoorLayoutSavedAt(sceneId: string): number {
+  return getGeneratedIndoorLayout(sceneId)?.savedAt ?? 0;
+}

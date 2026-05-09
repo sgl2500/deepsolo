@@ -5,6 +5,7 @@ import { toScreen } from '../utils/IsoProjection';
 import { createBuildingMarker } from './BuildingMarkers';
 import {
   addRuntimeAutomatedBuilding,
+  clearRuntimeAutomatedBuildingDrafts,
   getAutomatedBuildings,
   getAutomatedIndoorFurnitureDefs,
   removeRuntimeAutomatedBuilding,
@@ -12,6 +13,7 @@ import {
   type AutomatedWorldBuildingVisual,
 } from '../content/AutomatedBuildingRegistry';
 import { addIndoorFurnitureDef, removeIndoorFurnitureDefs } from '../content/IndoorFurnitureLayout';
+import { WORLD_LAYOUT_SOURCE_SAVED_AT } from '../data/WorldLayoutSource';
 
 type WorldEditorHandleKind =
   | 'visual-center'
@@ -118,6 +120,7 @@ export class WorldMapEditor {
   private pendingPlacementPreset: WorldBuildingPlacementPreset | null = null;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
   private guideCollapsed = false;
+  private savedLayoutLoaded = false;
   private lastPlayerX = 0;
   private lastPlayerY = 0;
   private readonly collisionInsertScreenThreshold = 18;
@@ -125,7 +128,6 @@ export class WorldMapEditor {
   constructor(scene: Phaser.Scene, private buildingMarkers: Phaser.GameObjects.Container[]) {
     this.scene = scene;
     this.defaultItems = this.createSnapshot();
-    this.applySavedLayout();
 
     this.overlay = scene.add.graphics().setDepth(21000).setScrollFactor(0).setVisible(false);
     this.helpText = scene.add.text(12, 42, '', {
@@ -231,6 +233,12 @@ export class WorldMapEditor {
   }
 
   setActive(active: boolean): void {
+    if (active && !this.savedLayoutLoaded) {
+      // Browser drafts are editor-only; applying them during normal play makes
+      // building positions look random across browser profiles or old sessions.
+      this.applySavedLayout();
+      this.savedLayoutLoaded = true;
+    }
     this.active = active;
     this.overlay.setVisible(active);
     this.helpText.setVisible(active);
@@ -375,6 +383,7 @@ export class WorldMapEditor {
       const data = await res.json();
       if (res.ok && data.ok) {
         localStorage.removeItem(LS_KEY_WORLD_MAP_EDITOR_LAYOUTS);
+        clearRuntimeAutomatedBuildingDrafts();
         this.showToast('已保存到源码，并清空浏览器本地地图草稿');
       } else {
         this.showToast(`保存失败: ${data.error || res.statusText}`);
@@ -1013,6 +1022,10 @@ export class WorldMapEditor {
     try {
       const payload = JSON.parse(raw) as WorldEditorStoragePayload;
       if (![1, 2, 3, 4, 5].includes(payload.version) || !Array.isArray(payload.items)) return;
+      if ((payload.savedAt ?? 0) <= WORLD_LAYOUT_SOURCE_SAVED_AT) {
+        localStorage.removeItem(LS_KEY_WORLD_MAP_EDITOR_LAYOUTS);
+        return;
+      }
       this.applySnapshot(payload.items, payload.version);
     } catch (error) {
       console.warn('[WorldMapEditor] Failed to load saved layout:', error);

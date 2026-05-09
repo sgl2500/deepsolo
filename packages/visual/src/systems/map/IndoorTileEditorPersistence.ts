@@ -13,18 +13,30 @@ type IndoorFloorTileOverridePayload = {
   items: IndoorFloorTileOverride[];
 };
 
+export type LoadedIndoorFloorTileOverrides = {
+  savedAt: number;
+  items: IndoorFloorTileOverride[];
+};
+
 export function getIndoorFloorTileOverrideStorageKey(buildingId: string): string {
   return `${LS_KEY_INDOOR_FLOOR_TILE_OVERRIDES}:${buildingId}`;
 }
 
 export function loadIndoorFloorTileOverrides(buildingId: string): IndoorFloorTileOverride[] | null {
+  return loadIndoorFloorTileOverridePayload(buildingId)?.items ?? null;
+}
+
+export function loadIndoorFloorTileOverridePayload(buildingId: string): LoadedIndoorFloorTileOverrides | null {
   const raw = localStorage.getItem(getIndoorFloorTileOverrideStorageKey(buildingId));
   if (!raw) return null;
   const payload = JSON.parse(raw) as Partial<IndoorFloorTileOverridePayload>;
   if (payload.version !== 1 || payload.buildingId !== buildingId || !Array.isArray(payload.items)) return null;
-  return payload.items.filter((item) => (
-    Number.isFinite(item?.col) && Number.isFinite(item?.row) && typeof item?.textureKey === 'string' && item.textureKey.length > 0
-  ));
+  return {
+    savedAt: typeof payload.savedAt === 'number' && Number.isFinite(payload.savedAt) ? payload.savedAt : 0,
+    items: payload.items.filter((item) => (
+      Number.isFinite(item?.col) && Number.isFinite(item?.row) && typeof item?.textureKey === 'string' && item.textureKey.length > 0
+    )),
+  };
 }
 
 export function saveIndoorFloorTileOverrides(buildingId: string, items: IndoorFloorTileOverride[]): void {

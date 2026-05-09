@@ -1,4 +1,5 @@
 import { SceneState } from '../types';
+import { WORLD_LAYOUT_SOURCE_SAVED_AT } from '../data/WorldLayoutSource';
 
 export interface PlayerLocation {
   version: 1;
@@ -8,6 +9,7 @@ export interface PlayerLocation {
   buildingId?: string;
   worldX?: number;
   worldY?: number;
+  worldLayoutSavedAt?: number;
   updatedAt: number;
 }
 
@@ -29,6 +31,7 @@ export function createWorldPlayerLocation(x: number, y: number): PlayerLocation 
     scene: SceneState.WorldMap,
     x: safeX,
     y: safeY,
+    worldLayoutSavedAt: WORLD_LAYOUT_SOURCE_SAVED_AT,
     updatedAt: Date.now(),
   };
 }
@@ -52,6 +55,7 @@ export function createIndoorPlayerLocation(
     x: safeX,
     y: safeY,
     ...(safeWorldX !== null && safeWorldY !== null ? { worldX: safeWorldX, worldY: safeWorldY } : {}),
+    worldLayoutSavedAt: WORLD_LAYOUT_SOURCE_SAVED_AT,
     updatedAt: Date.now(),
   };
 }
@@ -61,6 +65,7 @@ export function normalizePlayerLocation(raw: unknown): PlayerLocation | null {
   const data = raw as Record<string, unknown>;
   const x = safeNumber(data.x);
   const y = safeNumber(data.y);
+  const worldLayoutSavedAt = safeNumber(data.worldLayoutSavedAt);
   if (x === null || y === null) return null;
 
   if (data.scene === SceneState.WorldMap) {
@@ -69,6 +74,7 @@ export function normalizePlayerLocation(raw: unknown): PlayerLocation | null {
       scene: SceneState.WorldMap,
       x,
       y,
+      ...(worldLayoutSavedAt !== null ? { worldLayoutSavedAt } : {}),
       updatedAt: safeTimestamp(data.updatedAt),
     };
   }
@@ -83,6 +89,7 @@ export function normalizePlayerLocation(raw: unknown): PlayerLocation | null {
       x,
       y,
       ...(worldX !== null && worldY !== null ? { worldX, worldY } : {}),
+      ...(worldLayoutSavedAt !== null ? { worldLayoutSavedAt } : {}),
       updatedAt: safeTimestamp(data.updatedAt),
     };
   }
@@ -93,10 +100,11 @@ export function normalizePlayerLocation(raw: unknown): PlayerLocation | null {
 export function getPlayerLocationSignature(location: PlayerLocation): string {
   const x = location.x.toFixed(2);
   const y = location.y.toFixed(2);
+  const sourceVersion = location.worldLayoutSavedAt ?? '';
   if (location.scene === SceneState.Indoor) {
     const worldX = location.worldX?.toFixed(2) ?? '';
     const worldY = location.worldY?.toFixed(2) ?? '';
-    return `${location.scene}:${location.buildingId}:${x}:${y}:${worldX}:${worldY}`;
+    return `${location.scene}:${location.buildingId}:${x}:${y}:${worldX}:${worldY}:${sourceVersion}`;
   }
-  return `${location.scene}:${x}:${y}`;
+  return `${location.scene}:${x}:${y}:${sourceVersion}`;
 }

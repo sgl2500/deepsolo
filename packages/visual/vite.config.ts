@@ -55,8 +55,13 @@ function worldLayoutSavePlugin(): Plugin {
           try {
             const data = JSON.parse(body);
             if (!Array.isArray(data.items)) throw new Error('missing items');
+            const sourceLayout = {
+              ...data,
+              version: 1,
+              savedAt: Date.now(),
+            };
             const outPath = path.resolve(__dirname, 'src/data/world_layout_override.json');
-            fs.writeFileSync(outPath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+            fs.writeFileSync(outPath, JSON.stringify(sourceLayout, null, 2) + '\n', 'utf-8');
             if (Array.isArray(data.automatedBuildings)) {
               const generatedPath = path.resolve(__dirname, 'src/content/generated_buildings.json');
               fs.writeFileSync(generatedPath, JSON.stringify(data.automatedBuildings, null, 2) + '\n', 'utf-8');

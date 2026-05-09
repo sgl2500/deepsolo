@@ -75,6 +75,7 @@ type IndoorCharacterEditorStoragePayload = {
 export type LoadedEditorSnapshot<T> = {
   items: T[];
   replaceMissing: boolean;
+  savedAt: number;
 };
 
 export function getFurnitureEditorStorageKey(buildingId: string): string {
@@ -183,6 +184,7 @@ export function loadFurnitureEditorSnapshotPayload(
   return {
     items: payload.items,
     replaceMissing: payload.version >= 2 && payload.replaceMissing === true,
+    savedAt: typeof payload.savedAt === 'number' && Number.isFinite(payload.savedAt) ? payload.savedAt : 0,
   };
 }
 
@@ -220,11 +222,21 @@ export function applyInteractableEditorSnapshot(buildingId: string, items: Inter
 }
 
 export function loadInteractableEditorSnapshot(buildingId: string): InteractableEditorSnapshotItem[] | null {
+  return loadInteractableEditorSnapshotPayload(buildingId)?.items ?? null;
+}
+
+export function loadInteractableEditorSnapshotPayload(
+  buildingId: string,
+): LoadedEditorSnapshot<InteractableEditorSnapshotItem> | null {
   const raw = localStorage.getItem(getInteractableEditorStorageKey(buildingId));
   if (!raw) return null;
   const payload = JSON.parse(raw) as Partial<InteractableEditorStoragePayload>;
   if (payload.version !== 1 || payload.buildingId !== buildingId || !Array.isArray(payload.items)) return null;
-  return payload.items;
+  return {
+    items: payload.items,
+    replaceMissing: false,
+    savedAt: typeof payload.savedAt === 'number' && Number.isFinite(payload.savedAt) ? payload.savedAt : 0,
+  };
 }
 
 export function saveInteractableEditorSnapshot(buildingId: string, items: InteractableEditorSnapshotItem[]): void {
@@ -303,6 +315,7 @@ export function loadIndoorCharacterEditorSnapshotPayload(
   return {
     items: payload.items,
     replaceMissing: payload.version >= 2 && payload.replaceMissing === true,
+    savedAt: typeof payload.savedAt === 'number' && Number.isFinite(payload.savedAt) ? payload.savedAt : 0,
   };
 }
 
