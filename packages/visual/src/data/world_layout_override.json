@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "savedAt": 1778219669429,
+  "savedAt": 1778293678868,
   "items": [
     {
       "id": "birth_house",
@@ -39,7 +39,9 @@
           "x": 32.5,
           "y": 40.2
         }
-      ]
+      ],
+      "returnX": 37.9,
+      "returnY": 41.7
     },
     {
       "id": "exchange",
@@ -76,7 +78,9 @@
           "x": 17.6,
           "y": 91.4
         }
-      ]
+      ],
+      "returnX": 20,
+      "returnY": 93
     },
     {
       "id": "teahouse",
@@ -115,7 +119,9 @@
           "x": 24.7,
           "y": 71.3
         }
-      ]
+      ],
+      "returnX": 27.3,
+      "returnY": 75.3
     },
     {
       "id": "news",
@@ -152,46 +158,50 @@
           "x": 7.6,
           "y": 91.4
         }
-      ]
+      ],
+      "returnX": 10,
+      "returnY": 93
     },
     {
       "id": "token_center",
-      "visualX": 54.1,
-      "visualY": 66.3,
-      "depthX": 50.5,
-      "depthY": 62.3,
-      "entryX": 53.5,
-      "entryY": 59.9,
+      "visualX": 44.6,
+      "visualY": 23,
+      "depthX": 40.8,
+      "depthY": 18.6,
+      "entryX": 41.9,
+      "entryY": 23.1,
       "entryRadius": 2.5,
-      "collisionX": 54,
-      "collisionY": 66.1,
-      "collisionRadius": 3,
+      "collisionX": 41.9,
+      "collisionY": 19.6,
+      "collisionRadius": 5.1,
       "collisionPolygon": [
         {
-          "x": 51.3,
-          "y": 64.7
+          "x": 37.9,
+          "y": 16.5
         },
         {
-          "x": 53.3,
-          "y": 63.9
+          "x": 43.5,
+          "y": 15.9
         },
         {
-          "x": 56.3,
-          "y": 64.7
+          "x": 44.2,
+          "y": 19.2
         },
         {
-          "x": 56.8,
-          "y": 67
+          "x": 43.8,
+          "y": 21
         },
         {
-          "x": 54.9,
-          "y": 68.6
+          "x": 43.7,
+          "y": 22.3
         },
         {
-          "x": 51.7,
-          "y": 67.7
+          "x": 38.2,
+          "y": 22.6
         }
-      ]
+      ],
+      "returnX": 53.5,
+      "returnY": 62.9
     },
     {
       "id": "heimu_cliff",
@@ -228,7 +238,9 @@
           "x": 82.6,
           "y": 51.4
         }
-      ]
+      ],
+      "returnX": 85,
+      "returnY": 53
     },
     {
       "id": "digital_sect",
@@ -267,7 +279,9 @@
           "x": 13.9,
           "y": 11
         }
-      ]
+      ],
+      "returnX": 17.7,
+      "returnY": 15.1
     }
   ],
   "automatedBuildings": [
