@@ -623,6 +623,14 @@ function supportsColliderEdit(object: PlacedSceneObject): boolean {
 }
 
 function rectColliderBounds(object: PlacedSceneObject): { minX: number; maxX: number; minY: number; maxY: number } | null {
+  if (object.collider?.type === 'circle') {
+    return {
+      minX: object.collider.x - object.collider.radius,
+      maxX: object.collider.x + object.collider.radius,
+      minY: object.collider.y - object.collider.radius,
+      maxY: object.collider.y + object.collider.radius,
+    };
+  }
   if (object.collider?.type !== 'rect') return null;
   return {
     minX: object.collider.x,

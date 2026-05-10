@@ -1,12 +1,7 @@
 import type { Strategy } from '../types';
+import type { IndoorActorVisualDef } from './IndoorActorTypes';
 
-export interface StrategyNpcVisualDef {
-  kind: 'chars_atlas' | 'static_texture';
-  charKey?: string;
-  textureKey?: string;
-  scale: number;
-  offsetY: number;
-}
+export type StrategyNpcVisualDef = IndoorActorVisualDef;
 
 const DEFAULT_VISUAL: StrategyNpcVisualDef = {
   kind: 'chars_atlas',
@@ -17,10 +12,22 @@ const DEFAULT_VISUAL: StrategyNpcVisualDef = {
 
 const VISUAL_OVERRIDES: Record<string, StrategyNpcVisualDef> = {
   digital_master: {
-    kind: 'static_texture',
-    textureKey: 'token_center_shishu',
-    scale: 0.54,
-    offsetY: 10,
+    kind: 'spine',
+    dataKey: 'battle_spine_role148_json',
+    atlasKey: 'battle_spine_role148_atlas',
+    scale: 0.34,
+    flipX: true,
+    offsetY: 18,
+    defaultAnimation: 'idle',
+    actionMap: {
+      idle: 'idle',
+      talk: 'idle2',
+      attack: 'skill_combo1',
+      hurt: 'hurt',
+      defense: 'idlesquat',
+      die: 'die',
+    },
+    fallbackTextureKey: 'token_center_shishu',
   },
 };
 

@@ -2,6 +2,7 @@ import { ASSET_CATALOG } from '../../content/AssetCatalog';
 import { getIndoorCharacterDefs } from '../../content/IndoorCharacterLayout';
 import { getIndoorFurnitureDefs, toLocalIndoorMapPosition } from '../../content/IndoorFurnitureLayout';
 import { getIndoorInteractables } from '../../content/IndoorInteractables';
+import type { IndoorActorColliderDef, IndoorActorDef, IndoorActorVisualDef } from '../../content/IndoorActorTypes';
 import type { IndoorFloorTileOverride } from '../../systems/map/IndoorTileEditorPersistence';
 import type { IndoorInteractableAction, IndoorInteractableZone } from '../../types';
 import type {
@@ -16,7 +17,7 @@ const assetNameByTextureKey = new Map(ASSET_CATALOG.map((asset) => [asset.textur
 
 export function createIndoorEditableSceneSnapshot(
   buildingId: string,
-  options: { floorTileOverrides?: IndoorFloorTileOverride[] } = {},
+  options: { floorTileOverrides?: IndoorFloorTileOverride[]; indoorActors?: IndoorActorDef[] } = {},
 ): EditableSceneSnapshot {
   const objects: PlacedSceneObject[] = [
     ...getIndoorFurnitureDefs(buildingId).map((item): PlacedSceneObject => {
@@ -105,6 +106,9 @@ export function createIndoorEditableSceneSnapshot(
         }),
       };
     }),
+    ...(options.indoorActors ?? [])
+      .filter((actor) => actor.buildingId === buildingId)
+      .map(createIndoorActorSceneObject),
   ];
 
   return {
@@ -118,10 +122,97 @@ export function createIndoorEditableSceneSnapshot(
         source: 'visual-indoor-editor',
         schemaPurpose: 'database-ready-scene-state',
         objectCount: objects.length,
+        indoorActorCount: options.indoorActors?.filter((actor) => actor.buildingId === buildingId).length ?? 0,
         floorTileOverrideCount: options.floorTileOverrides?.length ?? 0,
         floorTileOverrides: options.floorTileOverrides?.map((item) => ({ ...item })),
       },
     };
+}
+
+function createIndoorActorSceneObject(actor: IndoorActorDef): PlacedSceneObject {
+  return {
+    id: actor.id,
+    sceneId: actor.buildingId,
+    sceneType: 'indoor',
+    kind: 'indoorActor',
+    layer: 'character',
+    position: { x: actor.position.x, y: actor.position.y },
+    transform: { scale: actor.visual.scale },
+    depth: {
+      mode: 'ySort',
+      point: { x: actor.position.x, y: actor.position.y },
+    },
+    collider: actor.collider ? sceneColliderFromIndoorActorCollider(actor.collider, actor.position) : undefined,
+    interaction: actor.interactions.length > 0
+      ? {
+          type: actor.interactions.includes('dialogue') || actor.interactions.includes('chat') ? 'dialogue' : 'custom',
+          radius: 2,
+          targetId: actor.sourceId,
+          metadata: { interactions: [...actor.interactions] },
+        }
+      : undefined,
+    locked: true,
+    metadata: compactObject({
+      legacyType: 'IndoorActorDef',
+      actorKind: actor.kind,
+      sourceId: actor.sourceId,
+      name: actor.name,
+      visual: compactIndoorActorVisual(actor.visual),
+    }),
+  };
+}
+
+function sceneColliderFromIndoorActorCollider(
+  collider: IndoorActorColliderDef,
+  position: { x: number; y: number },
+): SceneCollider {
+  if (collider.type === 'circle') {
+    return {
+      type: 'circle',
+      x: position.x,
+      y: position.y,
+      radius: collider.radius,
+    };
+  }
+
+  return {
+    type: 'rect',
+    x: position.x + (collider.offsetX ?? 0) - collider.width / 2,
+    y: position.y + (collider.offsetY ?? 0) - collider.height / 2,
+    width: collider.width,
+    height: collider.height,
+  };
+}
+
+function compactIndoorActorVisual(visual: IndoorActorVisualDef): Record<string, unknown> {
+  if (visual.kind === 'spine') {
+    return compactObject({
+      kind: visual.kind,
+      dataKey: visual.dataKey,
+      atlasKey: visual.atlasKey,
+      scale: visual.scale,
+      flipX: visual.flipX,
+      offsetY: visual.offsetY,
+      defaultAnimation: visual.defaultAnimation,
+      fallbackTextureKey: visual.fallbackTextureKey,
+    });
+  }
+  if (visual.kind === 'static_texture') {
+    return compactObject({
+      kind: visual.kind,
+      textureKey: visual.textureKey,
+      scale: visual.scale,
+      flipX: visual.flipX,
+      offsetY: visual.offsetY,
+    });
+  }
+  return compactObject({
+    kind: visual.kind,
+    charKey: visual.charKey,
+    scale: visual.scale,
+    flipX: visual.flipX,
+    offsetY: visual.offsetY,
+  });
 }
 
 function rectFromLocalBounds(bounds: {

@@ -5,6 +5,7 @@ export type SceneObjectKind =
   | 'worldDecor'
   | 'indoorFurniture'
   | 'indoorCharacter'
+  | 'indoorActor'
   | 'wallDecor'
   | 'floorDecor'
   | 'portal'

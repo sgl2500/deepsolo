@@ -9,10 +9,21 @@ import { StrategyNPC } from '../entities/StrategyNPC';
 import { NPC_DEFS } from '../data/NPCData';
 import { resolveStoryNpcPlacement } from '../content/StoryNpcPlacements';
 import { getStrategyNpcPlacements, shouldCreateWorldAgent } from '../content/StrategyNpcPlacement';
+import { getGeneratedIndoorActorOverrides } from '../content/GeneratedIndoorLayouts';
+import { createStoryNpcIndoorActor, createStrategyNpcIndoorActor, getIndoorActorCollisionBounds } from '../content/IndoorActorRegistry';
+import { removeIndoorDynamicNpcColliders, upsertIndoorDynamicNpcColliders } from '../content/IndoorDynamicNpcCollision';
 import type { BubbleHandle } from '../ui/BubbleFactory';
 import { BubbleFactory } from '../ui/BubbleFactory';
 import type { MapData, CharMeta, Strategy, BubbleConfig } from '../types';
 import { SCREEN_WIDTH, SCREEN_HEIGHT, TILE_HALF_W, TILE_HALF_H, INDOOR_SCALE } from '../config';
+import type { IndoorActorDef, IndoorActorInteractionType } from '../content/IndoorActorTypes';
+
+export type IndoorActorInteractionTarget = {
+  actor: IndoorActorDef;
+  npc?: NPC;
+  strategyNpc?: StrategyNPC;
+  distance: number;
+};
 
 export class EntitySystem {
   player!: Player;
@@ -27,6 +38,19 @@ export class EntitySystem {
   constructor(scene: Phaser.Scene, mapData: MapData) {
     this.scene = scene;
     this.mapData = mapData;
+  }
+
+  private upsertActorCollider(actor: IndoorActorDef): void {
+    if (!actor.collider) {
+      removeIndoorDynamicNpcColliders(actor.buildingId, [actor.sourceId]);
+      return;
+    }
+    const collider = getIndoorActorCollisionBounds(actor);
+    upsertIndoorDynamicNpcColliders(actor.buildingId, [{
+      id: actor.sourceId,
+      buildingId: actor.buildingId,
+      ...collider,
+    }]);
   }
 
   createPlayer(inputController: import('../systems/InputController').InputController): void {
@@ -71,9 +95,16 @@ export class EntitySystem {
     this.clearNPCs();
     const mapData = this.mapData; // 使用当前地图数据
     const defs = NPC_DEFS.filter(n => n.mapId === buildingId);
+    const actors = defs.map((def) => createStoryNpcIndoorActor(resolveStoryNpcPlacement(def)));
+    upsertIndoorDynamicNpcColliders(buildingId, actors.map((actor) => ({
+      id: actor.sourceId,
+      buildingId,
+      ...getIndoorActorCollisionBounds(actor),
+    })));
     defs.forEach(def => {
       const resolvedDef = resolveStoryNpcPlacement(def);
-      const npc = new NPC(this.scene, mapData, resolvedDef);
+      const actor = actors.find((item) => item.sourceId === resolvedDef.id) ?? null;
+      const npc = new NPC(this.scene, mapData, resolvedDef, actor);
       if (indoorCx !== undefined && indoorCy !== undefined) {
         npc.setIndoorMode(true, indoorCx, indoorCy);
       }
@@ -85,8 +116,18 @@ export class EntitySystem {
   createStrategyNPCs(buildingId: string, strategies: Strategy[], indoorCx: number, indoorCy: number): void {
     this.clearStrategyNPCs();
     const placements = getStrategyNpcPlacements(buildingId, strategies);
-    for (const placement of placements) {
-      const npc = new StrategyNPC(this.scene, this.mapData, placement.strategy, placement.slot);
+    const actors = placements.map((placement) => (
+      createStrategyNpcIndoorActor(buildingId, placement.strategy, placement.slot)
+    ));
+    upsertIndoorDynamicNpcColliders(buildingId, actors.map((actor) => ({
+      id: actor.sourceId,
+      buildingId,
+      ...getIndoorActorCollisionBounds(actor),
+    })));
+    for (let index = 0; index < placements.length; index += 1) {
+      const placement = placements[index];
+      const actor = actors[index];
+      const npc = new StrategyNPC(this.scene, this.mapData, placement.strategy, actor);
       npc.setIndoorMode(true, indoorCx, indoorCy);
       this.strategyNpcs.set(placement.strategy.id, npc);
     }
@@ -94,14 +135,33 @@ export class EntitySystem {
 
   /** 清除所有 NPC */
   clearNPCs(): void {
+    const removals = new Map<string, string[]>();
+    for (const npc of this.npcs.values()) {
+      if (!npc.actor) continue;
+      const ids = removals.get(npc.actor.buildingId) ?? [];
+      ids.push(npc.actor.sourceId);
+      removals.set(npc.actor.buildingId, ids);
+    }
     this.npcs.forEach(n => n.destroy());
     this.npcs.clear();
+    for (const [buildingId, ids] of removals.entries()) {
+      removeIndoorDynamicNpcColliders(buildingId, ids);
+    }
   }
 
   /** 清除所有室内策略 NPC */
   clearStrategyNPCs(): void {
+    const removals = new Map<string, string[]>();
+    for (const npc of this.strategyNpcs.values()) {
+      const ids = removals.get(npc.actor.buildingId) ?? [];
+      ids.push(npc.actor.sourceId);
+      removals.set(npc.actor.buildingId, ids);
+    }
     this.strategyNpcs.forEach(n => n.destroy());
     this.strategyNpcs.clear();
+    for (const [buildingId, ids] of removals.entries()) {
+      removeIndoorDynamicNpcColliders(buildingId, ids);
+    }
   }
 
   setStrategyNpcsVisible(visible: boolean): void {
@@ -153,6 +213,72 @@ export class EntitySystem {
       }
     }
     return nearest;
+  }
+
+  getNearbyIndoorActorTarget(
+    playerX: number,
+    playerY: number,
+    threshold: number,
+    interactions?: IndoorActorInteractionType[],
+  ): IndoorActorInteractionTarget | null {
+    const accepts = (actor: IndoorActorDef): boolean => (
+      !interactions || interactions.some((interaction) => actor.interactions.includes(interaction))
+    );
+    let nearest: IndoorActorInteractionTarget | null = null;
+
+    for (const npc of this.npcs.values()) {
+      if (!npc.actor || !accepts(npc.actor)) continue;
+      const dx = npc.mapX - playerX;
+      const dy = npc.mapY - playerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance <= threshold && (!nearest || distance < nearest.distance)) {
+        nearest = { actor: npc.actor, npc, distance };
+      }
+    }
+
+    for (const strategyNpc of this.strategyNpcs.values()) {
+      if (!accepts(strategyNpc.actor)) continue;
+      const dx = strategyNpc.mapX - playerX;
+      const dy = strategyNpc.mapY - playerY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance <= threshold && (!nearest || distance < nearest.distance)) {
+        nearest = { actor: strategyNpc.actor, strategyNpc, distance };
+      }
+    }
+
+    return nearest;
+  }
+
+  getIndoorActors(buildingId?: string): IndoorActorDef[] {
+    const actors: IndoorActorDef[] = [];
+    for (const npc of this.npcs.values()) {
+      if (npc.actor && (!buildingId || npc.actor.buildingId === buildingId)) actors.push(npc.actor);
+    }
+    for (const npc of this.strategyNpcs.values()) {
+      if (!buildingId || npc.actor.buildingId === buildingId) actors.push(npc.actor);
+    }
+    return actors;
+  }
+
+  applyGeneratedIndoorActorOverrides(buildingId: string): void {
+    for (const actor of getGeneratedIndoorActorOverrides(buildingId)) {
+      this.applyRuntimeIndoorActor(actor);
+    }
+  }
+
+  applyRuntimeIndoorActor(actor: IndoorActorDef): void {
+    const npc = this.npcs.get(actor.sourceId);
+    if (npc?.actor) {
+      npc.applyActorRuntimeEdit(actor);
+      this.upsertActorCollider(actor);
+      return;
+    }
+
+    const strategyNpc = this.strategyNpcs.get(actor.sourceId);
+    if (strategyNpc) {
+      strategyNpc.applyActorRuntimeEdit(actor);
+      this.upsertActorCollider(actor);
+    }
   }
 
   getStrategyNpcAtScreenPoint(screenX: number, screenY: number, threshold: number): StrategyNPC | null {

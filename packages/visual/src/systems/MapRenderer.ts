@@ -28,6 +28,7 @@ import {
   type IndoorCharacterDef,
 } from '../content/IndoorCharacterLayout';
 import { getIndoorAsset, INDOOR_ASSET_LIBRARY, type IndoorAssetDef } from '../content/IndoorAssetLibrary';
+import type { IndoorActorColliderDef, IndoorActorDef } from '../content/IndoorActorTypes';
 import { getGeneratedIndoorLayout, getGeneratedIndoorLayoutSavedAt } from '../content/GeneratedIndoorLayouts';
 import { getStoryNpcSourceCharacterIds } from '../content/StoryNpcPlacements';
 import { getIndoorInteractables } from '../content/IndoorInteractables';
@@ -110,6 +111,13 @@ type CharacterEditorDrag = {
   kind: CharacterEditorHandleKind;
 };
 
+type RuntimeActorEditorHandleKind = 'actor-anchor' | 'actor-nw' | 'actor-ne' | 'actor-se' | 'actor-sw';
+
+type RuntimeActorDrag = {
+  actor: IndoorActorDef;
+  kind: RuntimeActorEditorHandleKind;
+};
+
 type IndoorLocalColliderBounds = {
   minLocalX: number;
   maxLocalX: number;
@@ -150,15 +158,19 @@ type IndoorEditorUndoSnapshot = {
   furniture: FurnitureEditorSnapshotItem[];
   characters: IndoorCharacterEditorSnapshotItem[];
   interactables: InteractableEditorSnapshotItem[];
+  actors: IndoorActorDef[];
   floorTileOverrides: IndoorFloorTileOverride[];
   furnitureSelectedId: string | null;
   characterSelectedId: string | null;
   interactableSelectedId: string | null;
+  runtimeActorSelectedId: string | null;
   selectedMaskIndex: number | null;
   maskActive: boolean;
   editorMode: BuildEditorMode;
   selectedFloorBrushTextureKey: string | null;
 };
+
+type RuntimeIndoorActorEditHandler = (actor: IndoorActorDef) => void;
 
 const INDOOR_DECOR_LAYOUTS: Record<string, IndoorDecorDef[]> = {
 };
@@ -178,6 +190,10 @@ function isInteractableField(field: BuildEditableField): field is BuildInteracta
     || field === 'interactionMaxX'
     || field === 'interactionMinY'
     || field === 'interactionMaxY';
+}
+
+function cloneIndoorActors(actors: IndoorActorDef[]): IndoorActorDef[] {
+  return JSON.parse(JSON.stringify(actors)) as IndoorActorDef[];
 }
 
 export class MapRenderer {
@@ -203,9 +219,11 @@ export class MapRenderer {
   private furnitureEditorSelectedId: string | null = null;
   private characterEditorSelectedId: string | null = null;
   private interactableEditorSelectedId: string | null = null;
+  private runtimeActorSelectedId: string | null = null;
   private furnitureEditorDrag: FurnitureEditorDrag | null = null;
   private characterEditorDrag: CharacterEditorDrag | null = null;
   private interactableEditorDrag: InteractableEditorDrag | null = null;
+  private runtimeActorDrag: RuntimeActorDrag | null = null;
   private furnitureEditorHelpText: Phaser.GameObjects.Text | null = null;
   private furnitureEditorGuideText: Phaser.GameObjects.Text | null = null;
   private indoorAssetPanel: Phaser.GameObjects.Container | null = null;
@@ -226,6 +244,8 @@ export class MapRenderer {
   private indoorCy = 0;
   private indoorAssetLoadPromise: Promise<void> | null = null;
   private currentIndoorBuildingId: string | null = null;
+  private runtimeIndoorActors: IndoorActorDef[] = [];
+  private onRuntimeIndoorActorEdited: RuntimeIndoorActorEditHandler | null = null;
   private indoorCoordinateMapper: IndoorCoordinateMapper;
   private sceneRepository = new LocalSceneRepository();
   private lastIndoorSceneDraft: SceneDraftRecord | null = null;
@@ -291,6 +311,7 @@ export class MapRenderer {
     this.indoorCx = mapData.cx;
     this.indoorCy = mapData.cy;
     this.currentIndoorBuildingId = buildingId ?? null;
+    this.runtimeIndoorActors = [];
     this.clearIndoorEditorHistory();
     if (this.currentIndoorBuildingId) {
       this.applyGeneratedIndoorLayout(this.currentIndoorBuildingId);
@@ -375,6 +396,8 @@ export class MapRenderer {
     this.indoorLayerRenderer.destroy();
     this.currentIndoorBuildingId = null;
     this.indoorFloorTileOverrides.clear();
+    this.runtimeIndoorActors = [];
+    this.runtimeActorSelectedId = null;
     this.clearIndoorEditorHistory();
     this.selectedFloorBrushTextureKey = null;
     this.buildEditorMode = 'object';
@@ -435,6 +458,26 @@ export class MapRenderer {
     }
   }
 
+  setRuntimeIndoorActors(actors: IndoorActorDef[]): void {
+    this.runtimeIndoorActors = this.currentIndoorBuildingId
+      ? actors.filter((actor) => actor.buildingId === this.currentIndoorBuildingId)
+      : [];
+    if (
+      this.runtimeActorSelectedId &&
+      !this.runtimeIndoorActors.some((actor) => actor.id === this.runtimeActorSelectedId)
+    ) {
+      this.runtimeActorSelectedId = null;
+    }
+    if (this.furnitureEditorActive) {
+      this.createIndoorSceneObjectPanel();
+      this.renderBuildModeOverlay();
+    }
+  }
+
+  setRuntimeIndoorActorEditHandler(handler: RuntimeIndoorActorEditHandler | null): void {
+    this.onRuntimeIndoorActorEdited = handler;
+  }
+
   toggleFurnitureEditor(): void {
     this.setFurnitureEditorActive(!this.furnitureEditorActive);
   }
@@ -474,6 +517,16 @@ export class MapRenderer {
   resetSelectedIndoorCollider(): void {
     if (!this.furnitureEditorActive || !this.currentIndoorBuildingId) return;
 
+    const actor = this.getSelectedRuntimeActor();
+    if (actor) {
+      this.pushIndoorEditorUndoCheckpoint('重置角色碰撞框');
+      actor.collider = { type: 'circle', radius: 0.5 };
+      this.syncRuntimeActorEdit(actor);
+      this.updateIndoorDebugOverlay(0, 0);
+      this.showFurnitureEditorMessage('已重置角色碰撞框为半径 0.5');
+      return;
+    }
+
     const character = this.getSelectedCharacter();
     if (character) {
       this.pushIndoorEditorUndoCheckpoint('重置人物碰撞框');
@@ -497,6 +550,16 @@ export class MapRenderer {
 
   clearSelectedIndoorCollider(): void {
     if (!this.furnitureEditorActive || !this.currentIndoorBuildingId) return;
+
+    const actor = this.getSelectedRuntimeActor();
+    if (actor?.collider) {
+      this.pushIndoorEditorUndoCheckpoint('清除角色碰撞框');
+      actor.collider = undefined;
+      this.syncRuntimeActorEdit(actor);
+      this.updateIndoorDebugOverlay(0, 0);
+      this.showFurnitureEditorMessage('已清除角色碰撞框');
+      return;
+    }
 
     const character = this.getSelectedCharacter();
     if (character?.collider) {
@@ -650,12 +713,18 @@ export class MapRenderer {
       this.characterEditorSelectedId = copy.id;
       this.furnitureEditorSelectedId = null;
       this.interactableEditorSelectedId = null;
+      this.runtimeActorSelectedId = null;
       this.characterEditorDrag = null;
       this.createIndoorCharacterSprites();
       this.updateIndoorDebugOverlay(0, 0);
       this.saveIndoorCharacterEditorLayoutToStorage();
       this.createIndoorSceneObjectPanel();
       this.showFurnitureEditorMessage(`已复制人物：${selectedCharacter.id} -> ${copy.id}`);
+      return;
+    }
+
+    if (this.getSelectedRuntimeActor()) {
+      this.showFurnitureEditorMessage('运行时角色暂不支持复制；可以直接编辑站位、缩放和碰撞。');
       return;
     }
 
@@ -672,6 +741,7 @@ export class MapRenderer {
     this.furnitureEditorSelectedId = copy.id;
     this.characterEditorSelectedId = null;
     this.interactableEditorSelectedId = null;
+    this.runtimeActorSelectedId = null;
     this.furnitureEditorSelectedMaskIndex = null;
     this.furnitureEditorDrag = null;
     this.createIndoorDecorSprites();
@@ -709,6 +779,11 @@ export class MapRenderer {
       this.saveIndoorCharacterEditorLayoutToStorage();
       this.createIndoorSceneObjectPanel();
       this.showFurnitureEditorMessage(`已删除人物：${deletedId}`);
+      return;
+    }
+
+    if (this.getSelectedRuntimeActor()) {
+      this.showFurnitureEditorMessage('运行时角色不能从房间删除；请在角色配置/剧情数据里控制是否出现。');
       return;
     }
 
@@ -795,6 +870,7 @@ export class MapRenderer {
       this.characterEditorSelectedId = character.id;
       this.furnitureEditorSelectedId = null;
       this.interactableEditorSelectedId = null;
+      this.runtimeActorSelectedId = null;
       this.createIndoorCharacterSprites();
       this.saveIndoorCharacterEditorLayoutToStorage();
     } else {
@@ -804,6 +880,7 @@ export class MapRenderer {
       this.furnitureEditorSelectedId = furniture.id;
       this.characterEditorSelectedId = null;
       this.interactableEditorSelectedId = null;
+      this.runtimeActorSelectedId = null;
       this.createIndoorDecorSprites();
       this.saveFurnitureEditorLayoutToStorage();
     }
@@ -993,10 +1070,12 @@ export class MapRenderer {
       furniture: createFurnitureEditorSnapshot(this.currentIndoorBuildingId),
       characters: createIndoorCharacterEditorSnapshot(this.currentIndoorBuildingId),
       interactables: createInteractableEditorSnapshot(this.currentIndoorBuildingId),
+      actors: cloneIndoorActors(this.runtimeIndoorActors),
       floorTileOverrides: this.getIndoorFloorTileOverrideList().map((item) => ({ ...item })),
       furnitureSelectedId: this.furnitureEditorSelectedId,
       characterSelectedId: this.characterEditorSelectedId,
       interactableSelectedId: this.interactableEditorSelectedId,
+      runtimeActorSelectedId: this.runtimeActorSelectedId,
       selectedMaskIndex: this.furnitureEditorSelectedMaskIndex,
       maskActive: this.furnitureMaskEditorActive,
       editorMode: this.buildEditorMode,
@@ -1026,11 +1105,17 @@ export class MapRenderer {
       applyFurnitureEditorSnapshot(this.currentIndoorBuildingId, snapshot.furniture, { replaceMissing: true });
       applyIndoorCharacterEditorSnapshot(this.currentIndoorBuildingId, snapshot.characters, { replaceMissing: true });
       applyInteractableEditorSnapshot(this.currentIndoorBuildingId, snapshot.interactables);
+      this.runtimeIndoorActors = cloneIndoorActors(snapshot.actors)
+        .filter((actor) => actor.buildingId === this.currentIndoorBuildingId);
+      for (const actor of this.runtimeIndoorActors) {
+        this.onRuntimeIndoorActorEdited?.(actor);
+      }
       this.applyIndoorFloorTileOverrideSnapshot(snapshot.floorTileOverrides);
 
       this.furnitureEditorSelectedId = snapshot.furnitureSelectedId;
       this.characterEditorSelectedId = snapshot.characterSelectedId;
       this.interactableEditorSelectedId = snapshot.interactableSelectedId;
+      this.runtimeActorSelectedId = snapshot.runtimeActorSelectedId;
       this.furnitureEditorSelectedMaskIndex = snapshot.selectedMaskIndex;
       this.furnitureMaskEditorActive = snapshot.maskActive;
       this.buildEditorMode = snapshot.editorMode;
@@ -1040,6 +1125,7 @@ export class MapRenderer {
       this.furnitureEditorDrag = null;
       this.characterEditorDrag = null;
       this.interactableEditorDrag = null;
+      this.runtimeActorDrag = null;
       this.indoorAssetPlacementDrag = null;
       this.pendingIndoorAssetId = null;
       this.destroyIndoorAssetDragPreview();
@@ -1081,11 +1167,16 @@ export class MapRenderer {
       : false;
     if (!interactableSelected) this.interactableEditorSelectedId = null;
 
+    const actorSelected = this.runtimeActorSelectedId
+      ? this.runtimeIndoorActors.some((item) => item.id === this.runtimeActorSelectedId)
+      : false;
+    if (!actorSelected) this.runtimeActorSelectedId = null;
+
     const furnitureSelected = this.furnitureEditorSelectedId
       ? getIndoorFurnitureDefs(this.currentIndoorBuildingId).some((item) => item.id === this.furnitureEditorSelectedId)
       : false;
     if (!furnitureSelected) {
-      this.furnitureEditorSelectedId = this.characterEditorSelectedId || this.interactableEditorSelectedId
+      this.furnitureEditorSelectedId = this.characterEditorSelectedId || this.interactableEditorSelectedId || this.runtimeActorSelectedId
         ? null
         : getIndoorFurnitureDefs(this.currentIndoorBuildingId)[0]?.id ?? null;
     }
@@ -1158,6 +1249,7 @@ export class MapRenderer {
       this.furnitureEditorDrag = null;
       this.characterEditorDrag = null;
       this.interactableEditorDrag = null;
+      this.runtimeActorDrag = null;
       this.indoorAssetPlacementDrag = null;
       this.destroyIndoorAssetDragPreview();
       this.pendingIndoorAssetId = null;
@@ -1207,6 +1299,7 @@ export class MapRenderer {
     if (!this.currentIndoorBuildingId) return '';
     const snapshot = createIndoorEditableSceneSnapshot(this.currentIndoorBuildingId, {
       floorTileOverrides: this.getIndoorFloorTileOverrideList(),
+      indoorActors: this.runtimeIndoorActors,
     });
     this.lastIndoorSceneDraft = this.sceneRepository.saveSceneDraft(snapshot);
     const json = JSON.stringify(snapshot, null, 2);
@@ -1221,6 +1314,7 @@ export class MapRenderer {
     const sceneId = this.currentIndoorBuildingId;
     const snapshot = createIndoorEditableSceneSnapshot(sceneId, {
       floorTileOverrides: this.getIndoorFloorTileOverrideList(),
+      indoorActors: this.runtimeIndoorActors,
     });
     const layout = {
       sceneId,
@@ -1228,6 +1322,7 @@ export class MapRenderer {
       furniture: createFurnitureEditorSnapshot(sceneId),
       characters: createIndoorCharacterEditorSnapshot(sceneId),
       interactables: createInteractableEditorSnapshot(sceneId),
+      actors: cloneIndoorActors(this.runtimeIndoorActors),
       floorTileOverrides: this.getIndoorFloorTileOverrideList(),
       sceneSnapshot: snapshot,
     };
@@ -1554,6 +1649,25 @@ export class MapRenderer {
       this.strokeInteractableEditor(g, interactable);
     }
 
+    for (const actor of this.runtimeIndoorActors) {
+      const selected = actor.id === this.runtimeActorSelectedId;
+      if (actor.collider?.type === 'rect') {
+        const bounds = this.runtimeActorColliderBounds(actor);
+        strokeIndoorRectBounds(g, this.indoorCoordinateMapper, bounds.minLocalX, bounds.maxLocalX, bounds.minLocalY, bounds.maxLocalY, 0xfb923c, selected ? 0.95 : 0.55);
+      } else if (actor.collider?.type === 'circle') {
+        const center = this.indoorCoordinateMapper.mapToScreen(actor.position.x, actor.position.y);
+        const edge = this.indoorCoordinateMapper.mapToScreen(actor.position.x + actor.collider.radius, actor.position.y);
+        g.lineStyle(2, 0xfb923c, selected ? 0.95 : 0.55);
+        g.strokeCircle(center.x, center.y, Math.max(6, Math.abs(edge.x - center.x)));
+      }
+
+      const anchorScreen = this.indoorCoordinateMapper.mapToScreen(actor.position.x, actor.position.y);
+      g.lineStyle(selected ? 3 : 2, 0xfb923c, 1);
+      g.fillStyle(0x451a03, 0.62);
+      g.fillCircle(anchorScreen.x, anchorScreen.y, selected ? 7 : 5);
+      g.strokeCircle(anchorScreen.x, anchorScreen.y, selected ? 8 : 6);
+    }
+
     const playerScreen = this.indoorCoordinateMapper.mapToScreen(playerCol, playerRow);
     g.fillStyle(0x00ff66, 1);
     g.fillCircle(playerScreen.x, playerScreen.y, 4);
@@ -1643,6 +1757,7 @@ export class MapRenderer {
 
     const snapshot = createIndoorEditableSceneSnapshot(this.currentIndoorBuildingId, {
       floorTileOverrides: this.getIndoorFloorTileOverrideList(),
+      indoorActors: this.runtimeIndoorActors,
     });
     const panelWidth = 250;
     const rowHeight = 26;
@@ -1744,6 +1859,7 @@ export class MapRenderer {
     this.furnitureEditorDrag = null;
     this.characterEditorDrag = null;
     this.interactableEditorDrag = null;
+    this.runtimeActorDrag = null;
     this.createIndoorAssetPanel();
     this.createIndoorSceneObjectPanel();
     this.renderBuildModeOverlay();
@@ -1800,6 +1916,7 @@ export class MapRenderer {
   }
 
   private isSceneObjectSelected(object: PlacedSceneObject): boolean {
+    if (object.kind === 'indoorActor') return this.runtimeActorSelectedId === object.id;
     if (object.kind === 'indoorCharacter') return this.characterEditorSelectedId === object.id;
     if (object.kind === 'interactable') return this.interactableEditorSelectedId === object.id;
     return this.furnitureEditorSelectedId === object.id;
@@ -1809,6 +1926,7 @@ export class MapRenderer {
     this.furnitureEditorDrag = null;
     this.characterEditorDrag = null;
     this.interactableEditorDrag = null;
+    this.runtimeActorDrag = null;
     this.furnitureEditorSelectedMaskIndex = null;
     this.pendingIndoorAssetId = null;
 
@@ -1816,14 +1934,22 @@ export class MapRenderer {
       this.characterEditorSelectedId = object.id;
       this.furnitureEditorSelectedId = null;
       this.interactableEditorSelectedId = null;
+      this.runtimeActorSelectedId = null;
     } else if (object.kind === 'interactable') {
       this.interactableEditorSelectedId = object.id;
       this.characterEditorSelectedId = null;
       this.furnitureEditorSelectedId = null;
+      this.runtimeActorSelectedId = null;
+    } else if (object.kind === 'indoorActor') {
+      this.runtimeActorSelectedId = object.id;
+      this.furnitureEditorSelectedId = null;
+      this.characterEditorSelectedId = null;
+      this.interactableEditorSelectedId = null;
     } else {
       this.furnitureEditorSelectedId = object.id;
       this.characterEditorSelectedId = null;
       this.interactableEditorSelectedId = null;
+      this.runtimeActorSelectedId = null;
     }
 
     this.createIndoorAssetPanel();
@@ -1834,6 +1960,7 @@ export class MapRenderer {
   }
 
   private getSceneObjectKindLabel(object: PlacedSceneObject): string {
+    if (object.kind === 'indoorActor') return '[角色]';
     if (object.kind === 'indoorCharacter') return '[人物]';
     if (object.kind === 'wallDecor') return '[墙贴]';
     if (object.kind === 'indoorFurniture') return '[家具]';
@@ -1845,6 +1972,7 @@ export class MapRenderer {
     const snapshot = this.currentIndoorBuildingId
       ? createIndoorEditableSceneSnapshot(this.currentIndoorBuildingId, {
           floorTileOverrides: this.getIndoorFloorTileOverrideList(),
+          indoorActors: this.runtimeIndoorActors,
         })
       : null;
     this.buildModeOverlay.render({
@@ -1881,6 +2009,8 @@ export class MapRenderer {
     this.furnitureEditorDrag = null;
     this.characterEditorDrag = null;
     this.interactableEditorDrag = null;
+    this.runtimeActorDrag = null;
+    this.runtimeActorSelectedId = null;
     this.destroyIndoorAssetDragPreview();
     this.renderBuildModeOverlay();
     this.updateFurnitureEditorHelpText();
@@ -1891,6 +2021,7 @@ export class MapRenderer {
     if (!this.currentIndoorBuildingId) return;
     const snapshot = createIndoorEditableSceneSnapshot(this.currentIndoorBuildingId, {
       floorTileOverrides: this.getIndoorFloorTileOverrideList(),
+      indoorActors: this.runtimeIndoorActors,
     });
     const object = snapshot.objects.find((item) => item.id === objectId);
     if (object) this.selectSceneObjectFromPanel(object);
@@ -1926,6 +2057,7 @@ export class MapRenderer {
     this.buildEditorMode = 'tile';
     this.selectedFloorBrushTextureKey = textureKey;
     this.pendingIndoorAssetId = null;
+    this.runtimeActorSelectedId = null;
     this.renderBuildModeOverlay();
     this.showFurnitureEditorMessage(textureKey ? `已切换地板笔刷：${textureKey}` : '已切换地板橡皮');
   }
@@ -1946,12 +2078,21 @@ export class MapRenderer {
     this.furnitureEditorDrag = null;
     this.characterEditorDrag = null;
     this.interactableEditorDrag = null;
+    this.runtimeActorDrag = null;
+    this.runtimeActorSelectedId = null;
     this.renderBuildModeOverlay();
     this.updateFurnitureEditorHelpText();
   }
 
   private updateSelectedFieldFromOverlay(field: BuildEditableField, value: BuildFieldValue): void {
     if (!this.currentIndoorBuildingId) return;
+
+    const actor = this.getSelectedRuntimeActor();
+    if (actor) {
+      this.pushIndoorEditorUndoCheckpoint('修改角色属性');
+      this.applyRuntimeActorFieldUpdate(actor, field, value);
+      return;
+    }
 
     const character = this.getSelectedCharacter();
     if (character) {
@@ -1972,6 +2113,113 @@ export class MapRenderer {
       this.pushIndoorEditorUndoCheckpoint('修改家具属性');
       this.applyFurnitureFieldUpdate(furniture, field, value);
     }
+  }
+
+  private applyRuntimeActorFieldUpdate(
+    actor: IndoorActorDef,
+    field: BuildEditableField,
+    value: BuildFieldValue,
+  ): void {
+    if (field === 'positionX' || field === 'positionY') {
+      actor.position.x = field === 'positionX'
+        ? this.parseEditorNumber(value, actor.position.x)
+        : actor.position.x;
+      actor.position.y = field === 'positionY'
+        ? this.parseEditorNumber(value, actor.position.y)
+        : actor.position.y;
+      this.syncRuntimeActorEdit(actor);
+      return;
+    }
+
+    if (field === 'scale') {
+      actor.visual.scale = this.parsePositiveEditorNumber(value, actor.visual.scale ?? 1, 0.05);
+      this.syncRuntimeActorEdit(actor);
+      return;
+    }
+
+    if (field === 'colliderEnabled') {
+      const enabled = value === true || value === 'true';
+      actor.collider = enabled ? (actor.collider ?? { type: 'circle', radius: 0.5 }) : undefined;
+      this.syncRuntimeActorEdit(actor);
+      return;
+    }
+
+    if (this.applyRuntimeActorColliderFieldUpdate(actor, field, value)) return;
+  }
+
+  private applyRuntimeActorColliderFieldUpdate(
+    actor: IndoorActorDef,
+    field: BuildEditableField,
+    value: BuildFieldValue,
+  ): boolean {
+    if (!isColliderBoundsField(field)) return false;
+    const bounds = this.runtimeActorColliderBounds(actor);
+    if (field === 'colliderMinX') bounds.minLocalX = this.parseEditorNumber(value, bounds.minLocalX);
+    if (field === 'colliderMaxX') bounds.maxLocalX = this.parseEditorNumber(value, bounds.maxLocalX);
+    if (field === 'colliderMinY') bounds.minLocalY = this.parseEditorNumber(value, bounds.minLocalY);
+    if (field === 'colliderMaxY') bounds.maxLocalY = this.parseEditorNumber(value, bounds.maxLocalY);
+    const normalized = this.normalizedRuntimeActorColliderBounds(bounds);
+    actor.collider = this.actorColliderFromBounds(actor, normalized);
+    this.syncRuntimeActorEdit(actor);
+    return true;
+  }
+
+  private runtimeActorColliderBounds(actor: IndoorActorDef): IndoorLocalColliderBounds {
+    if (actor.collider?.type === 'rect') {
+      const centerX = actor.position.x + (actor.collider.offsetX ?? 0);
+      const centerY = actor.position.y + (actor.collider.offsetY ?? 0);
+      return {
+        minLocalX: roundEditorValue(centerX - actor.collider.width / 2),
+        maxLocalX: roundEditorValue(centerX + actor.collider.width / 2),
+        minLocalY: roundEditorValue(centerY - actor.collider.height / 2),
+        maxLocalY: roundEditorValue(centerY + actor.collider.height / 2),
+      };
+    }
+    const radius = actor.collider?.type === 'circle' ? actor.collider.radius : 0.5;
+    return {
+      minLocalX: roundEditorValue(actor.position.x - radius),
+      maxLocalX: roundEditorValue(actor.position.x + radius),
+      minLocalY: roundEditorValue(actor.position.y - radius),
+      maxLocalY: roundEditorValue(actor.position.y + radius),
+    };
+  }
+
+  private normalizedRuntimeActorColliderBounds(bounds: IndoorLocalColliderBounds): IndoorLocalColliderBounds {
+    const minLocalX = Math.min(bounds.minLocalX, bounds.maxLocalX);
+    const maxLocalX = Math.max(bounds.minLocalX, bounds.maxLocalX);
+    const minLocalY = Math.min(bounds.minLocalY, bounds.maxLocalY);
+    const maxLocalY = Math.max(bounds.minLocalY, bounds.maxLocalY);
+    return {
+      minLocalX: roundEditorValue(minLocalX),
+      maxLocalX: roundEditorValue(maxLocalX),
+      minLocalY: roundEditorValue(minLocalY),
+      maxLocalY: roundEditorValue(maxLocalY),
+    };
+  }
+
+  private actorColliderFromBounds(actor: IndoorActorDef, bounds: IndoorLocalColliderBounds): IndoorActorColliderDef {
+    const width = Math.max(0.1, roundEditorValue(bounds.maxLocalX - bounds.minLocalX));
+    const height = Math.max(0.1, roundEditorValue(bounds.maxLocalY - bounds.minLocalY));
+    const centerX = roundEditorValue((bounds.minLocalX + bounds.maxLocalX) / 2);
+    const centerY = roundEditorValue((bounds.minLocalY + bounds.maxLocalY) / 2);
+    if (Math.abs(width - height) < 0.05 && Math.abs(centerX - actor.position.x) < 0.05 && Math.abs(centerY - actor.position.y) < 0.05) {
+      return { type: 'circle', radius: roundEditorValue(width / 2) };
+    }
+    return {
+      type: 'rect',
+      width,
+      height,
+      offsetX: roundEditorValue(centerX - actor.position.x),
+      offsetY: roundEditorValue(centerY - actor.position.y),
+    };
+  }
+
+  private syncRuntimeActorEdit(actor: IndoorActorDef, showMessage = true): void {
+    this.onRuntimeIndoorActorEdited?.(actor);
+    this.updateIndoorDebugOverlay(0, 0);
+    this.createIndoorSceneObjectPanel();
+    this.renderBuildModeOverlay();
+    if (showMessage) this.showFurnitureEditorMessage(`已更新角色：${actor.name}`);
   }
 
   private applyFurnitureFieldUpdate(
@@ -2258,6 +2506,7 @@ export class MapRenderer {
       if (maskHandle) {
         this.furnitureEditorSelectedId = maskHandle.furniture.id;
         this.characterEditorSelectedId = null;
+        this.runtimeActorSelectedId = null;
         this.furnitureEditorSelectedMaskIndex = maskHandle.maskIndex ?? null;
         if (this.isMaskDeletePointer(pointer)) {
           (pointer.event as MouseEvent | undefined)?.preventDefault();
@@ -2277,6 +2526,7 @@ export class MapRenderer {
       if (selected && point) {
         this.pushIndoorEditorUndoCheckpoint('新增遮挡 Mask 点');
         this.characterEditorSelectedId = null;
+        this.runtimeActorSelectedId = null;
         selected.occluderMask ??= [];
         selected.occluderMask.push(point);
         this.updateFurnitureOccluderSprite(selected, true);
@@ -2293,16 +2543,35 @@ export class MapRenderer {
       }
     }
 
+    const actorHandle = this.findRuntimeIndoorActorEditorHandle(pointer.x, pointer.y);
+    if (actorHandle) {
+      this.pushIndoorEditorUndoCheckpoint('拖动角色');
+      this.runtimeActorSelectedId = actorHandle.actor.id;
+      this.furnitureEditorSelectedId = null;
+      this.characterEditorSelectedId = null;
+      this.interactableEditorSelectedId = null;
+      this.furnitureEditorSelectedMaskIndex = null;
+      this.runtimeActorDrag = actorHandle;
+      this.furnitureEditorDrag = null;
+      this.characterEditorDrag = null;
+      this.interactableEditorDrag = null;
+      this.renderBuildModeOverlay();
+      this.updateFurnitureEditorHelpText();
+      return;
+    }
+
     const characterHandle = this.findIndoorCharacterEditorHandle(pointer.x, pointer.y, this.isShiftPointer(pointer));
     if (characterHandle) {
       this.pushIndoorEditorUndoCheckpoint('拖动人物');
       this.characterEditorSelectedId = characterHandle.character.id;
       this.furnitureEditorSelectedId = null;
       this.interactableEditorSelectedId = null;
+      this.runtimeActorSelectedId = null;
       this.furnitureEditorSelectedMaskIndex = null;
       this.characterEditorDrag = characterHandle;
       this.furnitureEditorDrag = null;
       this.interactableEditorDrag = null;
+      this.runtimeActorDrag = null;
       this.renderBuildModeOverlay();
       this.updateFurnitureEditorHelpText();
       return;
@@ -2315,7 +2584,9 @@ export class MapRenderer {
       this.interactableEditorDrag = interactableHandle;
       this.furnitureEditorDrag = null;
       this.characterEditorDrag = null;
+      this.runtimeActorDrag = null;
       this.characterEditorSelectedId = null;
+      this.runtimeActorSelectedId = null;
       this.renderBuildModeOverlay();
       this.updateFurnitureEditorHelpText();
       return;
@@ -2330,8 +2601,11 @@ export class MapRenderer {
     }
     this.furnitureEditorSelectedId = handle.furniture.id;
     this.characterEditorSelectedId = null;
+    this.interactableEditorSelectedId = null;
+    this.runtimeActorSelectedId = null;
     this.furnitureEditorDrag = handle;
     this.characterEditorDrag = null;
+    this.runtimeActorDrag = null;
     this.renderBuildModeOverlay();
     this.updateFurnitureEditorHelpText();
   }
@@ -2343,11 +2617,20 @@ export class MapRenderer {
 
     if (
       !this.furnitureEditorActive ||
-      (!this.furnitureEditorDrag && !this.characterEditorDrag && !this.interactableEditorDrag) ||
+      (!this.furnitureEditorDrag && !this.characterEditorDrag && !this.interactableEditorDrag && !this.runtimeActorDrag) ||
       !this.currentIndoorBuildingId
     ) return;
 
     const localPos = this.indoorCoordinateMapper.screenToLocal(this.currentIndoorBuildingId, pointer.x, pointer.y);
+
+    if (this.runtimeActorDrag) {
+      const mapPos = this.screenToIndoorMapPoint(pointer.x, pointer.y);
+      const nextX = roundEditorValue(mapPos.mapX);
+      const nextY = roundEditorValue(mapPos.mapY);
+      this.updateRuntimeActorEditorDrag(this.runtimeActorDrag, nextX, nextY);
+      this.updateFurnitureEditorHelpText();
+      return;
+    }
 
     if (this.interactableEditorDrag) {
       const nextX = roundEditorValue(localPos.localX);
@@ -2433,9 +2716,19 @@ export class MapRenderer {
     if (this.characterEditorDrag) {
       this.saveIndoorCharacterEditorLayoutToStorage();
     }
+    if (this.runtimeActorDrag) {
+      this.saveIndoorSceneDraftToRepository('actor');
+      this.showFurnitureEditorMessage(`已移动角色：${this.runtimeActorDrag.actor.name}`);
+    }
     this.furnitureEditorDrag = null;
     this.characterEditorDrag = null;
     this.interactableEditorDrag = null;
+    this.runtimeActorDrag = null;
+  }
+
+  private screenToIndoorMapPoint(screenX: number, screenY: number): { mapX: number; mapY: number } {
+    const offset = this.indoorContainerOffset;
+    return this.indoorCoordinateMapper.screenToMap(screenX - offset.x, screenY - offset.y);
   }
 
   private updateInteractableEditorDrag(drag: InteractableEditorDrag, nextX: number, nextY: number): void {
@@ -2514,6 +2807,24 @@ export class MapRenderer {
     this.updateIndoorCharacterSprite(character);
   }
 
+  private updateRuntimeActorEditorDrag(drag: RuntimeActorDrag, nextX: number, nextY: number): void {
+    const { actor, kind } = drag;
+    if (kind === 'actor-anchor') {
+      actor.position.x = nextX;
+      actor.position.y = nextY;
+      this.syncRuntimeActorEdit(actor, false);
+      return;
+    }
+
+    const bounds = this.runtimeActorColliderBounds(actor);
+    if (kind === 'actor-nw' || kind === 'actor-sw') bounds.minLocalX = nextX;
+    if (kind === 'actor-ne' || kind === 'actor-se') bounds.maxLocalX = nextX;
+    if (kind === 'actor-nw' || kind === 'actor-ne') bounds.minLocalY = nextY;
+    if (kind === 'actor-sw' || kind === 'actor-se') bounds.maxLocalY = nextY;
+    actor.collider = this.actorColliderFromBounds(actor, this.normalizedRuntimeActorColliderBounds(bounds));
+    this.syncRuntimeActorEdit(actor, false);
+  }
+
   private normalizeIndoorCharacterCollider(character: IndoorCharacterDef): void {
     if (!character.collider) return;
     const minX = Math.min(character.collider.minLocalX, character.collider.maxLocalX);
@@ -2570,6 +2881,40 @@ export class MapRenderer {
 
     if (!best || bestDistance > 16) return null;
     return { furniture: best.furniture, kind: best.kind };
+  }
+
+  private findRuntimeIndoorActorEditorHandle(screenX: number, screenY: number): RuntimeActorDrag | null {
+    if (!this.currentIndoorBuildingId) return null;
+
+    const handles: Array<RuntimeActorDrag & { x: number; y: number }> = [];
+    for (const actor of this.runtimeIndoorActors) {
+      const anchorScreen = this.indoorCoordinateMapper.mapToScreenWithContainer(actor.position.x, actor.position.y);
+      handles.push({ actor, kind: 'actor-anchor', x: anchorScreen.x, y: anchorScreen.y });
+
+      if (actor.collider) {
+        const bounds = this.runtimeActorColliderBounds(actor);
+        const corners: Array<{ kind: RuntimeActorEditorHandleKind; x: number; y: number }> = [
+          { kind: 'actor-nw', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.minLocalX, bounds.minLocalY) },
+          { kind: 'actor-ne', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.maxLocalX, bounds.minLocalY) },
+          { kind: 'actor-se', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.maxLocalX, bounds.maxLocalY) },
+          { kind: 'actor-sw', ...this.indoorCoordinateMapper.mapToScreenWithContainer(bounds.minLocalX, bounds.maxLocalY) },
+        ];
+        for (const corner of corners) handles.push({ actor, ...corner });
+      }
+    }
+
+    let best: (RuntimeActorDrag & { x: number; y: number }) | null = null;
+    let bestDistance = Infinity;
+    for (const handle of handles) {
+      const distance = Math.hypot(handle.x - screenX, handle.y - screenY);
+      if (distance < bestDistance) {
+        best = handle;
+        bestDistance = distance;
+      }
+    }
+
+    if (!best || bestDistance > 20) return null;
+    return { actor: best.actor, kind: best.kind };
   }
 
   private findIndoorCharacterEditorHandle(screenX: number, screenY: number, preferDepth = false): CharacterEditorDrag | null {
@@ -2791,6 +3136,7 @@ export class MapRenderer {
     try {
       const snapshot = createIndoorEditableSceneSnapshot(this.currentIndoorBuildingId, {
         floorTileOverrides: this.getIndoorFloorTileOverrideList(),
+        indoorActors: this.runtimeIndoorActors,
       });
       this.lastIndoorSceneDraft = this.sceneRepository.saveSceneDraft({
         ...snapshot,
@@ -2836,6 +3182,11 @@ export class MapRenderer {
     return getIndoorInteractables(this.currentIndoorBuildingId)
       .find((item) => item.id === this.interactableEditorSelectedId)
       ?? null;
+  }
+
+  private getSelectedRuntimeActor(): IndoorActorDef | null {
+    if (!this.currentIndoorBuildingId || !this.runtimeActorSelectedId) return null;
+    return this.runtimeIndoorActors.find((item) => item.id === this.runtimeActorSelectedId) ?? null;
   }
 
   private findFurnitureMaskHandle(screenX: number, screenY: number): FurnitureEditorDrag | null {

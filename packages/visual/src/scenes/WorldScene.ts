@@ -112,6 +112,7 @@ export class WorldScene extends Phaser.Scene {
     this.mapRenderer.blitToScreen(initX, initY);
 
     this.entitySystem = new EntitySystem(this, this.mapData);
+    this.mapRenderer.setRuntimeIndoorActorEditHandler((actor) => this.entitySystem.applyRuntimeIndoorActor(actor));
     this.entitySystem.createPlayer(this.inputController);
     this.entitySystem.createAgents(this.charMeta, _store.strategies);
     this.entitySystem.setWorldAgentsVisible(false);
@@ -437,10 +438,12 @@ export class WorldScene extends Phaser.Scene {
         const indoorMap = this.cache.json.get(BUILDINGS.find((b) => b.id === currentBuildingId)?.indoorMapKey ?? '');
         if (indoorMap) {
           this.entitySystem.createStrategyNPCs(currentBuildingId, strategies, indoorMap.cx, indoorMap.cy);
+          this.entitySystem.applyGeneratedIndoorActorOverrides(currentBuildingId);
           this.entitySystem.setStrategyNpcsVisible(false);
           for (const npc of this.entitySystem.strategyNpcs.values()) {
             this.mapRenderer.addIndoorChild(npc.container);
           }
+          this.mapRenderer.setRuntimeIndoorActors(this.entitySystem.getIndoorActors(currentBuildingId));
           this.entitySystem.syncEntityScreenPositions(this.entitySystem.player.mapX, this.entitySystem.player.mapY);
           this.entitySystem.setStrategyNpcsVisible(true);
         }
@@ -637,18 +640,19 @@ export class WorldScene extends Phaser.Scene {
     // B 键：大地图靠近 Agent 后发起玩家挑战
     if (this.inputController.isBattlePressed() && !this.battleSystem.isActive()) {
       if (state === SceneState.Indoor) {
-        const challenger = this.entitySystem.getNearbyStrategyNPC(
+        const challenger = this.entitySystem.getNearbyIndoorActorTarget(
           this.entitySystem.player.mapX,
           this.entitySystem.player.mapY,
           NPC_INTERACT_DIST + 1.2,
+          ['battle'],
         );
-        if (!challenger) {
+        if (!challenger?.strategyNpc) {
           this.entitySystem.showBubble('player', '靠近一位门派策略 NPC 后，按 B 发起切磋');
           return;
         }
-        this.entitySystem.showBubble(challenger.strategy.id, '来切磋一场？');
+        this.entitySystem.showBubble(challenger.strategyNpc.strategy.id, '来切磋一场？');
         this.sceneManager.startBattle();
-        this.battleSystem.startPlayerVsAgent(challenger.strategy.id, challenger.strategy.name);
+        this.battleSystem.startPlayerVsAgent(challenger.strategyNpc.strategy.id, challenger.strategyNpc.strategy.name);
         return;
       }
 
@@ -702,26 +706,34 @@ export class WorldScene extends Phaser.Scene {
     const nearbyIndoorInteractable = this.sceneManager.isIndoor() && buildingId
       ? getNearbyIndoorInteractable(buildingId, px, py, NPC_INTERACT_DIST)
       : null;
-    const nearbyStrategyNpc = this.getNearbyInspectableStrategyNpc(px, py);
-    const nearbyNpc = this.sceneManager.isIndoor()
-      ? this.entitySystem.getNearbyNPC(px, py, NPC_INTERACT_DIST)
+    const nearbyProfileActor = this.sceneManager.isIndoor()
+      ? this.entitySystem.getNearbyIndoorActorTarget(px, py, WorldScene.AGENT_INTERACT_DIST, ['profile'])
       : null;
-    this.updateInteractHint(nearbyIndoorInteractable, nearbyStrategyNpc, nearbyNpc);
+    const nearbyGiftActor = this.sceneManager.isIndoor()
+      ? this.entitySystem.getNearbyIndoorActorTarget(px, py, NPC_INTERACT_DIST, ['gift'])
+      : null;
+    const nearbyTalkActor = this.sceneManager.isIndoor()
+      ? this.entitySystem.getNearbyIndoorActorTarget(px, py, NPC_INTERACT_DIST, ['chat', 'dialogue', 'story'])
+      : null;
+    this.updateInteractHint(nearbyIndoorInteractable, null, null);
 
     const giftPressed = this.inputController.isGiftPressed();
 
-    if (this.inputController.isInspectPressed() && nearbyStrategyNpc) {
-      _store.selectStrategy(nearbyStrategyNpc.strategy);
-      this.entitySystem.showBubble(nearbyStrategyNpc.strategy.id, `查看 ${nearbyStrategyNpc.strategy.name}`);
+    if (this.inputController.isInspectPressed() && nearbyProfileActor?.strategyNpc) {
+      _store.selectStrategy(nearbyProfileActor.strategyNpc.strategy);
+      this.entitySystem.showBubble(
+        nearbyProfileActor.strategyNpc.strategy.id,
+        `查看 ${nearbyProfileActor.strategyNpc.strategy.name}`,
+      );
       return;
     }
 
-    if (giftPressed && nearbyNpc) {
-      this.giftYuanbaoToNpc(nearbyNpc, 10);
+    if (giftPressed && nearbyGiftActor?.npc) {
+      this.giftYuanbaoToNpc(nearbyGiftActor.npc, 10);
       return;
     }
-    if (giftPressed && nearbyStrategyNpc) {
-      this.giftYuanbaoToStrategyNpc(nearbyStrategyNpc, 10);
+    if (giftPressed && nearbyGiftActor?.strategyNpc) {
+      this.giftYuanbaoToStrategyNpc(nearbyGiftActor.strategyNpc, 10);
       return;
     }
 
@@ -733,16 +745,15 @@ export class WorldScene extends Phaser.Scene {
         return;
       }
 
-      // 室内策略 NPC：每个策略在所属门派内固定站位，复用 Agent 聊天上下文。
-      const strategyNpc = nearbyStrategyNpc;
-      if (strategyNpc) {
+      if (nearbyTalkActor?.strategyNpc) {
+        const strategyNpc = nearbyTalkActor.strategyNpc;
         _store.selectStrategy(strategyNpc.strategy);
         this.openAgentChat(strategyNpc.strategy);
         return;
       }
 
-      // 优先检测室内普通 NPC
-      if (nearbyNpc) {
+      if (nearbyTalkActor?.npc) {
+        const nearbyNpc = nearbyTalkActor.npc;
         if (nearbyNpc.id === 'gushen') {
           this.startGushenStory();
           return;
@@ -803,11 +814,6 @@ export class WorldScene extends Phaser.Scene {
   ): void {
     if (!this.interactHintText) return;
     this.interactHintText.setVisible(false);
-  }
-
-  private getNearbyInspectableStrategyNpc(playerX: number, playerY: number): StrategyNPC | null {
-    if (!this.sceneManager.isIndoor()) return null;
-    return this.entitySystem.getNearbyStrategyNPC(playerX, playerY, WorldScene.AGENT_INTERACT_DIST);
   }
 
   private giftYuanbaoToNpc(npc: NPC, amount: number): void {

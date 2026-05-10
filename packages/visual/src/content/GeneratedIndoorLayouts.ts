@@ -1,5 +1,6 @@
 import generatedIndoorLayouts from './generated_indoor_layouts.json';
 import type { EditableSceneSnapshot } from '../editor/schema/SceneSchema';
+import type { IndoorActorDef } from './IndoorActorTypes';
 import type {
   FurnitureEditorSnapshotItem,
   IndoorCharacterEditorSnapshotItem,
@@ -13,6 +14,7 @@ export type GeneratedIndoorLayout = {
   furniture: FurnitureEditorSnapshotItem[];
   characters: IndoorCharacterEditorSnapshotItem[];
   interactables: InteractableEditorSnapshotItem[];
+  actors?: IndoorActorDef[];
   floorTileOverrides: IndoorFloorTileOverride[];
   sceneSnapshot?: EditableSceneSnapshot;
 };
@@ -34,6 +36,7 @@ export function getGeneratedIndoorLayout(sceneId: string): GeneratedIndoorLayout
     furniture: Array.isArray(layout.furniture) ? layout.furniture : [],
     characters: Array.isArray(layout.characters) ? layout.characters : [],
     interactables: Array.isArray(layout.interactables) ? layout.interactables : [],
+    actors: Array.isArray(layout.actors) ? layout.actors : [],
     floorTileOverrides: Array.isArray(layout.floorTileOverrides) ? layout.floorTileOverrides : [],
     sceneSnapshot: layout.sceneSnapshot,
   };
@@ -41,4 +44,8 @@ export function getGeneratedIndoorLayout(sceneId: string): GeneratedIndoorLayout
 
 export function getGeneratedIndoorLayoutSavedAt(sceneId: string): number {
   return getGeneratedIndoorLayout(sceneId)?.savedAt ?? 0;
+}
+
+export function getGeneratedIndoorActorOverrides(sceneId: string): IndoorActorDef[] {
+  return getGeneratedIndoorLayout(sceneId)?.actors ?? [];
 }

@@ -10,6 +10,7 @@ import { getTile } from '../utils/IsoProjection';
 import { isBlockedByIndoorCharacter } from '../content/IndoorCharacterCollision';
 import { isBlockedByLockedIndoorExit } from '../content/IndoorExitLocks';
 import { isBlockedByIndoorFurniture } from '../content/IndoorFurnitureCollision';
+import { isBlockedByIndoorDynamicNpc } from '../content/IndoorDynamicNpcCollision';
 import { isBlockedByWorldBuildingCollision } from '../content/WorldBuildingCollision';
 import type { InputController } from '../systems/InputController';
 import type { PlayerAppearanceDef } from '../content/PlayerAppearanceCatalog';
@@ -145,6 +146,7 @@ export class Player extends Entity {
     if (isBlockedByLockedIndoorExit(this.indoorBuildingId, this.indoorExitBlocked, x, y)) return true;
     if (isBlockedByIndoorFurniture(this.indoorBuildingId, x, y)) return true;
     if (isBlockedByIndoorCharacter(this.indoorBuildingId, x, y)) return true;
+    if (isBlockedByIndoorDynamicNpc(this.indoorBuildingId, x, y)) return true;
     // 检查 surface 层
     const sv = getTile(this.mapData, 1, x, y);
     if (sv !== 0 && sv !== 307) return true;  // surface 有墙（门口 307 除外）

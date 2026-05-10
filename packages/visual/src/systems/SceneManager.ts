@@ -323,7 +323,9 @@ export class SceneManager {
       // 创建室内 NPC（设置室内模式）
       this.entitySystem.createNPCs(building.id, indoorMap.cx, indoorMap.cy);
       this.entitySystem.createStrategyNPCs(building.id, this.store.strategies, indoorMap.cx, indoorMap.cy);
+      this.entitySystem.applyGeneratedIndoorActorOverrides(building.id);
       this.entitySystem.setStrategyNpcsVisible(false);
+      this.mapRenderer.setRuntimeIndoorActors(this.entitySystem.getIndoorActors(building.id));
 
       // 将 NPC 容器加入室内容器，使其跟随房间滚动
       for (const npc of this.entitySystem.npcs.values()) {

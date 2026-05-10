@@ -36,10 +36,14 @@ const NORMAL_STRATEGY: Strategy = {
 };
 
 export const tests: TestCase[] = [
-  test('digital master uses shishu static texture', () => {
+  test('digital master uses role148 Spine with shishu fallback texture', () => {
     const visual = getStrategyNpcVisual(DIGITAL_MASTER);
-    assert.equal(visual.kind, 'static_texture');
-    assert.equal(visual.textureKey, 'token_center_shishu');
+    assert.equal(visual.kind, 'spine');
+    if (visual.kind !== 'spine') return;
+    assert.equal(visual.dataKey, 'battle_spine_role148_json');
+    assert.equal(visual.atlasKey, 'battle_spine_role148_atlas');
+    assert.equal(visual.flipX, true);
+    assert.equal(visual.fallbackTextureKey, 'token_center_shishu');
   }),
 
   test('default strategy npc still uses chars atlas player sprite', () => {

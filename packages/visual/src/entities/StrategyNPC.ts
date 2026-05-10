@@ -5,40 +5,50 @@
 import { type MapData, type Strategy } from '../types';
 import { SCREEN_HEIGHT, SCREEN_WIDTH, TILE_HALF_H, TILE_HALF_W, INDOOR_SCALE, INDOOR_ACTOR_DEPTH_BASE } from '../config';
 import { Entity } from './Entity';
-import type { StrategyNpcSlot } from '../content/StrategyNpcPlacement';
-import { getStrategyNpcVisual, type StrategyNpcVisualDef } from '../content/StrategyNpcVisuals';
+import type { IndoorActorDef, IndoorActorVisualDef } from '../content/IndoorActorTypes';
+import type { SpineGameObject } from '@esotericsoftware/spine-phaser-v3';
 import { isFrameValid } from '../utils/MathUtils';
+
+function visualScaleX(visual: IndoorActorVisualDef): number {
+  return visual.flipX ? -visual.scale : visual.scale;
+}
 
 export class StrategyNPC extends Entity {
   readonly strategy: Strategy;
+  actor: IndoorActorDef;
   private indoorMode = false;
   private indoorCx = 0;
   private indoorCy = 0;
-  private readonly visual: StrategyNpcVisualDef;
+  private visual: IndoorActorVisualDef;
+  private spine: SpineGameObject | null = null;
 
-  constructor(scene: Phaser.Scene, mapData: MapData, strategy: Strategy, slot: StrategyNpcSlot) {
-    super(scene, mapData, `strategy_${strategy.id}`, slot.mapX, slot.mapY);
+  constructor(scene: Phaser.Scene, mapData: MapData, strategy: Strategy, actor: IndoorActorDef) {
+    super(scene, mapData, actor.id, actor.position.x, actor.position.y);
     this.strategy = strategy;
-    this.visual = getStrategyNpcVisual(strategy);
-    this.direction = slot.direction;
+    this.actor = actor;
+    this.visual = actor.visual;
+    this.direction = actor.position.direction;
     this.createSprite();
   }
 
   private createSprite(): void {
-    if (this.visual.kind === 'static_texture' && this.visual.textureKey) {
-      this.sprite = this.scene.add.image(0, this.visual.offsetY, this.visual.textureKey)
+    const visual = this.visual;
+    if (visual.kind === 'spine') {
+      this.createSpineSprite(visual);
+    } else if (visual.kind === 'static_texture') {
+      this.sprite = this.scene.add.image(0, visual.offsetY, visual.textureKey)
         .setOrigin(0.5, 1.0)
-        .setScale(this.visual.scale);
+        .setScale(visualScaleX(visual), visual.scale);
       this.container.add(this.sprite);
     } else {
-      const charKey = this.visual.charKey ?? 'player';
+      const charKey = visual.charKey;
       const frameKey = `${charKey}_d${this.direction}_f0`;
       const frame = this.scene.textures.getFrame('chars', frameKey);
 
       if (isFrameValid(frame)) {
         this.sprite = this.scene.add.image(0, this.visual.offsetY, 'chars', frameKey)
           .setOrigin(0.5, 1.0)
-          .setScale(this.visual.scale);
+          .setScale(visualScaleX(this.visual), this.visual.scale);
         this.container.add(this.sprite);
       } else {
         const body = this.scene.add.graphics();
@@ -75,6 +85,30 @@ export class StrategyNPC extends Entity {
     this.container.add(retLabel);
   }
 
+  private createSpineSprite(visual: Extract<IndoorActorVisualDef, { kind: 'spine' }>): void {
+    if (this.scene.add.spine) {
+      try {
+        this.spine = this.scene.add.spine(0, visual.offsetY, visual.dataKey, visual.atlasKey);
+        this.spine.setScale(visualScaleX(visual), visual.scale);
+        const animations = this.spine.skeleton.data.animations.map(animation => animation.name);
+        if (animations.includes(visual.defaultAnimation)) {
+          this.spine.animationState.setAnimation(0, visual.defaultAnimation, true);
+        }
+        this.container.add(this.spine);
+        return;
+      } catch (error) {
+        console.warn(`[StrategyNPC] Spine 角色 ${this.strategy.id} 创建失败，使用静态贴图兜底。`, error);
+      }
+    }
+
+    if (visual.fallbackTextureKey) {
+      this.sprite = this.scene.add.image(0, visual.offsetY, visual.fallbackTextureKey)
+        .setOrigin(0.5, 1.0)
+        .setScale(visualScaleX(visual), visual.scale);
+      this.container.add(this.sprite);
+    }
+  }
+
   update(time: number, _delta: number, playerX: number, playerY: number): void {
     if (this.indoorMode) {
       const s = INDOOR_SCALE;
@@ -84,8 +118,9 @@ export class StrategyNPC extends Entity {
     } else {
       this.updateScreenPosition(playerX, playerY);
     }
-    if (this.visual.kind === 'chars_atlas') {
-      this.updateWalkAnimation(time, false, 0, this.visual.charKey ?? 'player');
+    const visual = this.visual;
+    if (visual.kind === 'chars_atlas') {
+      this.updateWalkAnimation(time, false, 0, visual.charKey);
     }
   }
 
@@ -96,7 +131,51 @@ export class StrategyNPC extends Entity {
   }
 
   getCharKey(): string {
-    return this.visual.charKey ?? 'player';
+    return this.visual.kind === 'chars_atlas' ? this.visual.charKey : 'player';
+  }
+
+  applyActorRuntimeEdit(actor: IndoorActorDef): void {
+    this.actor = actor;
+    this.visual = actor.visual;
+    this.mapX = actor.position.x;
+    this.mapY = actor.position.y;
+    this.direction = actor.position.direction;
+    this.applyActorVisualRuntimeEdit(actor.visual);
+    this.update(0, 0, this.mapX, this.mapY);
+  }
+
+  private applyActorVisualRuntimeEdit(visual: IndoorActorVisualDef): void {
+    if (visual.kind === 'spine') {
+      this.spine?.setPosition(0, visual.offsetY);
+      this.spine?.setScale(visualScaleX(visual), visual.scale);
+      if (this.spine) {
+        const animations = this.spine.skeleton.data.animations.map(animation => animation.name);
+        if (animations.includes(visual.defaultAnimation)) {
+          this.spine.animationState.setAnimation(0, visual.defaultAnimation, true);
+        }
+      }
+      if (this.sprite && visual.fallbackTextureKey) {
+        this.sprite.setTexture(visual.fallbackTextureKey);
+        this.sprite.setPosition(0, visual.offsetY);
+        this.sprite.setScale(visualScaleX(visual), visual.scale);
+      }
+      return;
+    }
+
+    if (this.sprite) {
+      if (visual.kind === 'static_texture') {
+        this.sprite.setTexture(visual.textureKey);
+        this.sprite.setPosition(0, visual.offsetY);
+        this.sprite.setScale(visualScaleX(visual), visual.scale);
+      } else {
+        const frameKey = `${visual.charKey}_d${this.direction}_f0`;
+        if (isFrameValid(this.scene.textures.getFrame('chars', frameKey))) {
+          this.sprite.setTexture('chars', frameKey);
+        }
+        this.sprite.setPosition(0, visual.offsetY);
+        this.sprite.setScale(visualScaleX(visual), visual.scale);
+      }
+    }
   }
 
   containsScreenPoint(screenX: number, screenY: number): boolean {

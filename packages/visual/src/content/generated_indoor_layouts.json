@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "savedAt": 1778343960228,
+  "savedAt": 1778380726348,
   "scenes": {
     "birth_house": {
       "sceneId": "birth_house",
-      "savedAt": 1778225933395,
+      "savedAt": 1778380013462,
       "furniture": [
         {
           "id": "bed",
@@ -137,13 +137,41 @@
           "interactRadius": 2.2
         }
       ],
+      "actors": [
+        {
+          "id": "gushen",
+          "sourceId": "gushen",
+          "buildingId": "birth_house",
+          "kind": "story_npc",
+          "name": "股神",
+          "position": {
+            "x": 5.2,
+            "y": 14.1,
+            "direction": 3
+          },
+          "visual": {
+            "kind": "static_texture",
+            "textureKey": "indoor_character_monk",
+            "scale": 0.54,
+            "offsetY": 0
+          },
+          "collider": {
+            "type": "circle",
+            "radius": 0.5
+          },
+          "interactions": [
+            "dialogue",
+            "gift"
+          ]
+        }
+      ],
       "floorTileOverrides": [],
       "sceneSnapshot": {
         "version": 1,
         "sceneId": "birth_house",
         "sceneType": "indoor",
         "templateId": "birth_house",
-        "savedAt": 1778225933392,
+        "savedAt": 1778380013457,
         "objects": [
           {
             "id": "bed",
@@ -412,7 +440,8 @@
                 "type": "rest",
                 "hpRecover": "full",
                 "mpRecover": "full",
-                "message": "你在木榻上调息片刻，生命与内力都恢复了。"
+                "message": "已恢复全部精力。",
+                "noticeTitle": "休息完成"
               }
             }
           },
@@ -441,7 +470,15 @@
                 "manualName": "吐纳入门",
                 "onceFlag": "birth_house_bookshelf_manual_found",
                 "firstDialogueId": "birth_house_bookshelf_found_manual",
-                "repeatDialogueId": "birth_house_bookshelf_manual_repeat"
+                "repeatDialogueId": "birth_house_bookshelf_manual_repeat",
+                "foundNotice": {
+                  "title": "发现物品",
+                  "message": "获得秘籍《吐纳入门》"
+                },
+                "emptyNotice": {
+                  "title": "什么都没有",
+                  "message": "没有发现新的东西。"
+                }
               }
             }
           },
@@ -456,17 +493,19 @@
               "y": 12.92
             },
             "interaction": {
-              "type": "dialogue",
-              "radius": 2.2,
-              "targetId": "birth_house_desk"
+              "type": "custom",
+              "radius": 2.2
             },
             "metadata": {
               "legacyType": "IndoorInteractableDef",
               "name": "长案",
               "prompt": "空格：查看长案",
               "action": {
-                "type": "dialogue",
-                "dialogueId": "birth_house_desk"
+                "type": "notice",
+                "notice": {
+                  "title": "查看桌案",
+                  "message": "桌上有纸和笔。"
+                }
               }
             }
           },
@@ -481,17 +520,70 @@
               "y": 5.49
             },
             "interaction": {
-              "type": "dialogue",
-              "radius": 2.2,
-              "targetId": "birth_house_notice"
+              "type": "custom",
+              "radius": 2.2
             },
             "metadata": {
               "legacyType": "IndoorInteractableDef",
               "name": "屋规告示",
               "prompt": "空格：查看屋规告示",
               "action": {
-                "type": "dialogue",
-                "dialogueId": "birth_house_notice"
+                "type": "notice",
+                "notice": {
+                  "title": "屋规告示",
+                  "message": "入世先观，见人先问。"
+                }
+              }
+            }
+          },
+          {
+            "id": "gushen",
+            "sceneId": "birth_house",
+            "sceneType": "indoor",
+            "kind": "indoorActor",
+            "layer": "character",
+            "position": {
+              "x": 5.2,
+              "y": 14.1
+            },
+            "transform": {
+              "scale": 0.54
+            },
+            "depth": {
+              "mode": "ySort",
+              "point": {
+                "x": 5.2,
+                "y": 14.1
+              }
+            },
+            "collider": {
+              "type": "circle",
+              "x": 5.2,
+              "y": 14.1,
+              "radius": 0.5
+            },
+            "interaction": {
+              "type": "dialogue",
+              "radius": 2,
+              "targetId": "gushen",
+              "metadata": {
+                "interactions": [
+                  "dialogue",
+                  "gift"
+                ]
+              }
+            },
+            "locked": true,
+            "metadata": {
+              "legacyType": "IndoorActorDef",
+              "actorKind": "story_npc",
+              "sourceId": "gushen",
+              "name": "股神",
+              "visual": {
+                "kind": "static_texture",
+                "textureKey": "indoor_character_monk",
+                "scale": 0.54,
+                "offsetY": 0
               }
             }
           }
@@ -499,7 +591,8 @@
         "metadata": {
           "source": "visual-indoor-editor",
           "schemaPurpose": "database-ready-scene-state",
-          "objectCount": 11,
+          "objectCount": 12,
+          "indoorActorCount": 1,
           "floorTileOverrideCount": 0,
           "floorTileOverrides": []
         }
@@ -507,22 +600,127 @@
     },
     "digital_sect": {
       "sceneId": "digital_sect",
-      "savedAt": 1778343960228,
+      "savedAt": 1778380726348,
       "furniture": [],
       "characters": [],
       "interactables": [],
+      "actors": [
+        {
+          "id": "strategy_digital_master",
+          "sourceId": "digital_master",
+          "buildingId": "digital_sect",
+          "kind": "strategy_npc",
+          "name": "数字掌门",
+          "position": {
+            "x": 19,
+            "y": 4.4,
+            "direction": 3
+          },
+          "visual": {
+            "kind": "spine",
+            "dataKey": "battle_spine_role148_json",
+            "atlasKey": "battle_spine_role148_atlas",
+            "scale": 0.34,
+            "offsetY": 18,
+            "defaultAnimation": "idle",
+            "actionMap": {
+              "idle": "idle",
+              "talk": "idle2",
+              "attack": "skill_combo1",
+              "hurt": "hurt",
+              "defense": "idlesquat",
+              "die": "die"
+            },
+            "fallbackTextureKey": "token_center_shishu",
+            "flipX": true
+          },
+          "collider": {
+            "type": "rect",
+            "width": 1.4,
+            "height": 1.1,
+            "offsetX": 0.4,
+            "offsetY": 0.4
+          },
+          "interactions": [
+            "chat",
+            "gift",
+            "battle",
+            "profile"
+          ]
+        }
+      ],
       "floorTileOverrides": [],
       "sceneSnapshot": {
         "version": 1,
         "sceneId": "digital_sect",
         "sceneType": "indoor",
         "templateId": "digital_sect",
-        "savedAt": 1778343960225,
-        "objects": [],
+        "savedAt": 1778380726344,
+        "objects": [
+          {
+            "id": "strategy_digital_master",
+            "sceneId": "digital_sect",
+            "sceneType": "indoor",
+            "kind": "indoorActor",
+            "layer": "character",
+            "position": {
+              "x": 19,
+              "y": 4.4
+            },
+            "transform": {
+              "scale": 0.34
+            },
+            "depth": {
+              "mode": "ySort",
+              "point": {
+                "x": 19,
+                "y": 4.4
+              }
+            },
+            "collider": {
+              "type": "rect",
+              "x": 18.7,
+              "y": 4.250000000000001,
+              "width": 1.4,
+              "height": 1.1
+            },
+            "interaction": {
+              "type": "dialogue",
+              "radius": 2,
+              "targetId": "digital_master",
+              "metadata": {
+                "interactions": [
+                  "chat",
+                  "gift",
+                  "battle",
+                  "profile"
+                ]
+              }
+            },
+            "locked": true,
+            "metadata": {
+              "legacyType": "IndoorActorDef",
+              "actorKind": "strategy_npc",
+              "sourceId": "digital_master",
+              "name": "数字掌门",
+              "visual": {
+                "kind": "spine",
+                "dataKey": "battle_spine_role148_json",
+                "atlasKey": "battle_spine_role148_atlas",
+                "scale": 0.34,
+                "flipX": true,
+                "offsetY": 18,
+                "defaultAnimation": "idle",
+                "fallbackTextureKey": "token_center_shishu"
+              }
+            }
+          }
+        ],
         "metadata": {
           "source": "visual-indoor-editor",
           "schemaPurpose": "database-ready-scene-state",
-          "objectCount": 0,
+          "objectCount": 1,
+          "indoorActorCount": 1,
           "floorTileOverrideCount": 0,
           "floorTileOverrides": []
         }

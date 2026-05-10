@@ -5,12 +5,15 @@ import { tests as battleRulesTests } from './battle_rules.test';
 import { tests as battleSkillEffectCatalogTests } from './battle_skill_effect_catalog.test';
 import { tests as combatProfileTests } from './combat_profile.test';
 import { tests as combatDisplayTests } from './combat_display.test';
+import { tests as indoorActorRegistryTests } from './indoor_actor_registry.test';
 import { tests as indoorCoordinateMapperTests } from './indoor_coordinate_mapper.test';
+import { tests as indoorDynamicNpcCollisionTests } from './indoor_dynamic_npc_collision.test';
 import { tests as indoorEditorPersistenceTests } from './indoor_editor_persistence.test';
 import { tests as indoorExitLocksTests } from './indoor_exit_locks.test';
 import { tests as indoorRoomTemplateTests } from './indoor_room_templates.test';
 import { tests as playerAppearanceTests } from './player_appearance.test';
 import { tests as playerLocationPersistenceTests } from './player_location_persistence.test';
+import { tests as sceneSerializerTests } from './scene_serializer.test';
 import { tests as sideBattleRulesTests } from './side_battle_rules.test';
 import { tests as shopSystemTests } from './shop_system.test';
 import { tests as strategyNpcPlacementTests } from './strategy_npc_placement.test';
@@ -26,12 +29,15 @@ export async function run(): Promise<void> {
     { suite: 'BattleSkillEffectCatalog', tests: battleSkillEffectCatalogTests },
     { suite: 'CombatDisplay', tests: combatDisplayTests },
     { suite: 'CombatProfile', tests: combatProfileTests },
+    { suite: 'IndoorActorRegistry', tests: indoorActorRegistryTests },
     { suite: 'IndoorCoordinateMapper', tests: indoorCoordinateMapperTests },
+    { suite: 'IndoorDynamicNpcCollision', tests: indoorDynamicNpcCollisionTests },
     { suite: 'IndoorEditorPersistence', tests: indoorEditorPersistenceTests },
     { suite: 'IndoorExitLocks', tests: indoorExitLocksTests },
     { suite: 'IndoorRoomTemplates', tests: indoorRoomTemplateTests },
     { suite: 'PlayerAppearance', tests: playerAppearanceTests },
     { suite: 'PlayerLocationPersistence', tests: playerLocationPersistenceTests },
+    { suite: 'SceneSerializer', tests: sceneSerializerTests },
     { suite: 'SideBattleRules', tests: sideBattleRulesTests },
     { suite: 'ShopSystem', tests: shopSystemTests },
     { suite: 'StrategyNpcPlacement', tests: strategyNpcPlacementTests },
