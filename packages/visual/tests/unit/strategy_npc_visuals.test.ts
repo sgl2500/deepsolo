@@ -35,6 +35,13 @@ const NORMAL_STRATEGY: Strategy = {
   state: AgentState.Competing,
 };
 
+const DIGITAL_ELDER: Strategy = {
+  ...DIGITAL_MASTER,
+  id: 'digital_elder',
+  name: '数字长老',
+  role: '长老',
+};
+
 export const tests: TestCase[] = [
   test('digital master uses role148 Spine with shishu fallback texture', () => {
     const visual = getStrategyNpcVisual(DIGITAL_MASTER);
@@ -50,5 +57,14 @@ export const tests: TestCase[] = [
     const visual = getStrategyNpcVisual(NORMAL_STRATEGY);
     assert.equal(visual.kind, 'chars_atlas');
     assert.equal(visual.charKey, 'player');
+  }),
+
+  test('digital elder uses cloned role148 Spine skin variant', () => {
+    const visual = getStrategyNpcVisual(DIGITAL_ELDER);
+    assert.equal(visual.kind, 'spine');
+    if (visual.kind !== 'spine') return;
+    assert.equal(visual.dataKey, 'battle_spine_role148_digital_elder_json');
+    assert.equal(visual.atlasKey, 'battle_spine_role148_digital_elder_atlas');
+    assert.equal(visual.flipX, true);
   }),
 ];

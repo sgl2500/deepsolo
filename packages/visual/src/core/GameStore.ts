@@ -123,7 +123,7 @@ export class GameStore {
       if (resp.ok) {
         const data: Strategy[] = await resp.json();
         if (Array.isArray(data) && data.length > 0) {
-          this.strategies = data.map((s) => this.normalizeStrategy(s));
+          this.strategies = this.mergeCoreStrategies(data);
           this.prevStrategyIds = new Set(this.strategies.map(s => s.id));
           this.eventBus.emit('strategy:loaded', this.strategies);
           this.startPolling();
@@ -151,9 +151,7 @@ export class GameStore {
       if (!resp.ok) return;
       const data: Strategy[] = await resp.json();
       if (Array.isArray(data) && data.length > 0) {
-        const newStrategies = data.map(s => {
-          return this.normalizeStrategy(s);
-        });
+        const newStrategies = this.mergeCoreStrategies(data);
         const newIds = new Set(newStrategies.map(s => s.id));
 
         // 检测被移除的 Agent（天道消灭）
@@ -663,6 +661,18 @@ export class GameStore {
       state: strategy.state ?? this.deriveState(strategy.returnPct),
       existenceTier: getStrategyExistenceTier(strategy),
     };
+  }
+
+  private mergeCoreStrategies(strategies: StrategyLike[]): Strategy[] {
+    const merged = strategies.map((s) => this.normalizeStrategy(s));
+    const ids = new Set(merged.map((s) => s.id));
+    for (const core of INITIAL_STRATEGIES) {
+      if (!ids.has(core.id)) {
+        merged.push(this.normalizeStrategy(core));
+        ids.add(core.id);
+      }
+    }
+    return merged;
   }
 
   private ensurePlayerCombatBaseline(): void {

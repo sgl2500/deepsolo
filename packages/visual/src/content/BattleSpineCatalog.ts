@@ -1,6 +1,6 @@
 import type { BattleCharacterStance, BattleCharacterVisualId } from './BattleAssetCatalog';
 
-const BATTLE_SPINE_ASSET_VERSION = 'v=2';
+const BATTLE_SPINE_ASSET_VERSION = 'v=4';
 
 export type BattleSpineAction =
   | 'climbdown'
@@ -52,7 +52,7 @@ export interface BattleSpineVisualDef {
   id: BattleCharacterVisualId;
   dataKey: string;
   atlasKey: string;
-  assetFolder: 'role77' | 'role148';
+  assetFolder: string;
   actions: readonly BattleSpineAction[];
   stanceMap: Record<BattleCharacterStance, BattleSpineAction>;
   scale: number;
@@ -139,6 +139,18 @@ export const BATTLE_SPINE_VISUALS: readonly BattleSpineVisualDef[] = [
     combatWidth: 112,
     hitDelayMs: { attack: 610, hit: 160, defense: 180, dead: 980 },
   },
+  {
+    id: 'digital_elder',
+    dataKey: 'battle_spine_role148_digital_elder_json',
+    atlasKey: 'battle_spine_role148_digital_elder_atlas',
+    assetFolder: 'role148_digital_elder',
+    actions: BATTLE_SPINE_ACTIONS,
+    stanceMap: DEFAULT_STANCE_MAP,
+    scale: 0.68,
+    rootOffsetY: -30,
+    combatWidth: 112,
+    hitDelayMs: { attack: 610, hit: 160, defense: 180, dead: 980 },
+  },
 ];
 
 export function getBattleSpineAssets(): BattleSpineAsset[] {
@@ -172,5 +184,6 @@ export function getBattleSpineHitDelayMs(actorId: string, stance: BattleCharacte
 function resolveBattleCharacterVisualId(actorId: string): BattleCharacterVisualId | null {
   if (actorId === 'player') return 'player3';
   if (actorId === 'digital_master') return 'digital_master';
+  if (actorId === 'digital_elder') return 'digital_elder';
   return null;
 }

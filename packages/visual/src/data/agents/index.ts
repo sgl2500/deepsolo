@@ -29,7 +29,7 @@ export interface AgentProfile {
 const battleCache = new Map<string, BattleStats>();
 
 /** 已知的基础/常驻 Agent ID（用于预加载战斗载具配置） */
-const BASE_AGENT_IDS = ['hv1', 'hv2', 'hv3', 'hv4', 'nv1', 'nv2', 'digital_master'];
+const BASE_AGENT_IDS = ['hv1', 'hv2', 'hv3', 'hv4', 'nv1', 'nv2', 'digital_master', 'digital_elder'];
 
 /** 预加载所有基础 Agent 的 battle.json */
 export async function preloadAgentProfiles(): Promise<void> {

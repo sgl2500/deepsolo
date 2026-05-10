@@ -46,7 +46,7 @@ const BUILDING_STRATEGY_SLOTS: Record<string, StrategyNpcSlot[]> = {
   ],
   digital_sect: [
     { mapX: 26, mapY: 17, direction: Direction.Down },
-    { mapX: 20, mapY: 28, direction: Direction.Down },
+    { mapX: 22.8, mapY: 18.4, direction: Direction.Down },
     { mapX: 16, mapY: 28, direction: Direction.Down },
     { mapX: 24, mapY: 28, direction: Direction.Down },
   ],

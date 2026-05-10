@@ -28,6 +28,7 @@ export const tests: TestCase[] = [
     assert.equal(getBattleSpineAction('player', 'idle'), 'idle');
     assert.equal(getBattleSpineAction('player', 'attack'), 'skill2');
     assert.equal(getBattleSpineAction('digital_master', 'attack'), 'skill_combo1');
+    assert.equal(getBattleSpineAction('digital_elder', 'attack'), 'skill_combo1');
     assert.equal(getBattleSpineAction('digital_master', 'defense'), 'idlesquat');
     assert.equal(getBattleSpineAction('digital_master', 'dead'), 'die');
     assert.equal(getBattleSpineHitDelayMs('player', 'attack'), 260);
@@ -37,6 +38,10 @@ export const tests: TestCase[] = [
     assert.equal(visual?.dataKey, 'battle_spine_role148_json');
     assert.equal(visual?.atlasKey, 'battle_spine_role148_atlas');
     assert.equal(visual?.actions.length, 36);
+
+    const elderVisual = getBattleSpineVisualForActor('digital_elder');
+    assert.equal(elderVisual?.dataKey, 'battle_spine_role148_digital_elder_json');
+    assert.equal(elderVisual?.atlasKey, 'battle_spine_role148_digital_elder_atlas');
   }),
 
   test('spine battle assets point to compact role77 and role148 runtime files', () => {
@@ -44,12 +49,14 @@ export const tests: TestCase[] = [
     const keys = spineAssets.flatMap(asset => [asset.dataKey, asset.atlasKey]);
     const uniqueKeys = new Set(keys);
 
-    assert.equal(spineAssets.length, 2);
+    assert.equal(spineAssets.length, 3);
     assert.equal(uniqueKeys.size, keys.length);
     assert.ok(spineAssets.some(asset => asset.dataKey === 'battle_spine_role77_json'));
     assert.ok(spineAssets.some(asset => asset.atlasKey === 'battle_spine_role148_atlas'));
+    assert.ok(spineAssets.some(asset => asset.atlasKey === 'battle_spine_role148_digital_elder_atlas'));
     assert.ok(spineAssets.every(asset => !asset.premultipliedAlpha));
     assert.ok(spineAssets.some(asset => asset.jsonSrc.includes('assets/battle/spine/role77/role77.json')));
     assert.ok(spineAssets.some(asset => asset.atlasSrc.includes('assets/battle/spine/role148/role148.atlas')));
+    assert.ok(spineAssets.some(asset => asset.jsonSrc.includes('assets/battle/spine/role148_digital_elder/role148_digital_elder.json')));
   }),
 ];

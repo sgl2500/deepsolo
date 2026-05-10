@@ -1,4 +1,4 @@
-export type BattleCharacterVisualId = 'player3' | 'digital_master';
+export type BattleCharacterVisualId = 'player3' | 'digital_master' | 'digital_elder';
 export type BattleCharacterStance = 'idle' | 'run' | 'attack' | 'hit' | 'defense' | 'dead';
 
 export interface BattleImageAsset {
