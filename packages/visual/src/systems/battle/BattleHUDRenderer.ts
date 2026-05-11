@@ -1,4 +1,4 @@
-import { BATTLE_LOG_MAX, SCREEN_HEIGHT, SCREEN_WIDTH } from '../../config';
+import { BATTLE_LOG_MAX, ENABLE_MARTIAL_DEBUG_LOADOUT, SCREEN_HEIGHT, SCREEN_WIDTH } from '../../config';
 import type { BattlePerson, BattleResult, WugongDef } from '../../types';
 import { BattleAnimator } from '../BattleAnimator';
 
@@ -210,7 +210,9 @@ export class BattleHUDRenderer {
     const area = this.getCommandAreaRect();
     const menuW = area.w;
     const gap = 8;
-    const cardH = 52;
+    const cols = ENABLE_MARTIAL_DEBUG_LOADOUT && person.id === 'player' ? 2 : 1;
+    const cardH = ENABLE_MARTIAL_DEBUG_LOADOUT && person.id === 'player' ? 36 : 52;
+    const cardW = (menuW - 28 - gap * (cols - 1)) / cols;
 
     this.wugongContainer = this.scene.add.container(area.x, area.y);
     this.wugongContainer.setDepth(9700);
@@ -241,24 +243,27 @@ export class BattleHUDRenderer {
       const skill = skills[i];
       const hasMp = person.mp >= skill.mpCost;
       const isSelected = i === selectedIndex;
-      const y = 50 + i * (cardH + gap);
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = 14 + col * (cardW + gap);
+      const y = 50 + row * (cardH + gap);
       const card = this.scene.add.graphics();
       card.fillStyle(isSelected ? 0x10453d : 0x0b1720, isSelected ? 0.76 : 0.42);
-      card.fillRoundedRect(14, y, menuW - 28, cardH, 10);
+      card.fillRoundedRect(x, y, cardW, cardH, 10);
       card.lineStyle(1, isSelected ? 0x44ffaa : 0x6b5b3a, isSelected ? 0.8 : 0.24);
-      card.strokeRoundedRect(14, y, menuW - 28, cardH, 10);
+      card.strokeRoundedRect(x, y, cardW, cardH, 10);
       this.wugongContainer.add(card);
 
-      const t = this.scene.add.text(28, y + 9, skill.name, {
-        fontSize: '13px',
+      const t = this.scene.add.text(x + 14, y + 7, skill.name, {
+        fontSize: cols > 1 ? '12px' : '13px',
         color: !hasMp ? '#666666' : isSelected ? '#44ffaa' : '#cccccc',
         fontStyle: isSelected ? 'bold' : 'normal',
         fontFamily: 'Songti SC, STSong, PingFang SC, serif',
       }).setOrigin(0, 0);
       this.wugongContainer.add(t);
 
-      const detail = this.scene.add.text(28, y + 31, `内力 ${skill.mpCost} · 距离 ${skill.attackRange} · 威力 ${skill.power}`, {
-        fontSize: '11px',
+      const detail = this.scene.add.text(x + 14, y + (cols > 1 ? 22 : 31), `内力 ${skill.mpCost} · 距离 ${skill.attackRange} · 威力 ${skill.power}`, {
+        fontSize: cols > 1 ? '10px' : '11px',
         color: hasMp ? '#b9a77f' : '#555555',
       }).setOrigin(0, 0);
       this.wugongContainer.add(detail);

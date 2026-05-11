@@ -37,6 +37,9 @@ export const ENABLE_DEV_TOOLS = !isProdBuild || getStringEnv('VITE_DEEPSOLO_ENAB
 /** 生产包默认不注入演示账号，可通过环境变量显式开启。 */
 export const ENABLE_DEMO_AUTH = !isProdBuild || getStringEnv('VITE_DEEPSOLO_ENABLE_DEMO_AUTH') === '1';
 
+/** 开发调试：主角临时拥有武功总库全部武功，并按圆满等级展示特效。 */
+export const ENABLE_MARTIAL_DEBUG_LOADOUT = getStringEnv('VITE_DEEPSOLO_MARTIAL_DEBUG_LOADOUT') !== '0';
+
 /** 屏幕尺寸 */
 export const SCREEN_WIDTH = 1280;
 export const SCREEN_HEIGHT = 720;

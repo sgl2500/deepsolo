@@ -648,7 +648,39 @@ toSideBattleSkill(martialId, level)
 记录武功使用熟练度
 ```
 
-### 13.6 替换特效的目标体验
+### 13.6 资源路径规划
+
+武功特效贴图统一放在：
+
+```text
+packages/visual/public/assets/battle/shared/effects/martial/codex/
+```
+
+当前 11 门武功对应资源：
+
+| 武功 | resourceKey | 文件 |
+| --- | --- | --- |
+| 太祖长拳 | battle_effect_martial_fist_shadow | fist_shadow.png |
+| 太极拳 | battle_effect_martial_taiji_circle | taiji_circle.png |
+| 天残脚 | battle_effect_martial_leg_heavy | leg_heavy.png |
+| 无影脚 | battle_effect_martial_leg_shadow | leg_shadow.png |
+| 松风剑法 | battle_effect_martial_sword_breeze | sword_breeze.png |
+| 独孤九剑 | battle_effect_martial_dugu_sword | dugu_sword.png |
+| 狂风刀法 | battle_effect_martial_gale_blade | gale_blade.png |
+| 雪饮狂刀 | battle_effect_martial_xueyin_blade | xueyin_blade.png |
+| 吐纳入门 | battle_effect_martial_inner_breath | inner_breath.png |
+| 金钟罩 | battle_effect_martial_golden_bell | golden_bell.png |
+| 泰山压顶 | battle_effect_martial_taishan_pressure | taishan_pressure.png |
+
+资源加载入口统一放在：
+
+```text
+packages/visual/src/content/BattleAssetCatalog.ts
+```
+
+武功到特效的绑定仍然只由 `MartialEffectBindings.ts` 控制，`MartialEffectCatalog.ts` 只负责描述这些 resourceKey 的五档表现参数。
+
+### 13.7 替换特效的目标体验
 
 后续替换特效应该满足：
 
@@ -658,7 +690,7 @@ toSideBattleSkill(martialId, level)
 - 战棋和横版可以共用同一个 effectId，但有不同渲染参数。
 - 没有资源时，可以先用参数模拟；资源到位后，再替换 resourceKey 或 variant。
 
-### 13.7 建议接入顺序
+### 13.8 建议接入顺序
 
 1. 先建武功公共模块，不动战斗逻辑。
 2. 把 11 门武功写进 `MartialCodex.ts`。
@@ -702,3 +734,35 @@ toSideBattleSkill(martialId, level)
 3. 定秘籍名字和解锁关系。
 4. 定公共特效 ID。
 5. 再写实现计划，开始改代码。
+
+## 16. 已确认表现记录
+
+### 16.1 太祖长拳横版表现
+
+当前表现已确认正确：
+
+```text
+主角原地播放 skill1 进攻动作
+  ↓
+不冲到敌人身前
+  ↓
+金色拳影从主角手部前方发出
+  ↓
+拳影飞向敌人身体命中点
+  ↓
+命中后结算伤害
+  ↓
+主角收招回 idle
+```
+
+关键实现记录：
+
+- 武功：`taizu_changquan`
+- 横版动作：`spineAction: 'skill1'`
+- 横版表现：`presentation: 'ranged'`
+- 特效资源：`battle_effect_martial_fist_shadow`
+- 发射点：暂不使用 Spine 的 `attackPoint`，使用横版视觉校准后的手部估算点
+- 当前校准值：`x = anchor.x + facing * 86`，`y = anchor.y - 148`
+
+注意：当前角色资源里的 `attackPoint` 不稳定贴合拳头，之前使用后拳影更偏下。因此太祖长拳现阶段不要改回 `attackPoint`，除非后续专门做 Spine 骨骼点可视化校准。
+

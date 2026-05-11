@@ -26,6 +26,7 @@ import { BattleBoardRenderer } from './battle/BattleBoardRenderer';
 import { BattleInputController, type BattleInput } from './battle/BattleInputController';
 import { BattleHUDRenderer } from './battle/BattleHUDRenderer';
 import { getBattleSkillVisual, type BattleSkillVisualDef } from '../content/BattleSkillVisuals';
+import { getMartialArtDef, getMartialLevel, getUnlockedCombatMartialArts, toTacticalWugongDef } from '../content/martial';
 import {
   calcAttackRange,
   calcBattleDamage,
@@ -466,8 +467,13 @@ export class BattleSystem {
   private enterWugongSelect(): void {
     const person = this.currentManualPerson!;
     this.hudRenderer.hideActionMenu();
-    // 专属武功 + 普通攻击
-    this.availableSkills = uniqueSkills([person.wugong, NORMAL_ATTACK]);
+    const playerSkills = person.id === 'player'
+      ? getUnlockedCombatMartialArts(this.store.playerProgress)
+        .map((art) => toTacticalWugongDef(art.id, getMartialLevel(this.store.playerProgress, art.id)))
+        .filter((skill): skill is WugongDef => !!skill)
+      : [];
+    // 专属武功 + 公共武功 + 普通攻击
+    this.availableSkills = uniqueSkills([person.wugong, ...playerSkills, NORMAL_ATTACK]);
     this.wugongCursorIndex = 0;
     this.hudRenderer.renderWugongMenu(this.container, person, this.availableSkills, this.wugongCursorIndex);
     this.manualPhase = ManualPhase.WugongSelect;
@@ -1141,6 +1147,7 @@ export class BattleSystem {
 
   private getEffectiveSkillPower(attacker: BattlePerson, skill: WugongDef): number {
     if (attacker.id !== 'player') return skill.power;
+    if (getMartialArtDef(skill.id)) return skill.power;
     const martialId = this.getMartialIdForSkill(skill);
     return Math.round(skill.power * this.store.getMartialPowerMultiplier(martialId));
   }

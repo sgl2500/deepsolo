@@ -1,14 +1,20 @@
 import type { SideBattleSkill, SideBattleSkillType } from '../systems/sidebattle/SideBattleTypes';
+import { getMartialArtDef } from './martial/MartialCodex';
+import { getMartialEffectForBattle } from './martial/MartialEffectBindings';
 
 export type BattleAttackPresentation = 'melee_normal' | 'melee_wugong' | 'ranged_strategy';
 
 export type BattleEffectAnchor = 'attacker_front' | 'target_front' | 'target_center' | 'self_center';
+export type BattleEffectLaunchAnchor = 'attacker_front' | 'attacker_hand' | 'attacker_body';
+export type BattleEffectImpactAnchor = 'target_front' | 'target_body' | 'target_center';
 
 export interface BattleSkillEffectDef {
   skillId: string;
   presentation: BattleAttackPresentation;
   textureKey: string | null;
   anchor: BattleEffectAnchor;
+  launchAnchor?: BattleEffectLaunchAnchor;
+  impactAnchor?: BattleEffectImpactAnchor;
   width: number;
   height: number;
   durationMs: number;
@@ -42,6 +48,8 @@ const DEFAULT_STRATEGY_EFFECT: BattleSkillEffectDef = {
   presentation: 'ranged_strategy',
   textureKey: 'battle_effect_strategy_projectile',
   anchor: 'attacker_front',
+  launchAnchor: 'attacker_front',
+  impactAnchor: 'target_center',
   width: 150,
   height: 78,
   durationMs: 360,
@@ -88,7 +96,31 @@ export const BATTLE_SKILL_EFFECTS: Record<string, BattleSkillEffectDef> = {
   },
 };
 
-export function getBattleSkillEffect(skill: Pick<SideBattleSkill, 'id' | 'type'>): BattleSkillEffectDef {
+export function getBattleSkillEffect(skill: Pick<SideBattleSkill, 'id' | 'type' | 'martialId' | 'martialLevel'>): BattleSkillEffectDef {
+  if ('martialId' in skill && skill.martialId) {
+    const martialEffect = getMartialEffectForBattle({
+      martialId: skill.martialId,
+      level: skill.martialLevel ?? 1,
+      mode: 'horizontal',
+    });
+    if (martialEffect) {
+      const art = getMartialArtDef(skill.martialId);
+      const presentation = art?.horizontal.presentation === 'ranged' ? 'ranged_strategy' : 'melee_wugong';
+      return {
+        skillId: skill.id,
+        presentation,
+        textureKey: martialEffect.resourceKey,
+        anchor: martialEffect.anchor === 'self' ? 'self_center' : 'target_front',
+        launchAnchor: presentation === 'ranged_strategy' && art?.category === 'fist' ? 'attacker_hand' : 'attacker_front',
+        impactAnchor: presentation === 'ranged_strategy' ? 'target_body' : 'target_front',
+        width: martialEffect.width,
+        height: martialEffect.height,
+        durationMs: martialEffect.durationMs,
+        hitBurstScale: martialEffect.hitBurstScale,
+      };
+    }
+  }
+
   const explicit = BATTLE_SKILL_EFFECTS[skill.id];
   if (explicit) return explicit;
 

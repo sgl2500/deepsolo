@@ -1,4 +1,6 @@
 import { WugongType, type WugongDef } from '../types';
+import { getMartialArtDef } from './martial/MartialCodex';
+import { getMartialEffectForBattle } from './martial/MartialEffectBindings';
 
 export type BattleSkillTargetMode = 'single' | 'aoe';
 export type BattleSkillRangeShape = 'diamond' | 'square';
@@ -151,6 +153,25 @@ export const BATTLE_SKILL_VISUALS: Record<string, BattleSkillVisualDef> = {
 };
 
 export function getBattleSkillVisual(skill: WugongDef, level = 1): BattleSkillVisualDef {
+  const martialArt = getMartialArtDef(skill.id);
+  if (martialArt) {
+    const effect = getMartialEffectForBattle({ martialId: skill.id, level, mode: 'tactical' });
+    const aoeSize = martialArt.tactical.aoeSize;
+    return {
+      skillId: skill.id,
+      targetMode: aoeSize > 1 ? 'aoe' : 'single',
+      rangeShape: martialArt.tactical.shape === 'single' || martialArt.tactical.shape === 'diamond' ? 'diamond' : 'square',
+      effectId: effect?.tacticalEffectId ?? skill.effectId,
+      effectScale: Math.max(0.85, (effect?.scale ?? 1) * 1.2),
+      castText: martialArt.name,
+      castTextColor: DEFAULT_TYPE_COLORS[skill.type] ?? DEFAULT_VISUAL.castTextColor,
+      showCastText: true,
+      impactDelayMs: Math.min(420, Math.max(180, effect?.durationMs ?? 250)),
+      hitStopMs: effect?.stage && effect.stage >= 3 ? 60 + effect.stage * 8 : 0,
+      cameraShake: (effect?.cameraShake ?? 0) >= 0.05,
+    };
+  }
+
   const base = BATTLE_SKILL_VISUALS[skill.id] ?? {
     ...DEFAULT_VISUAL,
     skillId: skill.id,

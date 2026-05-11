@@ -568,6 +568,11 @@ export class GameStore {
       if (manualDef.vitalsBonus.maxHp) this.playerProgress.vitals.maxHp += manualDef.vitalsBonus.maxHp;
       if (manualDef.vitalsBonus.maxMp) this.playerProgress.vitals.maxMp += manualDef.vitalsBonus.maxMp;
     }
+    for (const martialId of manualDef?.martialUnlockIds ?? []) {
+      if (!this.playerProgress.martials.some(item => item.martialId === martialId)) {
+        this.playerProgress.martials.push(this.createDefaultMartialProgress(martialId));
+      }
+    }
     this.persistPlayerProgress();
     return true;
   }

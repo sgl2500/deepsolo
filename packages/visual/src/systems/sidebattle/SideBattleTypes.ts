@@ -7,6 +7,9 @@ export type SideBattleActorVisualState = 'idle' | 'run' | 'attack' | 'hit' | 'de
 
 export interface SideBattleSkill {
   id: string;
+  martialId?: string;
+  martialLevel?: number;
+  masteryStage?: number;
   name: string;
   type: SideBattleSkillType;
   mpCost: number;

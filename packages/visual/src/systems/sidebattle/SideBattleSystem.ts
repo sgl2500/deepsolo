@@ -4,7 +4,7 @@
 
 import type { BattlePerson, BattleResult, WugongDef } from '../../types';
 import type { SpineGameObject } from '@esotericsoftware/spine-phaser-v3';
-import { SCREEN_HEIGHT, SCREEN_WIDTH } from '../../config';
+import { ENABLE_MARTIAL_DEBUG_LOADOUT, SCREEN_HEIGHT, SCREEN_WIDTH } from '../../config';
 import { createBattlePerson, createPlayerBattlePerson, NORMAL_ATTACK } from '../../data/BattleData';
 import type { EventBus } from '../../core/EventBus';
 import type { GameStore } from '../../core/GameStore';
@@ -16,6 +16,7 @@ import {
   type BattleSpineVisualDef,
 } from '../../content/BattleSpineCatalog';
 import { getBattleSkillEffect, type BattleSkillEffectDef } from '../../content/BattleSkillEffectCatalog';
+import { getMartialLevel, getUnlockedCombatMartialArts, toSideBattleSkill } from '../../content/martial';
 import { BattleAnimator } from '../BattleAnimator';
 import {
   applyDefense,
@@ -66,6 +67,12 @@ export class SideBattleSystem {
   private oneKey!: Phaser.Input.Keyboard.Key;
   private twoKey!: Phaser.Input.Keyboard.Key;
   private threeKey!: Phaser.Input.Keyboard.Key;
+  private fourKey!: Phaser.Input.Keyboard.Key;
+  private fiveKey!: Phaser.Input.Keyboard.Key;
+  private sixKey!: Phaser.Input.Keyboard.Key;
+  private sevenKey!: Phaser.Input.Keyboard.Key;
+  private eightKey!: Phaser.Input.Keyboard.Key;
+  private nineKey!: Phaser.Input.Keyboard.Key;
 
   constructor(scene: Phaser.Scene, eventBus: EventBus, store: GameStore) {
     this.scene = scene;
@@ -103,6 +110,18 @@ export class SideBattleSystem {
       this.chooseMenuIndex(1);
     } else if (Phaser.Input.Keyboard.JustDown(this.threeKey)) {
       this.chooseMenuIndex(2);
+    } else if (Phaser.Input.Keyboard.JustDown(this.fourKey)) {
+      this.chooseMenuIndex(3);
+    } else if (Phaser.Input.Keyboard.JustDown(this.fiveKey)) {
+      this.chooseMenuIndex(4);
+    } else if (Phaser.Input.Keyboard.JustDown(this.sixKey)) {
+      this.chooseMenuIndex(5);
+    } else if (Phaser.Input.Keyboard.JustDown(this.sevenKey)) {
+      this.chooseMenuIndex(6);
+    } else if (Phaser.Input.Keyboard.JustDown(this.eightKey)) {
+      this.chooseMenuIndex(7);
+    } else if (Phaser.Input.Keyboard.JustDown(this.nineKey)) {
+      this.chooseMenuIndex(8);
     } else if (Phaser.Input.Keyboard.JustDown(this.enterKey) || Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
       this.chooseMenuIndex(this.menuIndex);
     }
@@ -264,7 +283,12 @@ export class SideBattleSystem {
   ): void {
     const actorSprite = this.sprites.get(actor.id);
     const actorAnchor = this.getAnchor(actor);
-    const readyX = actorAnchor.x + (actor.side === 'left' ? 58 : -58);
+    const isMartialProjectile = skill.type === 'martial' || skill.type === 'inner';
+    if (isMartialProjectile) {
+      this.performRangedMartialAttack(actor, target, skill, effect);
+      return;
+    }
+    const readyX = isMartialProjectile ? actorAnchor.x : actorAnchor.x + (actor.side === 'left' ? 58 : -58);
 
     this.setActorStance(actor, 'attack', 0, skill.spineAction);
     actorSprite?.setDepth(9280);
@@ -280,6 +304,60 @@ export class SideBattleSystem {
             this.resolveAnimatedHit(actor, target, skill, effect);
             this.finishAttack(actor, actorAnchor);
           });
+        });
+      },
+    });
+  }
+
+  private performRangedMartialAttack(
+    actor: SideBattleActor,
+    target: SideBattleActor,
+    skill: SideBattleSkill,
+    effect: BattleSkillEffectDef,
+  ): void {
+    const actorSprite = this.sprites.get(actor.id);
+    const actorAnchor = this.getAnchor(actor);
+    const facing = actor.side === 'left' ? 1 : -1;
+    const baseX = actorSprite?.x ?? actorAnchor.x;
+    const baseScaleX = actorSprite?.scaleX ?? 1;
+    const baseScaleY = actorSprite?.scaleY ?? 1;
+
+    this.setActorStance(actor, 'attack', 0, skill.spineAction);
+    actorSprite?.setDepth(9280);
+
+    // 原地发招：先收拳蓄力，再向前送拳；人物不冲到敌人身前。
+    this.scene.tweens.add({
+      targets: actorSprite,
+      x: baseX - facing * 10,
+      scaleX: baseScaleX * 0.96,
+      scaleY: baseScaleY * 1.04,
+      duration: 120,
+      ease: 'Sine.easeIn',
+      onComplete: () => {
+        this.scene.tweens.add({
+          targets: actorSprite,
+          x: baseX + facing * 30,
+          scaleX: baseScaleX * 1.08,
+          scaleY: baseScaleY * 0.94,
+          duration: 150,
+          ease: 'Back.easeOut',
+          onComplete: () => {
+            this.flashAttack(actor, skill);
+            this.playRangedStrategyEffect(actor, target, effect, () => {
+              this.resolveAnimatedHit(actor, target, skill, effect);
+              this.scene.tweens.add({
+                targets: actorSprite,
+                x: baseX,
+                scaleX: baseScaleX,
+                scaleY: baseScaleY,
+                duration: 180,
+                ease: 'Sine.easeOut',
+                onComplete: () => {
+                  this.finishAttack(actor, actorAnchor);
+                },
+              });
+            });
+          },
         });
       },
     });
@@ -384,49 +462,9 @@ export class SideBattleSystem {
   }
 
   private createPlayerLearnedSkills(): SideBattleSkill[] {
-    const manuals = this.store.playerProgress.manuals.filter(item => item.learned).map(item => item.manualId);
-    const skills: SideBattleSkill[] = [
-      {
-        id: 'flame_palm',
-        name: '火焰掌',
-        type: 'martial',
-        mpCost: 16,
-        power: 130,
-        hitRate: 92,
-        description: '掌劲炽烈，贴身爆发一记火焰内劲。',
-        flavor: '掌风带火，近身一吐即收。',
-        target: 'enemy',
-        spineAction: 'skill4',
-        hitDelayMs: 430,
-      },
-    ];
-    if (manuals.includes('manual_tuna_intro')) {
-      skills.push({
-        id: 'tuna_qigong',
-        name: '吐纳功',
-        type: 'inner',
-        mpCost: 10,
-        power: 85,
-        hitRate: 95,
-        description: '稳住气息，以内力压制对手。',
-        flavor: '气息下沉，内力连绵。',
-        target: 'enemy',
-      });
-    }
-    if (manuals.includes('manual_digital_fumo_intro')) {
-      skills.push({
-        id: 'digital_fumo_intro',
-        name: '金刚伏魔入门',
-        type: 'inner',
-        mpCost: 22,
-        power: 125,
-        hitRate: 90,
-        description: '数字掌门所传护体心法，攻守兼备。',
-        flavor: '金色护体劲从掌心推出。',
-        target: 'enemy',
-      });
-    }
-    return skills;
+    return getUnlockedCombatMartialArts(this.store.playerProgress)
+      .map((art) => toSideBattleSkill(art.id, getMartialLevel(this.store.playerProgress, art.id)))
+      .filter((skill): skill is SideBattleSkill => !!skill);
   }
 
   private fromWugong(wugong: WugongDef, type: SideBattleSkill['type']): SideBattleSkill {
@@ -444,7 +482,8 @@ export class SideBattleSystem {
   }
 
   private getMenuItems(actor: SideBattleActor): Array<{ kind: 'skill'; skill: SideBattleSkill } | { kind: 'defense'; label: string }> {
-    const skills = actor.skills.filter(skill => skill.target === 'enemy').slice(0, 3);
+    const maxSkills = ENABLE_MARTIAL_DEBUG_LOADOUT && actor.id === 'player' ? 11 : 3;
+    const skills = actor.skills.filter(skill => skill.target === 'enemy').slice(0, maxSkills);
     return [
       ...skills.map(skill => ({ kind: 'skill' as const, skill })),
       { kind: 'defense' as const, label: '防御' },
@@ -674,7 +713,9 @@ export class SideBattleSystem {
       const label = item.kind === 'defense'
         ? '防御'
         : `${item.skill.id === 'flame_palm' ? '技能攻击 · ' : ''}${item.skill.name}${item.skill.mpCost > 0 ? `  ${item.skill.mpCost}内力` : ''}`;
-      const text = this.scene.add.text(startX, startY + index * 28, `${this.menuIndex === index ? '▶ ' : '   '}${index + 1}. ${label}`, {
+      const row = index % 6;
+      const col = Math.floor(index / 6);
+      const text = this.scene.add.text(startX + col * 250, startY + row * 24, `${this.menuIndex === index ? '▶ ' : '   '}${index + 1}. ${label}`, {
         fontSize: '15px',
         color: this.menuIndex === index ? '#fef3c7' : '#cbd5e1',
         fontFamily: 'PingFang SC, Microsoft YaHei, sans-serif',
@@ -708,7 +749,8 @@ export class SideBattleSystem {
     actor: SideBattleActor,
     item: ReturnType<SideBattleSystem['getMenuItems']>[number] | undefined,
   ): void {
-    const panel = this.scene.add.rectangle(390, 626, 420, 136, 0x0f172a, 0.72)
+    const panelX = ENABLE_MARTIAL_DEBUG_LOADOUT && actor.id === 'player' ? 560 : 390;
+    const panel = this.scene.add.rectangle(panelX, 626, 420, 136, 0x0f172a, 0.72)
       .setOrigin(0, 0.5)
       .setStrokeStyle(1, 0x60a5fa, 0.24);
     this.addMenuObject(panel);
@@ -716,7 +758,7 @@ export class SideBattleSystem {
     const text = item?.kind === 'skill'
       ? this.formatSkillDetail(actor, item.skill)
       : '防御\n类型：守势\n消耗：0 内力\n效果：本回合减伤，并恢复 8 点内力。\n说明：先活下来，才有下一轮策略。';
-    this.skillDetailText = this.scene.add.text(410, 566, text, {
+    this.skillDetailText = this.scene.add.text(panelX + 20, 566, text, {
       fontSize: '13px',
       color: '#dbeafe',
       fontFamily: 'PingFang SC, Microsoft YaHei, sans-serif',
@@ -934,9 +976,18 @@ ${skill.flavor ?? ''}`.trim();
       this.showDamageNumber(impactX, targetAnchor.y - 126, 0, false, 0);
       this.addLog(`${target.name} 闪开了攻击。`);
     }
+    this.recordSideBattleMartialUse(actor, skill, damage.hit);
 
     if (!target.alive) this.playDeath(target);
     if (wasDefending) this.releaseDefenseAfterHit(target);
+  }
+
+  private recordSideBattleMartialUse(actor: SideBattleActor, skill: SideBattleSkill, hit: boolean): void {
+    if (actor.id !== 'player' || !skill.martialId) return;
+    const result = this.store.recordMartialUse(skill.martialId, hit);
+    if (result.leveledUp) {
+      this.addLog(`★ ${skill.name.replace(/ Lv\\.\\d+$/, '')} 升至 Lv.${result.level}！`);
+    }
   }
 
   private finishAttack(actor: SideBattleActor, actorAnchor: { x: number; y: number }): void {
@@ -1018,12 +1069,12 @@ ${skill.flavor ?? ''}`.trim();
       return;
     }
 
-    const from = this.getAnchor(actor);
-    const to = this.getAnchor(target);
-    const color = 0x60a5fa;
+    const from = this.getEffectLaunchPoint(actor, effect);
+    const to = this.getEffectImpactPoint(target, effect);
+    const color = effect.textureKey?.includes('fist') ? 0xfbbf24 : 0x60a5fa;
     const projectile = this.scene.add.image(
-      from.x + (actor.side === 'left' ? 112 : -112),
-      from.y - 98,
+      from.x,
+      from.y,
       effect.textureKey,
     ).setDepth(9580).setAlpha(0.98);
     projectile.setDisplaySize(effect.width, effect.height);
@@ -1037,8 +1088,8 @@ ${skill.flavor ?? ''}`.trim();
 
     this.scene.tweens.add({
       targets: projectile,
-      x: this.getImpactX(target),
-      y: to.y - 102,
+      x: to.x,
+      y: to.y,
       duration: effect.durationMs,
       ease: 'Cubic.easeIn',
       onUpdate: () => {
@@ -1050,6 +1101,64 @@ ${skill.flavor ?? ''}`.trim();
         onComplete();
       },
     });
+  }
+
+  private getEffectLaunchPoint(actor: SideBattleActor, effect: BattleSkillEffectDef): { x: number; y: number } {
+    switch (effect.launchAnchor) {
+      case 'attacker_hand':
+        // 当前角色资源里的 attackPoint 更接近技能锚点，不稳定贴合拳头。
+        // 先使用横版战斗视觉校准过的手部估算点，保证拳影从出拳位置发出。
+        return this.getFallbackHandPoint(actor);
+      case 'attacker_body': {
+        const anchor = this.getAnchor(actor);
+        return { x: anchor.x, y: anchor.y - 112 };
+      }
+      case 'attacker_front':
+      default: {
+        const anchor = this.getAnchor(actor);
+        return { x: anchor.x + (actor.side === 'left' ? 112 : -112), y: anchor.y - 98 };
+      }
+    }
+  }
+
+  private getEffectImpactPoint(target: SideBattleActor, effect: BattleSkillEffectDef): { x: number; y: number } {
+    const anchor = this.getAnchor(target);
+    switch (effect.impactAnchor) {
+      case 'target_body':
+        return { x: this.getImpactX(target), y: anchor.y - 112 };
+      case 'target_center':
+        return { x: anchor.x, y: anchor.y - 112 };
+      case 'target_front':
+      default:
+        return { x: this.getImpactX(target), y: anchor.y - 102 };
+    }
+  }
+
+  private getSpineBoneWorldPoint(actor: SideBattleActor, boneName: string): { x: number; y: number } | null {
+    const display = this.sprites.get(actor.id);
+    if (!this.isSpineDisplay(display)) return null;
+    const bone = display.skeleton.findBone(boneName);
+    if (!bone) return null;
+
+    const scaleX = display.scaleX || 1;
+    const scaleY = Math.abs(display.scaleY || 1);
+    const point = {
+      x: display.x + bone.worldX * scaleX,
+      y: display.y - bone.worldY * scaleY,
+    };
+
+    const actorAnchor = this.getAnchor(actor);
+    const distance = Phaser.Math.Distance.Between(actorAnchor.x, actorAnchor.y - 105, point.x, point.y);
+    return distance < 260 ? point : null;
+  }
+
+  private getFallbackHandPoint(actor: SideBattleActor): { x: number; y: number } {
+    const anchor = this.getAnchor(actor);
+    const facing = actor.side === 'left' ? 1 : -1;
+    return {
+      x: anchor.x + facing * 86,
+      y: anchor.y - 148,
+    };
   }
 
   private showImpactBurst(x: number, y: number, color: number, scale = 0.34): void {
@@ -1371,6 +1480,12 @@ ${skill.flavor ?? ''}`.trim();
     this.oneKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
     this.twoKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.TWO);
     this.threeKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.THREE);
+    this.fourKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FOUR);
+    this.fiveKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.FIVE);
+    this.sixKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SIX);
+    this.sevenKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SEVEN);
+    this.eightKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.EIGHT);
+    this.nineKey = keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.NINE);
   }
 
   private cleanup(): void {
