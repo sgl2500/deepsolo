@@ -52,4 +52,5 @@ export interface GameEvents {
   'story:started': { storyId: string };
   'story:completed': { storyId: string };
   'story:start-requested': { storyId: string };
+  'story:battle-requested': { battleId: string };
 }

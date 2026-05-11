@@ -17,7 +17,7 @@ import {
   SCREEN_WIDTH,
   SCREEN_HEIGHT,
 } from '../config';
-import { createBattlePerson, createPlayerBattlePerson, NORMAL_ATTACK, EFT_FRAME_COUNTS } from '../data/BattleData';
+import { createBattlePerson, createPlayerBattlePerson, NORMAL_ATTACK, WUGONG_DEFS, EFT_FRAME_COUNTS } from '../data/BattleData';
 import type { EventBus } from '../core/EventBus';
 import type { GameStore } from '../core/GameStore';
 import { BattleAnimator } from './BattleAnimator';
@@ -120,7 +120,7 @@ export class BattleSystem {
     const blueStrategy = this.store.getStrategy(blueId);
     const red = createBattlePerson(redId, 'red', { x: 5, y: 8 }, redStrategy?.name, redStrategy);
     const blue = createBattlePerson(blueId, 'blue', { x: 3, y: 1 }, blueStrategy?.name, blueStrategy);
-    this.startWithPersons(red, blue, null, true);
+    this.startWithPersons([red, blue], null, true);
   }
 
   /** 玩家挑战大地图 Agent */
@@ -130,18 +130,45 @@ export class BattleSystem {
     const player = createPlayerBattlePerson(this.store.playerProgress, 'red', { x: 5, y: 8 });
     const enemyStrategy = this.store.getStrategy(agentId);
     const enemy = createBattlePerson(agentId, 'blue', { x: 3, y: 1 }, agentName, enemyStrategy);
-    this.startWithPersons(player, enemy, 'player', false);
+    this.startWithPersons([player, enemy], 'player', false);
+  }
+
+  /** 数字掌门主线用的战棋演示：数字掌门同时面对贪婪、恐惧两个心魔。 */
+  startDigitalMasterTrialDemo(): void {
+    if (this.phase !== 'idle') return;
+
+    const digitalMaster = createBattlePerson(
+      'digital_master',
+      'red',
+      { x: 5, y: 8 },
+      '数字掌门',
+      this.store.getStrategy('digital_master'),
+    );
+    digitalMaster.hp = Math.max(digitalMaster.hp, 900);
+    digitalMaster.maxHp = Math.max(digitalMaster.maxHp, 900);
+    digitalMaster.mp = Math.max(digitalMaster.mp, 500);
+    digitalMaster.maxMp = Math.max(digitalMaster.maxMp, 500);
+    digitalMaster.attack = Math.max(digitalMaster.attack, 120);
+    digitalMaster.defense = Math.max(digitalMaster.defense, 90);
+    digitalMaster.speed = Math.max(digitalMaster.speed, 60);
+    digitalMaster.wugong = WUGONG_DEFS.jingang_fumo ?? NORMAL_ATTACK;
+
+    const greed = this.createStoryBattlePerson('heart_demon_greed', '贪婪', { x: 3, y: 2 }, WUGONG_DEFS.fengmo_zhang ?? NORMAL_ATTACK);
+    const fear = this.createStoryBattlePerson('heart_demon_fear', '恐惧', { x: 7, y: 2 }, WUGONG_DEFS.taiji_quan ?? NORMAL_ATTACK);
+
+    this.startWithPersons([digitalMaster, greed, fear], null, true);
+    this.hudRenderer.addLog('数字掌门展开战棋演示：贪婪与恐惧化为心魔。');
   }
 
   private startWithPersons(
-    red: BattlePerson,
-    blue: BattlePerson,
+    persons: BattlePerson[],
     controlledPersonId: string | null,
     autoMode: boolean,
   ): void {
-    this.persons = [red, blue];
-    this.faceToward(red, blue.pos);
-    this.faceToward(blue, red.pos);
+    this.persons = persons;
+    for (const person of this.persons) {
+      this.faceToward(person, getEnemy(person, this.persons)?.pos ?? person.pos);
+    }
     this.round = 0;
     this.phase = 'running';
     this.isAutoMode = autoMode;
@@ -153,10 +180,40 @@ export class BattleSystem {
     this.renderPersons();
     this.hudRenderer.renderHUD(this.container!, this.persons, this.round, (person, skill) => this.getSkillBattleLabel(person, skill));
 
-    this.eventBus.emit('battle:start', { redId: red.id, blueId: blue.id });
+    const red = this.persons.find(person => person.team === 'red');
+    const blue = this.persons.find(person => person.team === 'blue');
+    this.eventBus.emit('battle:start', { redId: red?.id ?? '', blueId: blue?.id ?? '' });
 
     // 延迟开始第一回合
     this.scene.time.delayedCall(800, () => this.nextTurn());
+  }
+
+  private createStoryBattlePerson(
+    id: string,
+    name: string,
+    pos: { x: number; y: number },
+    wugong: WugongDef,
+  ): BattlePerson {
+    return {
+      id,
+      name,
+      team: 'blue',
+      existenceTier: 1,
+      hp: 260,
+      maxHp: 260,
+      mp: 160,
+      maxMp: 160,
+      attack: 36,
+      defense: 18,
+      hitRate: 74,
+      dodgeRate: 8,
+      speed: id.includes('fear') ? 34 : 42,
+      moveRange: 3,
+      wugong,
+      pos: { ...pos },
+      facing: Direction.Down,
+      alive: true,
+    };
   }
 
   /** 每帧更新 */

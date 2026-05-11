@@ -3564,6 +3564,49 @@ body {
   background: #2f7c70;
 }
 
+.jianghu-trading-heart {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 4px 0 8px;
+  padding: 9px 11px;
+  border: 1px solid rgba(137, 102, 58, 0.34);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255, 242, 186, 0.66), transparent 45%),
+    linear-gradient(135deg, rgba(238, 218, 166, 0.64), rgba(248, 239, 214, 0.74));
+  box-shadow: inset 0 0 0 1px rgba(255, 250, 232, 0.55);
+}
+
+.jianghu-trading-heart span {
+  color: #7b5838;
+  font-family: 'Kaiti SC', 'STKaiti', serif;
+  font-size: 14px;
+}
+
+.jianghu-trading-heart b {
+  justify-self: end;
+  color: #775236;
+  font-size: 15px;
+}
+
+.jianghu-trading-heart small {
+  grid-column: 1 / -1;
+  color: #9a8060;
+  font-size: 11px;
+}
+
+.jianghu-trading-heart.is-unlocked {
+  border-color: rgba(192, 116, 47, 0.62);
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 236, 160, 0.82), transparent 42%),
+    linear-gradient(135deg, rgba(201, 122, 59, 0.24), rgba(255, 246, 215, 0.86));
+}
+
+.jianghu-trading-heart.is-unlocked b {
+  color: #9b4d24;
+}
+
 .jianghu-top-attrs {
   display: grid;
   grid-template-columns: repeat(5, 1fr);

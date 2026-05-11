@@ -42,6 +42,10 @@ conditions.set('manual_not_owned', (params, store) => {
   return !store.hasManual(params.manualId as string);
 });
 
+conditions.set('trading_heart_level_gte', (params, store) => {
+  return store.getTradingHeartLevel() >= (params.level as number);
+});
+
 conditions.set('flag_not_set', (params, store) => {
   return !store.storyFlags[params.flag as string];
 });
@@ -81,6 +85,34 @@ actions.set('grant_manual', (params, store, _eventBus) => {
     store.addEvent(params.agentName as string || '观察者', `获得秘籍《${params.manualName as string || params.manualId}》`);
     _eventBus.emit('ui:refresh');
   }
+});
+
+actions.set('unlock_trading_heart', (params, store, _eventBus) => {
+  const rawLevel = Number(params.level ?? 1);
+  const level = Math.max(1, Math.floor(Number.isFinite(rawLevel) ? rawLevel : 1));
+  const changed = store.unlockTradingHeart(level);
+  store.storyFlags['trading_heart.unlocked'] = true;
+  store.persistStoryState();
+  if (changed) {
+    store.addEvent(params.agentName as string || '数字掌门', `领悟《交易心法》第${level}重`);
+  }
+  _eventBus.emit('ui:refresh');
+});
+
+actions.set('set_trading_heart_level', (params, store, _eventBus) => {
+  const rawLevel = Number(params.level ?? 0);
+  const level = Math.max(0, Math.floor(Number.isFinite(rawLevel) ? rawLevel : 0));
+  const changed = store.setTradingHeartLevel(level);
+  store.storyFlags['trading_heart.unlocked'] = level > 0;
+  store.persistStoryState();
+  if (changed) {
+    store.addEvent(params.agentName as string || '观察者', `《交易心法》来到第${level}重`);
+  }
+  _eventBus.emit('ui:refresh');
+});
+
+actions.set('start_story_battle', (params, _store, eventBus) => {
+  eventBus.emit('story:battle-requested', { battleId: params.battleId as string });
 });
 
 actions.set('grant_yuanbao', (params, store, _eventBus) => {

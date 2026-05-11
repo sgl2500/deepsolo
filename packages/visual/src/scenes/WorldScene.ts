@@ -17,10 +17,12 @@ import { SceneManager } from '../systems/SceneManager';
 import { DialogueSystem } from '../systems/DialogueSystem';
 import { VFXSystem } from '../systems/VFXSystem';
 import { SideBattleSystem } from '../systems/sidebattle/SideBattleSystem';
+import { BattleSystem as TacticalBattleSystem } from '../systems/BattleSystem';
 import { StorySystem } from '../systems/StorySystem';
 import { WorldMapEditor } from '../systems/WorldMapEditor';
 import { BUILDINGS } from '../data/BuildingData';
 import { getNearbyIndoorInteractable } from '../content/IndoorInteractables';
+import { findStoryInteractionRoute } from '../content/StoryInteractionRoutes';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
 import { PlayerAppearanceOverlay } from '../ui/PlayerAppearanceOverlay';
 import { BattleActionPreviewOverlay } from '../ui/BattleActionPreviewOverlay';
@@ -59,6 +61,7 @@ export class WorldScene extends Phaser.Scene {
   private dialogueSystem!: DialogueSystem;
   private vfxSystem!: VFXSystem;
   private battleSystem!: SideBattleSystem;
+  private tacticalBattleSystem!: TacticalBattleSystem;
   private storySystem!: StorySystem;
   private worldMapEditor!: WorldMapEditor;
   private playerAppearanceOverlay!: PlayerAppearanceOverlay;
@@ -141,11 +144,15 @@ export class WorldScene extends Phaser.Scene {
 
     // 战斗系统
     this.battleSystem = new SideBattleSystem(this, _eventBus, _store);
+    this.tacticalBattleSystem = new TacticalBattleSystem(this, _eventBus, _store);
 
     // 剧情系统
     this.storySystem = new StorySystem(this, _eventBus, _store);
     _eventBus.on('story:start-requested', ({ storyId }) => {
       this.storySystem.startStoryById(storyId);
+    });
+    _eventBus.on('story:battle-requested', ({ battleId }) => {
+      this.time.delayedCall(120, () => this.startStoryBattleDemo(battleId));
     });
 
     // 建筑入口标记（必须在 SceneManager 之前创建）
@@ -552,7 +559,16 @@ export class WorldScene extends Phaser.Scene {
 
     // ── 战斗结束事件 ──
     _eventBus.on('battle:end', () => {
+      const shouldCompleteDigitalTrial = Boolean(_store.storyFlags['main.digital_master_trial.demo_pending']);
       this.sceneManager.endBattle();
+      if (shouldCompleteDigitalTrial) {
+        _store.storyFlags['main.digital_master_trial.demo_pending'] = false;
+        _store.storyFlags['main.digital_master_trial.demo_done'] = true;
+        _store.persistStoryState();
+        this.time.delayedCall(360, () => {
+          this.storySystem.startStoryById('main_digital_master_trial_complete');
+        });
+      }
     });
 
     this.maybeStartBattlePreviewFromQuery();
@@ -561,6 +577,20 @@ export class WorldScene extends Phaser.Scene {
   /** Agent 交互距离（地图格） */
   private static readonly AGENT_INTERACT_DIST = 3.0;
 
+  private startStoryBattleDemo(battleId: string): void {
+    if (this.sceneManager.getState() === SceneState.Battle) return;
+    if (this.battleSystem.isActive() || this.tacticalBattleSystem.isActive()) return;
+    if (this.sceneManager.isPlayerLocked()) {
+      this.time.delayedCall(120, () => this.startStoryBattleDemo(battleId));
+      return;
+    }
+
+    if (battleId === 'digital_master_trial_demo') {
+      this.sceneManager.startBattle();
+      this.tacticalBattleSystem.startDigitalMasterTrialDemo();
+    }
+  }
+
   private maybeStartBattlePreviewFromQuery(): void {
     if (!ENABLE_DEV_TOOLS || typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -568,7 +598,7 @@ export class WorldScene extends Phaser.Scene {
     if (!targetId) return;
 
     this.time.delayedCall(320, () => {
-      if (this.battleSystem.isActive() || this.sceneManager.getState() === SceneState.Battle) return;
+      if (this.battleSystem.isActive() || this.tacticalBattleSystem.isActive() || this.sceneManager.getState() === SceneState.Battle) return;
       const targetName = _store.getStrategy(targetId)?.name ?? (targetId === 'digital_master' ? '数字掌门' : targetId);
       this.sceneManager.startBattle();
       this.battleSystem.startPlayerVsAgent(targetId, targetName);
@@ -605,7 +635,8 @@ export class WorldScene extends Phaser.Scene {
 
     // ── 战斗状态 ──
     if (state === SceneState.Battle) {
-      this.battleSystem.update(time, delta);
+      if (this.tacticalBattleSystem.isActive()) this.tacticalBattleSystem.update(time, delta);
+      else this.battleSystem.update(time, delta);
       return;
     }
 
@@ -638,7 +669,11 @@ export class WorldScene extends Phaser.Scene {
     }
 
     // B 键：大地图靠近 Agent 后发起玩家挑战
-    if (this.inputController.isBattlePressed() && !this.battleSystem.isActive()) {
+    if (
+      this.inputController.isBattlePressed() &&
+      !this.battleSystem.isActive() &&
+      !this.tacticalBattleSystem.isActive()
+    ) {
       if (state === SceneState.Indoor) {
         const challenger = this.entitySystem.getNearbyIndoorActorTarget(
           this.entitySystem.player.mapX,
@@ -717,6 +752,13 @@ export class WorldScene extends Phaser.Scene {
       : null;
     this.updateInteractHint(nearbyIndoorInteractable, null, null);
 
+    if (
+      nearbyTalkActor?.strategyNpc &&
+      this.tryStartNearbyStoryRoute(buildingId, nearbyTalkActor.strategyNpc)
+    ) {
+      return;
+    }
+
     const giftPressed = this.inputController.isGiftPressed();
 
     if (this.inputController.isInspectPressed() && nearbyProfileActor?.strategyNpc) {
@@ -747,6 +789,17 @@ export class WorldScene extends Phaser.Scene {
 
       if (nearbyTalkActor?.strategyNpc) {
         const strategyNpc = nearbyTalkActor.strategyNpc;
+        if (
+          buildingId === 'digital_sect' &&
+          strategyNpc.strategy.id === 'digital_master' &&
+          _store.storyFlags['main.digital_master_trial.demo_pending']
+        ) {
+          this.startStoryBattleDemo('digital_master_trial_demo');
+          return;
+        }
+        if (this.tryStartNearbyStoryRoute(buildingId, strategyNpc)) {
+          return;
+        }
         _store.selectStrategy(strategyNpc.strategy);
         this.openAgentChat(strategyNpc.strategy);
         return;
@@ -805,6 +858,11 @@ export class WorldScene extends Phaser.Scene {
         : '';
       debugEl.textContent = `map:${px.toFixed(1)},${py.toFixed(1)}${localInfo}${sceneLabel}${exitInfo}`;
     }
+  }
+
+  private tryStartNearbyStoryRoute(buildingId: string | null, strategyNpc: StrategyNPC): boolean {
+    const route = findStoryInteractionRoute(buildingId, strategyNpc.strategy.id, _store);
+    return Boolean(route && this.storySystem.startStoryById(route.storyId));
   }
 
   private updateInteractHint(

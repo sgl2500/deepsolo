@@ -40,6 +40,12 @@ export interface PlayerMartialProgress {
   stack: number;
 }
 
+export interface PlayerTradingHeartProgress {
+  unlocked: boolean;
+  level: number;
+  updatedAt?: number;
+}
+
 export interface PlayerEquipment {
   weapon?: string;
   armor?: string;
@@ -69,6 +75,7 @@ export interface PlayerProgress {
   inventory: PlayerInventoryStack[];
   manuals: PlayerManualProgress[];
   martials: PlayerMartialProgress[];
+  tradingHeart: PlayerTradingHeartProgress;
   equipment: PlayerEquipment;
   flags: Record<string, boolean>;
 }

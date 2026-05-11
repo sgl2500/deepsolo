@@ -187,6 +187,7 @@ export class PlayerPanel {
             <p><span>门派：</span><b>${this.escapeHtml(factionName)}</b></p>
             <p><span>等级：</span><b>${level}级</b></p>
           </div>
+          ${this.renderTradingHeartCard()}
           <div class="jianghu-top-attrs">
             <div><span>力量</span><b>${this.escapeHtml(statRows[0].value)}</b></div>
             <div><span>防御</span><b>${this.escapeHtml(statRows[1].value)}</b></div>
@@ -203,6 +204,21 @@ export class PlayerPanel {
           <div><span>元宝</span><b>${progress.currencies.yuanbao}</b></div>
         </div>
       </section>
+    `;
+  }
+
+  private renderTradingHeartCard(): string {
+    const tradingHeart = this.store.playerProgress.tradingHeart;
+    const state = tradingHeart.unlocked ? `第${tradingHeart.level}重` : '未领悟';
+    const hint = tradingHeart.unlocked
+      ? '交易剧情核心境界'
+      : '数字掌门主线后开启';
+    return `
+      <div class="jianghu-trading-heart ${tradingHeart.unlocked ? 'is-unlocked' : ''}">
+        <span>交易心法</span>
+        <b>${this.escapeHtml(state)}</b>
+        <small>${this.escapeHtml(hint)}</small>
+      </div>
     `;
   }
 

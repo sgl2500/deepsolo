@@ -15,6 +15,7 @@ export class BattleHUDRenderer {
   private mpBars: Map<string, Phaser.GameObjects.Graphics> = new Map();
   private hpValueLabels: Map<string, Phaser.GameObjects.Text> = new Map();
   private mpValueLabels: Map<string, Phaser.GameObjects.Text> = new Map();
+  private statusRects: Map<string, { x: number; y: number; w: number; h: number }> = new Map();
   private logTexts: Phaser.GameObjects.Text[] = [];
   private roundLabel: Phaser.GameObjects.Text | null = null;
   private endOverlay: Phaser.GameObjects.Container | null = null;
@@ -71,8 +72,9 @@ export class BattleHUDRenderer {
     subtitle.setScrollFactor(0);
     container.add(subtitle);
 
+    this.statusRects.clear();
     for (const person of persons) {
-      this.renderStatusPanel(container, person, getSkillLabel);
+      this.renderStatusPanel(container, person, getSkillLabel, persons);
       this.updateHPBar(person);
     }
 
@@ -279,7 +281,7 @@ export class BattleHUDRenderer {
   }
 
   updateHPBar(person: BattlePerson): void {
-    const rect = this.getStatusPanelRect(person);
+    const rect = this.statusRects.get(person.id) ?? this.getStatusPanelRect(person);
     const ratio = person.hp / person.maxHp;
     const hpColor = ratio > 0.5 ? 0x22c55e : ratio > 0.25 ? 0xeab308 : 0xef4444;
     const hpBar = this.hpBars.get(person.id);
@@ -360,6 +362,7 @@ export class BattleHUDRenderer {
     this.mpValueLabels.clear();
     this.logTexts = [];
     this.roundLabel = null;
+    this.statusRects.clear();
     if (this.endOverlay) {
       this.endOverlay.destroy(true);
       this.endOverlay = null;
@@ -370,9 +373,11 @@ export class BattleHUDRenderer {
     container: Phaser.GameObjects.Container,
     person: BattlePerson,
     getSkillLabel: SkillLabelResolver,
+    persons: BattlePerson[],
   ): void {
     const isRed = person.team === 'red';
-    const rect = this.getStatusPanelRect(person);
+    const rect = this.getStatusPanelRect(person, persons);
+    this.statusRects.set(person.id, rect);
 
     const bg = this.scene.add.graphics();
     bg.setScrollFactor(0);
@@ -555,10 +560,17 @@ export class BattleHUDRenderer {
     };
   }
 
-  private getStatusPanelRect(person: BattlePerson): { x: number; y: number; w: number; h: number } {
+  private getStatusPanelRect(
+    person: BattlePerson,
+    persons?: BattlePerson[],
+  ): { x: number; y: number; w: number; h: number } {
+    const teamIndex = persons
+      ? persons.filter(item => item.team === person.team).findIndex(item => item.id === person.id)
+      : 0;
+    const row = Math.max(0, teamIndex);
     return {
       x: BATTLE_HUD_MARGIN,
-      y: person.team === 'red' ? 24 : 122,
+      y: (person.team === 'red' ? 24 : 122) + row * (BATTLE_STATUS_PANEL_H + 8),
       w: BATTLE_STATUS_PANEL_W,
       h: BATTLE_STATUS_PANEL_H,
     };

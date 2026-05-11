@@ -677,6 +677,112 @@ const digitalMasterFavorGiftFumo: StoryScript = {
   ],
 };
 
+/** 主线：数字掌门传授交易心法前的战棋演示 */
+const mainDigitalMasterTrialIntro: StoryScript = {
+  id: 'main_digital_master_trial_intro',
+  trigger: {
+    event: 'manual',
+    conditions: [
+      { type: 'flag_is', params: { flag: 'story.observer_awake', value: true } },
+      { type: 'flag_not_set', params: { flag: 'main.digital_master_trial.started' } },
+      { type: 'flag_not_set', params: { flag: 'main.digital_master_trial.completed' } },
+    ],
+  },
+  priority: 120,
+  firstNode: 'distance',
+  nodes: {
+    distance: {
+      id: 'distance',
+      speaker: '数字掌门',
+      portraitKey: '1',
+      text: '你对交易之道的领悟过于浅显，现在离我差距太远。',
+      next: 'entrusted',
+    },
+    entrusted: {
+      id: 'entrusted',
+      speaker: '数字掌门',
+      portraitKey: '1',
+      text: '我受股神之托，就是开局的你的引导人，领你进交易之门。',
+      next: 'teach',
+    },
+    teach: {
+      id: 'teach',
+      speaker: '数字掌门',
+      portraitKey: '1',
+      text: '我带你领会交易之道至高武学。',
+      next: 'move_one',
+    },
+    move_one: {
+      id: 'move_one',
+      speaker: '数字掌门',
+      portraitKey: '1',
+      text: '第一招，寂灭本心，贪婪恐惧灭。',
+      next: 'move_two',
+    },
+    move_two: {
+      id: 'move_two',
+      speaker: '数字掌门',
+      portraitKey: '1',
+      text: '第二招，重塑信心，勤勉自信起。',
+      next: 'move_three',
+    },
+    move_three: {
+      id: 'move_three',
+      speaker: '数字掌门',
+      portraitKey: '1',
+      text: '第三招，大道归一，神人合一，收。',
+    },
+  },
+  onComplete: [
+    { type: 'set_flag', params: { flag: 'main.digital_master_trial.started', value: true } },
+    { type: 'set_flag', params: { flag: 'main.digital_master_trial.demo_pending', value: true } },
+    { type: 'start_story_battle', params: { battleId: 'digital_master_trial_demo' } },
+  ],
+};
+
+/** 主线：数字掌门战棋演示后的收尾和交易心法解锁 */
+const mainDigitalMasterTrialComplete: StoryScript = {
+  id: 'main_digital_master_trial_complete',
+  trigger: {
+    event: 'manual',
+    conditions: [
+      { type: 'flag_is', params: { flag: 'main.digital_master_trial.demo_done', value: true } },
+      { type: 'flag_not_set', params: { flag: 'main.digital_master_trial.completed' } },
+    ],
+  },
+  priority: 119,
+  firstNode: 'understand',
+  nodes: {
+    understand: {
+      id: 'understand',
+      speaker: '数字掌门',
+      portraitKey: '1',
+      text: '这三招你看明白了吗？',
+      next: 'self',
+    },
+    self: {
+      id: 'self',
+      speaker: '数字掌门',
+      portraitKey: '1',
+      text: '你领悟多少就看你自己了。',
+      next: 'world',
+    },
+    world: {
+      id: 'world',
+      speaker: '数字掌门',
+      portraitKey: '1',
+      text: '在策略世界里，你需要不断探索和进阶，提升自己，最终明悟自身，才能返回真实交易世界。',
+    },
+  },
+  onComplete: [
+    { type: 'unlock_trading_heart', params: { level: 1, agentName: '数字掌门' } },
+    { type: 'set_flag', params: { flag: 'main.digital_master_trial.completed', value: true } },
+    { type: 'mark_completed', params: { storyId: 'main_digital_master_trial_intro' } },
+    { type: 'mark_completed', params: { storyId: 'main_digital_master_trial_complete' } },
+    { type: 'add_event_log', params: { agentName: '数字掌门', text: '传授《交易心法》，主角领悟第一重。' } },
+  ],
+};
+
 /** 所有故事脚本（按 priority 降序排列） */
 const TEAHOUSE_ENTRY_STORIES_ENABLED = false;
 
@@ -685,6 +791,8 @@ export const STORY_SCRIPTS: StoryScript[] = [
   observerHouseExitLockedPrompt,
   observerHouseIntroWakeup,
   gushenHubDefault,
+  mainDigitalMasterTrialIntro,
+  mainDigitalMasterTrialComplete,
   digitalMasterFavorGiftFumo,
   masterChenFavorGiftTuna,
   // 策略茶馆搭建阶段先关闭“进门自动剧情”，保留靠近 NPC 按空格的手动对话。

@@ -13,6 +13,7 @@ import {
   type PlayerManualProgress,
   type PlayerNpcAffinity,
   type PlayerProgress,
+  type PlayerTradingHeartProgress,
   type PlayerVitals,
   type Strategy,
 } from '../types';
@@ -32,7 +33,7 @@ import {
 import { readUserScopedStorage, removeUserScopedStorage, writeUserScopedStorage } from './UserScopedStorage';
 
 const DEFAULT_PLAYER_PROGRESS: PlayerProgress = {
-  version: 3,
+  version: 4,
   identity: { name: '无名少侠', title: '观察者' },
   vitals: { hp: 200, maxHp: 200, mp: 200, maxMp: 200 },
   attributes: {
@@ -47,6 +48,7 @@ const DEFAULT_PLAYER_PROGRESS: PlayerProgress = {
   inventory: [],
   manuals: [],
   martials: [{ martialId: 'basic_attack', level: 1, exp: 0, totalUses: 0, hitCount: 0, whiffCount: 0, stack: 0 }],
+  tradingHeart: { unlocked: false, level: 0 },
   equipment: {},
   flags: {},
 };
@@ -467,6 +469,34 @@ export class GameStore {
     this.persistPlayerProgress();
   }
 
+  getTradingHeartLevel(): number {
+    return this.playerProgress.tradingHeart.unlocked
+      ? Math.max(1, this.playerProgress.tradingHeart.level)
+      : 0;
+  }
+
+  unlockTradingHeart(initialLevel = 1): boolean {
+    const level = Math.max(1, Math.floor(this.safeNumber(initialLevel, 1)));
+    const tradingHeart = this.playerProgress.tradingHeart;
+    const changed = !tradingHeart.unlocked || tradingHeart.level !== level;
+    tradingHeart.unlocked = true;
+    tradingHeart.level = level;
+    tradingHeart.updatedAt = Date.now();
+    if (changed) this.persistPlayerProgress();
+    return changed;
+  }
+
+  setTradingHeartLevel(level: number): boolean {
+    const safeLevel = Math.max(0, Math.floor(this.safeNumber(level, 0)));
+    const tradingHeart = this.playerProgress.tradingHeart;
+    const changed = tradingHeart.level !== safeLevel || tradingHeart.unlocked !== (safeLevel > 0);
+    tradingHeart.level = safeLevel;
+    tradingHeart.unlocked = safeLevel > 0;
+    tradingHeart.updatedAt = Date.now();
+    if (changed) this.persistPlayerProgress();
+    return changed;
+  }
+
   hasItem(itemId: string): boolean {
     return this.getItemCount(itemId) > 0;
   }
@@ -806,6 +836,7 @@ export class GameStore {
       inventory: this.normalizeInventory(data.inventory),
       manuals: this.normalizeManuals(data.manuals),
       martials: this.normalizeMartials(data.martials),
+      tradingHeart: this.normalizeTradingHeart(data.tradingHeart),
       equipment: this.normalizeEquipment(data.equipment),
       flags: this.normalizeFlags(data.flags),
     };
@@ -838,6 +869,17 @@ export class GameStore {
     const data = raw && typeof raw === 'object' ? raw as Partial<PlayerCurrencies> : {};
     return {
       yuanbao: Math.max(0, Math.floor(this.safeNumber(data.yuanbao, DEFAULT_PLAYER_PROGRESS.currencies.yuanbao))),
+    };
+  }
+
+  private normalizeTradingHeart(raw: unknown): PlayerTradingHeartProgress {
+    const data = raw && typeof raw === 'object' ? raw as Partial<PlayerTradingHeartProgress> : {};
+    const level = Math.max(0, Math.floor(this.safeNumber(data.level, DEFAULT_PLAYER_PROGRESS.tradingHeart.level)));
+    const unlocked = Boolean(data.unlocked) || level > 0;
+    return {
+      unlocked,
+      level: unlocked ? Math.max(1, level) : 0,
+      updatedAt: this.safeNumber(data.updatedAt, 0) || undefined,
     };
   }
 
