@@ -16,12 +16,14 @@ export interface SceneDef {
 /** 世界上的场景建筑 */
 export const SCENES: SceneDef[] = [
   { id: 'birth_house', name: '观察者小屋',  x: 50, y: 55, entryRadius: 2 },
-  { id: 'exchange',  name: '证券交易所',   x: 50, y: 50, entryRadius: 2 },
+  { id: 'exchange',  name: 'A股门派线索',  x: 50, y: 50, entryRadius: 2 },
   { id: 'teahouse',  name: '策略茶馆',     x: 20, y: 45, entryRadius: 2 },
   { id: 'news',      name: '新闻中心',     x: 75, y: 15, entryRadius: 2 },
   { id: 'datacenter',name: '行情数据中心', x: 75, y: 30, entryRadius: 2 },
   { id: 'lab',       name: '进化实验室',   x: 75, y: 65, entryRadius: 2 },
   { id: 'rank',      name: '排行榜广场',   x: 75, y: 80, entryRadius: 2 },
+  { id: 'trial_cave', name: '试炼山洞',    x: 37, y: 77, entryRadius: 2 },
+  { id: 'construction_site', name: '建造空地', x: 60, y: 88, entryRadius: 2 },
   { id: 'token_center', name: 'Token中心', x: 40, y: 85, entryRadius: 2 },
   { id: 'heimu_cliff',  name: '黑木崖',     x: 85, y: 50, entryRadius: 2 },
   ...getAutomatedBuildings().map((building): SceneDef => ({

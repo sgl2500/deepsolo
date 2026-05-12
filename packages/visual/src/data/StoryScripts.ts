@@ -783,6 +783,120 @@ const mainDigitalMasterTrialComplete: StoryScript = {
   ],
 };
 
+const teahouseDiscussionSects: StoryScript = {
+  id: 'teahouse_discussion_sects',
+  trigger: {
+    event: 'manual',
+    conditions: [
+      { type: 'trading_heart_level_gte', params: { level: 1 } },
+    ],
+  },
+  priority: 20,
+  firstNode: 'start',
+  nodes: {
+    start: {
+      id: 'start',
+      speaker: '茶馆众人',
+      portraitKey: '10',
+      text: '听说当前世界里，主要已有两大门派成立：数字门派与 A 股门派。门派里可以挑战，也可以拜师、学习。',
+      next: 'map',
+    },
+    map: {
+      id: 'map',
+      speaker: '我',
+      portraitKey: 'assets/portraits/player3_observer.png',
+      text: '原来门派不是摆设。若想继续修行，迟早要知道每个门派的路。',
+    },
+  },
+  onComplete: [
+    { type: 'set_flag', params: { flag: 'world.teahouse_discussion.sects_seen', value: true } },
+    {
+      type: 'unlock_world_location',
+      params: {
+        flag: 'world.unlock.a_share_clue',
+        placeName: 'A股门派线索',
+        message: '门派可以挑战、拜师、学习；A 股门派线索已经出现在大地图上。',
+      },
+    },
+  ],
+};
+
+const teahouseDiscussionTrialCave: StoryScript = {
+  id: 'teahouse_discussion_trial_cave',
+  trigger: {
+    event: 'manual',
+    conditions: [
+      { type: 'trading_heart_level_gte', params: { level: 1 } },
+    ],
+  },
+  priority: 20,
+  firstNode: 'start',
+  nodes: {
+    start: {
+      id: 'start',
+      speaker: '茶馆众人',
+      portraitKey: '10',
+      text: '有人说，试炼山洞里有 boss。能击败它的人，可以得到一些成熟的策略秘籍。',
+      next: 'map',
+    },
+    map: {
+      id: 'map',
+      speaker: '我',
+      portraitKey: 'assets/portraits/player3_observer.png',
+      text: '成熟的策略秘籍……看来这个世界里，试炼也是修行的一部分。',
+    },
+  },
+  onComplete: [
+    { type: 'set_flag', params: { flag: 'world.teahouse_discussion.trial_cave_seen', value: true } },
+    {
+      type: 'unlock_world_location',
+      params: {
+        flag: 'world.unlock.trial_cave',
+        placeName: '试炼山洞',
+        message: '击败试炼 boss 后，可以获得成熟的策略秘籍。',
+      },
+    },
+  ],
+};
+
+const teahouseDiscussionBuilding: StoryScript = {
+  id: 'teahouse_discussion_building',
+  trigger: {
+    event: 'manual',
+    conditions: [
+      { type: 'trading_heart_level_gte', params: { level: 1 } },
+    ],
+  },
+  priority: 20,
+  firstNode: 'start',
+  nodes: {
+    start: {
+      id: 'start',
+      speaker: '茶馆众人',
+      portraitKey: '10',
+      text: '还有人说，修行到后面，不能只到处借住。可以买地，建造自己的地方。',
+      next: 'map',
+    },
+    map: {
+      id: 'map',
+      speaker: '我',
+      portraitKey: 'assets/portraits/player3_observer.png',
+      text: '买地，建造……原来这个世界不只有问道和战斗，也能自己落脚。',
+    },
+  },
+  onComplete: [
+    { type: 'set_flag', params: { flag: 'world.teahouse_discussion.building_seen', value: true } },
+    {
+      type: 'unlock_world_location',
+      params: {
+        flag: 'world.unlock.construction_site',
+        placeName: '买地建造入口',
+        message: '建造空地已经出现在大地图上。',
+      },
+    },
+  ],
+};
+
 /** 所有故事脚本（按 priority 降序排列） */
 const TEAHOUSE_ENTRY_STORIES_ENABLED = false;
 
@@ -793,6 +907,9 @@ export const STORY_SCRIPTS: StoryScript[] = [
   gushenHubDefault,
   mainDigitalMasterTrialIntro,
   mainDigitalMasterTrialComplete,
+  teahouseDiscussionSects,
+  teahouseDiscussionTrialCave,
+  teahouseDiscussionBuilding,
   digitalMasterFavorGiftFumo,
   masterChenFavorGiftTuna,
   // 策略茶馆搭建阶段先关闭“进门自动剧情”，保留靠近 NPC 按空格的手动对话。

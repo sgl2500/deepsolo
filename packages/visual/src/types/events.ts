@@ -53,4 +53,5 @@ export interface GameEvents {
   'story:completed': { storyId: string };
   'story:start-requested': { storyId: string };
   'story:battle-requested': { battleId: string };
+  'world:location-unlocked': { placeName: string; message?: string };
 }

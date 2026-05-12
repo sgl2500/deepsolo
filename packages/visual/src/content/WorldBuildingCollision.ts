@@ -1,4 +1,5 @@
 import { BUILDINGS } from '../data/BuildingData';
+import { isWorldBuildingUnlocked } from './WorldDiscovery';
 
 function isPointInPolygon(x: number, y: number, polygon: Array<{ x: number; y: number }>): boolean {
   let inside = false;
@@ -14,6 +15,8 @@ function isPointInPolygon(x: number, y: number, polygon: Array<{ x: number; y: n
 
 export function isBlockedByWorldBuildingCollision(x: number, y: number): boolean {
   for (const building of BUILDINGS) {
+    if (!isWorldBuildingUnlocked(building.id)) continue;
+
     const entryDx = x - building.entryX;
     const entryDy = y - building.entryY;
     if (Math.sqrt(entryDx * entryDx + entryDy * entryDy) <= building.entryRadius) {

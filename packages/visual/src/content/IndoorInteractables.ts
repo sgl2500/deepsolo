@@ -5,6 +5,9 @@ const bedPos = toActualIndoorMapPosition('birth_house', 1.5, 11.5);
 const bookshelfPos = toActualIndoorMapPosition('birth_house', 10, 1);
 const deskPos = toActualIndoorMapPosition('birth_house', 12.92, 12.92);
 const noticePos = toActualIndoorMapPosition('birth_house', 13.96, 5.49);
+const teahouseSectRumorPos = toActualIndoorMapPosition('teahouse', 6, 12);
+const teahouseTrialRumorPos = toActualIndoorMapPosition('teahouse', 11, 12);
+const teahouseBuildRumorPos = toActualIndoorMapPosition('teahouse', 16, 12);
 
 export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
   {
@@ -85,6 +88,45 @@ export const INDOOR_INTERACTABLES: IndoorInteractableDef[] = [
         title: '屋规告示',
         message: '入世先观，见人先问。',
       },
+    },
+  },
+  {
+    id: 'teahouse_sect_rumor_table',
+    name: '门派传闻桌',
+    buildingId: 'teahouse',
+    mapX: teahouseSectRumorPos.mapX,
+    mapY: teahouseSectRumorPos.mapY,
+    interactRadius: 2.0,
+    prompt: '空格：旁听门派传闻',
+    action: {
+      type: 'story',
+      storyId: 'teahouse_discussion_sects',
+    },
+  },
+  {
+    id: 'teahouse_trial_rumor_table',
+    name: '试炼传闻桌',
+    buildingId: 'teahouse',
+    mapX: teahouseTrialRumorPos.mapX,
+    mapY: teahouseTrialRumorPos.mapY,
+    interactRadius: 2.0,
+    prompt: '空格：旁听试炼山洞传闻',
+    action: {
+      type: 'story',
+      storyId: 'teahouse_discussion_trial_cave',
+    },
+  },
+  {
+    id: 'teahouse_build_rumor_table',
+    name: '买地建造桌',
+    buildingId: 'teahouse',
+    mapX: teahouseBuildRumorPos.mapX,
+    mapY: teahouseBuildRumorPos.mapY,
+    interactRadius: 2.0,
+    prompt: '空格：旁听买地建造传闻',
+    action: {
+      type: 'story',
+      storyId: 'teahouse_discussion_building',
     },
   },
 ];

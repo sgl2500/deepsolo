@@ -20,6 +20,7 @@ export type StoryActionName =
   | 'unlock_trading_heart'
   | 'set_trading_heart_level'
   | 'start_story_battle'
+  | 'unlock_world_location'
   | 'grant_yuanbao'
   | 'spend_yuanbao'
   | 'add_npc_favor'

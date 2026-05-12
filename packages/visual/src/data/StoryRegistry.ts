@@ -115,6 +115,20 @@ actions.set('start_story_battle', (params, _store, eventBus) => {
   eventBus.emit('story:battle-requested', { battleId: params.battleId as string });
 });
 
+actions.set('unlock_world_location', (params, store, eventBus) => {
+  const flag = params.flag as string;
+  const placeName = params.placeName as string;
+  const alreadyUnlocked = Boolean(store.storyFlags[flag]);
+  store.storyFlags[flag] = true;
+  store.persistStoryState();
+  if (!alreadyUnlocked) {
+    const message = params.message as string | undefined;
+    store.addEvent('策略茶馆', message ?? `大地图开启：${placeName}`);
+    eventBus.emit('world:location-unlocked', { placeName, message });
+  }
+  eventBus.emit('ui:refresh');
+});
+
 actions.set('grant_yuanbao', (params, store, _eventBus) => {
   store.grantYuanbao(params.amount as number, params.reason as string | undefined);
   _eventBus.emit('ui:refresh');

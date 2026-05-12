@@ -431,6 +431,12 @@ export class GameStore {
       'story.gushen_hub_unlocked',
       'objective.visit_teahouse',
       'objective.visit_sect',
+      'world.teahouse_discussion.sects_seen',
+      'world.teahouse_discussion.trial_cave_seen',
+      'world.teahouse_discussion.building_seen',
+      'world.unlock.a_share_clue',
+      'world.unlock.trial_cave',
+      'world.unlock.construction_site',
     ]) {
       delete this.storyFlags[flag];
     }
@@ -754,8 +760,30 @@ export class GameStore {
         this.storyFlags = data.flags || {};
         this.completedStories = new Set(data.completed || []);
         this.tutorialCompleted = data.tutorialCompleted ?? false;
+        this.normalizeStoryProgressionFlags();
       }
     } catch { /* ignore */ }
+  }
+
+  private normalizeStoryProgressionFlags(): void {
+    let changed = false;
+    const ensureFlag = (flag: string, value = true): void => {
+      if (this.storyFlags[flag] === value) return;
+      this.storyFlags[flag] = value;
+      changed = true;
+    };
+
+    if (this.storyFlags['world.teahouse_discussion.trial_cave_seen']) {
+      ensureFlag('world.unlock.trial_cave');
+    }
+    if (this.storyFlags['world.teahouse_discussion.sects_seen']) {
+      ensureFlag('world.unlock.a_share_clue');
+    }
+    if (this.storyFlags['world.teahouse_discussion.building_seen']) {
+      ensureFlag('world.unlock.construction_site');
+    }
+
+    if (changed) this.persistStoryState();
   }
 
   private initPlayerProgress(): void {

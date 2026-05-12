@@ -23,6 +23,7 @@ import { WorldMapEditor } from '../systems/WorldMapEditor';
 import { BUILDINGS } from '../data/BuildingData';
 import { getNearbyIndoorInteractable } from '../content/IndoorInteractables';
 import { findStoryInteractionRoute } from '../content/StoryInteractionRoutes';
+import { setWorldDiscoveryStoryFlags } from '../content/WorldDiscovery';
 import { createBuildingMarkers, updateBuildingMarkers } from '../systems/BuildingMarkers';
 import { PlayerAppearanceOverlay } from '../ui/PlayerAppearanceOverlay';
 import { BattleActionPreviewOverlay } from '../ui/BattleActionPreviewOverlay';
@@ -101,6 +102,8 @@ export class WorldScene extends Phaser.Scene {
   }
 
   create(): void {
+    setWorldDiscoveryStoryFlags(_store.storyFlags);
+
     this.mapData = this.cache.json.get('map');
     this.tileMeta = this.cache.json.get('tmeta');
     this.charMeta = this.cache.json.get('charmeta');
@@ -153,6 +156,9 @@ export class WorldScene extends Phaser.Scene {
     });
     _eventBus.on('story:battle-requested', ({ battleId }) => {
       this.time.delayedCall(120, () => this.startStoryBattleDemo(battleId));
+    });
+    _eventBus.on('world:location-unlocked', ({ placeName, message }) => {
+      this.showItemNotice(`大地图：${placeName}已开启`, message ?? '新的探索地点已经出现在大地图上。');
     });
 
     // 建筑入口标记（必须在 SceneManager 之前创建）
@@ -866,11 +872,15 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private updateInteractHint(
-    _interactable: IndoorInteractableDef | null,
+    interactable: IndoorInteractableDef | null,
     _strategyNpc: StrategyNPC | null,
     _npc: NPC | null,
   ): void {
     if (!this.interactHintText) return;
+    if (interactable?.prompt) {
+      this.interactHintText.setText(interactable.prompt).setVisible(true);
+      return;
+    }
     this.interactHintText.setVisible(false);
   }
 
@@ -946,6 +956,14 @@ export class WorldScene extends Phaser.Scene {
 
     if (action.type === 'dialogue') {
       this.startIndoorDialogue(action.dialogueId);
+      return;
+    }
+
+    if (action.type === 'story') {
+      const started = this.storySystem.startStoryById(action.storyId);
+      if (!started) {
+        this.showItemNotice(interactable.name, '现在还听不清这边在讨论什么。');
+      }
       return;
     }
 

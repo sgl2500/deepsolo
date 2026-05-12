@@ -83,6 +83,7 @@ export interface IndoorInteractableNotice {
 
 export type IndoorInteractableAction =
   | { type: 'dialogue'; dialogueId: string }
+  | { type: 'story'; storyId: string }
   | { type: 'notice'; notice: IndoorInteractableNotice }
   | {
       type: 'discover_manual';

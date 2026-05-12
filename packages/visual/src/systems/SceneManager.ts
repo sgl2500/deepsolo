@@ -15,6 +15,7 @@ import type { DialogueSystem } from './DialogueSystem';
 import type { MinimapSystem } from './MinimapSystem';
 import { setBuildingMarkersVisible, updateBuildingMarkers } from './BuildingMarkers';
 import { BIRTH_HOUSE_LOCKED_EXIT_MAX_Y } from '../content/IndoorExitLocks';
+import { isWorldBuildingUnlocked } from '../content/WorldDiscovery';
 
 export class SceneManager {
   private state: SceneState = SceneState.WorldMap;
@@ -190,6 +191,7 @@ export class SceneManager {
   /** 检测玩家是否走到建筑入口 */
   private checkBuildingEntry(player: Player): void {
     for (const b of BUILDINGS) {
+      if (!isWorldBuildingUnlocked(b.id)) continue;
       const dx = player.mapX - b.entryX;
       const dy = player.mapY - b.entryY;
       const dist = Math.sqrt(dx * dx + dy * dy);

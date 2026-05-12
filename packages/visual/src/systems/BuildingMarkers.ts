@@ -7,6 +7,7 @@ import { BUILDINGS } from '../data/BuildingData';
 import type { BuildingDef } from '../types';
 import type { MapData } from '../types';
 import { getAutomatedWorldBuildingVisuals } from '../content/AutomatedBuildingRegistry';
+import { isWorldBuildingUnlocked } from '../content/WorldDiscovery';
 
 type WorldBuildingVisual = {
   textureKey: string;
@@ -33,6 +34,8 @@ const STATIC_WORLD_BUILDING_VISUALS: Record<string, WorldBuildingVisual> = {
   },
   exchange: { textureKey: 'world_building_exchange', originY: 0.9, offsetY: 0, labelY: -130, scale: 0.45 },
   teahouse: { textureKey: 'world_building_teahouse', originY: 0.9, offsetY: 0, labelY: -130 },
+  trial_cave: { textureKey: 'world_building_trial_cave', originY: 0.9, offsetY: 0, labelY: -170, scale: 0.86 },
+  construction_site: { textureKey: 'world_building_a_share', originY: 0.9, offsetY: 0, labelY: -156 },
   news: { textureKey: 'world_building_news_center', originY: 0.9, offsetY: 0, labelY: -170 },
   token_center: { textureKey: 'world_building_token_center', originY: 0.9, offsetY: 0, labelY: -130 },
   heimu_cliff: { textureKey: 'world_building_heimu_cliff', originY: 0.9, offsetY: 0, labelY: -150 },
@@ -118,6 +121,7 @@ export function updateBuildingMarkers(
   for (const m of markers) {
     const building = findBuilding(m.getData('buildingId') as string);
     if (!building) continue;
+    m.setVisible(isWorldBuildingUnlocked(building.id));
     const bx = building.visualX ?? building.entryX;
     const by = building.visualY ?? building.entryY;
     const depthX = building.depthX ?? bx;
@@ -141,6 +145,7 @@ export function setBuildingMarkersVisible(
   visible: boolean,
 ): void {
   for (const m of markers) {
-    m.setVisible(visible);
+    const buildingId = m.getData('buildingId') as string;
+    m.setVisible(visible && isWorldBuildingUnlocked(buildingId));
   }
 }
